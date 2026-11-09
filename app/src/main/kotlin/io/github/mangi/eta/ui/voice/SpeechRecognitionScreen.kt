@@ -17,7 +17,9 @@ import androidx.compose.ui.unit.dp
 import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.LocalSpeechModel
+import io.github.mangi.eta.agent.voice.LocalSpeechModelState
 import io.github.mangi.eta.agent.voice.LocalSpeechModelStatus
+import io.github.mangi.eta.agent.voice.LocalSpeechPack
 import io.github.mangi.eta.agent.voice.validateSpeechSettings
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.AsrProvider
@@ -84,11 +86,13 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                 AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
                                 AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
                                 AsrProvider.LOCAL -> R.string.speech_asr_note_local
+                                AsrProvider.LOCAL_PARA -> R.string.speech_asr_note_local_para
+                                AsrProvider.LOCAL_SENSE -> R.string.speech_asr_note_local_sense
                             },
                         ),
                     )
                     SpeechConnectionSection(store, synthesis = false)
-                    if (settings.asr == AsrProvider.LOCAL) {
+                    if (LocalSpeechPack.of(settings.asr) != null) {
                         LocalAsrCard(store)
                     } else if (settings.asr != AsrProvider.DOUBAO) {
                         SpeechGroupCard {
@@ -160,6 +164,8 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                         AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
                                         AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
                                         AsrProvider.LOCAL -> R.string.speech_asr_note_local
+                                        AsrProvider.LOCAL_PARA -> R.string.speech_asr_note_local_para
+                                        AsrProvider.LOCAL_SENSE -> R.string.speech_asr_note_local_sense
                                     },
                                 ),
                             )
@@ -335,23 +341,25 @@ private fun SpeechRecognitionTestSection(store: SpeechSettingsStore) {
         }
         SpeechNote(
             stringResource(
-                if (store.settings.asr == AsrProvider.LOCAL) R.string.speech_test_note_local
+                if (LocalSpeechPack.of(store.settings.asr) != null) R.string.speech_test_note_local
                 else R.string.speech_test_note,
             ),
         )
     }
 }
 
-/** 内置离线模型按需下载：先展示模型状态与下载入口，再提供推理线程与下载源。 */
+/** 本地模型按需下载：显示当前所选服务对应的模型包状态，再提供线程数与下载地址。 */
 @Composable
 private fun LocalAsrCard(store: SpeechSettingsStore) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val model by LocalSpeechModel.state.collectAsState()
     val settings = store.settings
     val config = settings.localAsr
-    val size = stringResource(R.string.speech_local_size, LocalSpeechModel.TOTAL_BYTES / 1024 / 1024)
-    LaunchedEffect(Unit) { LocalSpeechModel.refresh(context) }
+    val pack = LocalSpeechPack.of(settings.asr) ?: return
+    val states by LocalSpeechModel.state.collectAsState()
+    val model = states[pack] ?: LocalSpeechModelState()
+    val size = stringResource(R.string.speech_local_size, (pack.totalBytes / 1024 / 1024).toInt())
+    LaunchedEffect(pack) { LocalSpeechModel.refresh(context, pack) }
 
     val summary = when {
         model.status == LocalSpeechModelStatus.DOWNLOADING ->
@@ -371,11 +379,11 @@ private fun LocalAsrCard(store: SpeechSettingsStore) {
     val onAction: () -> Unit = {
         when {
             // 下载跑在进程级作用域，这里只负责取消；中断后回到可重试状态。
-            model.busy -> LocalSpeechModel.cancel(context)
+            model.busy -> LocalSpeechModel.cancel(context, pack)
             model.status == LocalSpeechModelStatus.READY -> scope.launch {
-                LocalSpeechModel.delete(context)
+                LocalSpeechModel.delete(context, pack)
             }
-            else -> LocalSpeechModel.start(context, config.sourceUrl)
+            else -> LocalSpeechModel.start(context, pack, pack.sourceUrl)
         }
     }
 
@@ -429,11 +437,42 @@ private fun LocalAsrCard(store: SpeechSettingsStore) {
                     onSelectedIndexChange = onSelected,
                 )
             }
+            // SenseVoice 才有多语种开关；Paraformer 与流式包都是纯中文。
+            if (pack == LocalSpeechPack.SENSE_VOICE) {
+                val languages = listOf("zh", "auto", "yue", "en", "ja", "ko")
+                val labels = languages.map {
+                    stringResource(if (it == "auto") R.string.speech_local_language_auto else R.string.speech_local_language_code, it)
+                }
+                val langIndex = languages.indexOf(config.senseLanguage).coerceAtLeast(0)
+                val onLanguage: (Int) -> Unit = { index ->
+                    languages.getOrNull(index)?.let { value ->
+                        store.edit(settings.copy(localAsr = config.copy(senseLanguage = value)))
+                    }
+                }
+                when (LocalUiStyle.current) {
+                    AppearanceUiStyle.COUI -> {
+                        CouiDropdownPreference(
+                            title = stringResource(R.string.speech_local_language),
+                            items = labels,
+                            selectedIndex = langIndex,
+                            onSelectedIndexChange = onLanguage,
+                        )
+                        Divider()
+                    }
+                    AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
+                        title = stringResource(R.string.speech_local_language),
+                        items = labels,
+                        selectedIndex = langIndex,
+                        onSelectedIndexChange = onLanguage,
+                    )
+                }
+            }
             SpeechFieldColumn {
                 SpeechField(
                     label = stringResource(R.string.speech_local_source),
-                    value = config.sourceUrl,
-                    onChange = { store.edit(settings.copy(localAsr = config.copy(sourceUrl = it.trim()))) },
+                    value = pack.sourceUrl,
+                    enabled = false,
+                    onChange = { },
                 )
             }
         }

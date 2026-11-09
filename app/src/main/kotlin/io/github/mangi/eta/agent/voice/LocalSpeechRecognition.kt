@@ -29,11 +29,12 @@ internal suspend fun recognizeSpeechLocal(
     endpointSilenceMs: Int,
 ): String = withTimeout(LOCAL_TIMEOUT_MS) {
     withContext(Dispatchers.Default) {
-        if (!LocalSpeechModel.installed(context)) {
+        val pack = LocalSpeechPack.STREAMING
+        if (!LocalSpeechModel.installed(context, pack)) {
             throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先在语音设置中下载离线模型")
         }
         val recognizer = try {
-            createLocalRecognizer(context, settings, endpointSilenceMs)
+            createLocalRecognizer(context, pack, settings, endpointSilenceMs)
         } catch (error: Exception) {
             AndroidAgentLogger.warn("Eta local speech init failed: ${error.javaClass.simpleName}")
             throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "离线模型初始化失败，请删除后重新下载")
@@ -78,20 +79,22 @@ internal suspend fun recognizeSpeechLocal(
 
 private fun createLocalRecognizer(
     context: Context,
+    pack: LocalSpeechPack,
     settings: SpeechSettings,
     endpointSilenceMs: Int,
 ): OnlineRecognizer {
+    fun pathOf(name: String) = LocalSpeechModel.pathOf(context, pack, name)
     // 断句时长沿用「停顿后自动发送」的配置；未开启时用默认 800 ms，只影响预览分段。
     val trailingSilence = (if (endpointSilenceMs > 0) endpointSilenceMs else DEFAULT_SILENCE_MS) / 1000f
     val config = OnlineRecognizerConfig(
         featConfig = FeatureConfig(sampleRate = SpeechRecorder.RATE, featureDim = FEATURE_DIM),
         modelConfig = OnlineModelConfig(
             transducer = OnlineTransducerModelConfig(
-                encoder = LocalSpeechModel.pathOf(context, LocalSpeechModel.ENCODER_FILE),
-                decoder = LocalSpeechModel.pathOf(context, LocalSpeechModel.DECODER_FILE),
-                joiner = LocalSpeechModel.pathOf(context, LocalSpeechModel.JOINER_FILE),
+                encoder = pathOf("encoder.int8.onnx"),
+                decoder = pathOf("decoder.int8.onnx"),
+                joiner = pathOf("joiner.int8.onnx"),
             ),
-            tokens = LocalSpeechModel.pathOf(context, LocalSpeechModel.TOKENS_FILE),
+            tokens = pathOf("tokens.txt"),
             numThreads = settings.localAsr.threads.coerceIn(1, 4),
             modelType = MODEL_TYPE,
         ),

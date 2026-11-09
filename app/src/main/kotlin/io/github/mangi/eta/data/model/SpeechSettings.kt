@@ -3,7 +3,7 @@ package io.github.mangi.eta.data.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, LOCAL }
+enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, LOCAL, LOCAL_PARA, LOCAL_SENSE }
 
 @Serializable
 enum class TtsProvider { NONE, SYSTEM, QWEN, DOUBAO, GEMINI, MINIMAX }
@@ -52,14 +52,9 @@ data class DoubaoSpeechConfig(
 data class LocalAsrConfig(
     /** 1～4 个推理线程；越高越快，也越耗电。 */
     val threads: Int = 2,
-    /** 模型文件所在的目录地址；默认取国内可直连的 Hugging Face 镜像。 */
-    val sourceUrl: String = DEFAULT_SOURCE_URL,
-) {
-    companion object {
-        const val DEFAULT_SOURCE_URL =
-            "https://hf-mirror.com/csukuangfj/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23/resolve/main"
-    }
-}
+    /** SenseVoice 的识别语言；留空自动判断，中文场景填 zh 更快更稳。 */
+    val senseLanguage: String = "zh",
+)
 
 @Serializable
 enum class GeminiTtsModel(val apiId: String) {
