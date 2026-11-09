@@ -30,12 +30,19 @@ data class DoubaoSpeechConfig(
     val resourceId: String = "",
 )
 
-/** 内置离线识别：模型随包发布，没有地址与凭据，只保留推理线程数。 */
+/** 内置离线识别：模型在首次使用时下载到应用私有目录，不随 APK 分发。 */
 @Serializable
 data class LocalAsrConfig(
     /** 1～4 个推理线程；越高越快，也越耗电。 */
     val threads: Int = 2,
-)
+    /** 模型文件所在的目录地址；默认取国内可直连的 Hugging Face 镜像。 */
+    val sourceUrl: String = DEFAULT_SOURCE_URL,
+) {
+    companion object {
+        const val DEFAULT_SOURCE_URL =
+            "https://hf-mirror.com/csukuangfj/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23/resolve/main"
+    }
+}
 
 @Serializable
 enum class GeminiTtsModel(val apiId: String) {

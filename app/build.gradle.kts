@@ -91,8 +91,6 @@ android {
 
     androidResources {
         localeFilters += listOf("en", "b+zh+Hans", "b+zh+Hant")
-        // 离线语音模型按需整块读取，不压缩以便直接映射，避免解压开销与读取上限差异。
-        noCompress += listOf("onnx")
     }
 
     packaging {

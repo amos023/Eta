@@ -1,7 +1,6 @@
 package io.github.mangi.eta.agent.voice
 
 import android.content.Context
-import android.content.res.AssetManager
 import com.k2fsa.sherpa.onnx.EndpointConfig
 import com.k2fsa.sherpa.onnx.EndpointRule
 import com.k2fsa.sherpa.onnx.FeatureConfig
@@ -17,24 +16,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
 /**
- * 内置离线识别：sherpa-onnx 流式 zipformer 模型随包内置，全部推理在本机完成，
- * 不建立网络连接、不需要任何凭据。模型为 16 kHz 单声道，与 [SpeechRecorder] 输出一致。
+ * 内置离线识别：sherpa-onnx 流式 zipformer 模型由 [LocalSpeechModel] 在首次使用时下载到应用私有目录，
+ * 推理全部在本机完成，不建立网络连接、不需要任何凭据。模型为 16 kHz 单声道，与 [SpeechRecorder] 输出一致。
  */
-internal object LocalSpeechModel {
-    const val DIRECTORY = "sherpa-zh-14m"
-    private val FILES = listOf(
-        "encoder.int8.onnx",
-        "decoder.int8.onnx",
-        "joiner.int8.onnx",
-        "tokens.txt",
-    )
-
-    /** 模型随 APK 发布，缺失只可能是构建异常；读取一次即可判定，不做静默降级。 */
-    fun installed(assets: AssetManager): Boolean = FILES.all { name ->
-        runCatching { assets.open("$DIRECTORY/$name").close() }.isSuccess
-    }
-}
-
 internal suspend fun recognizeSpeechLocal(
     context: Context,
     settings: SpeechSettings,
@@ -45,21 +29,20 @@ internal suspend fun recognizeSpeechLocal(
     endpointSilenceMs: Int,
 ): String = withTimeout(LOCAL_TIMEOUT_MS) {
     withContext(Dispatchers.Default) {
-        val assets = context.applicationContext.assets
-        if (!LocalSpeechModel.installed(assets)) {
-            throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "内置语音模型缺失，请重新安装 Eta")
+        if (!LocalSpeechModel.installed(context)) {
+            throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先在语音设置中下载离线模型")
         }
         val recognizer = try {
-            createLocalRecognizer(assets, settings, endpointSilenceMs)
+            createLocalRecognizer(context, settings, endpointSilenceMs)
         } catch (error: Exception) {
             AndroidAgentLogger.warn("Eta local speech init failed: ${error.javaClass.simpleName}")
-            throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "内置语音模型初始化失败")
+            throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "离线模型初始化失败，请删除后重新下载")
         }
         val stream = try {
             recognizer.createStream()
         } catch (error: Exception) {
             runCatching { recognizer.release() }
-            throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "内置语音模型初始化失败")
+            throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "离线模型初始化失败，请删除后重新下载")
         }
         var text = ""
         var endpointSent = false
@@ -94,22 +77,21 @@ internal suspend fun recognizeSpeechLocal(
 }
 
 private fun createLocalRecognizer(
-    assets: AssetManager,
+    context: Context,
     settings: SpeechSettings,
     endpointSilenceMs: Int,
 ): OnlineRecognizer {
-    val directory = LocalSpeechModel.DIRECTORY
     // 断句时长沿用「停顿后自动发送」的配置；未开启时用默认 800 ms，只影响预览分段。
     val trailingSilence = (if (endpointSilenceMs > 0) endpointSilenceMs else DEFAULT_SILENCE_MS) / 1000f
     val config = OnlineRecognizerConfig(
         featConfig = FeatureConfig(sampleRate = SpeechRecorder.RATE, featureDim = FEATURE_DIM),
         modelConfig = OnlineModelConfig(
             transducer = OnlineTransducerModelConfig(
-                encoder = "$directory/encoder.int8.onnx",
-                decoder = "$directory/decoder.int8.onnx",
-                joiner = "$directory/joiner.int8.onnx",
+                encoder = LocalSpeechModel.pathOf(context, LocalSpeechModel.ENCODER_FILE),
+                decoder = LocalSpeechModel.pathOf(context, LocalSpeechModel.DECODER_FILE),
+                joiner = LocalSpeechModel.pathOf(context, LocalSpeechModel.JOINER_FILE),
             ),
-            tokens = "$directory/tokens.txt",
+            tokens = LocalSpeechModel.pathOf(context, LocalSpeechModel.TOKENS_FILE),
             numThreads = settings.localAsr.threads.coerceIn(1, 4),
             modelType = MODEL_TYPE,
         ),
@@ -122,7 +104,8 @@ private fun createLocalRecognizer(
         decodingMethod = "greedy_search",
         maxActivePaths = MAX_ACTIVE_PATHS,
     )
-    return OnlineRecognizer(assets, config)
+    // 模型在应用私有目录而不是 assets 里，传 null 让原生层按路径加载。
+    return OnlineRecognizer(config = config)
 }
 
 /** PCM16 小端采样转 sherpa-onnx 需要的 [-1, 1] 浮点。 */

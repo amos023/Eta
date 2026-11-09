@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -15,6 +16,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.voice.LocalSpeechModel
+import io.github.mangi.eta.agent.voice.LocalSpeechModelStatus
 import io.github.mangi.eta.agent.voice.validateSpeechSettings
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.AsrProvider
@@ -34,6 +37,7 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -333,32 +337,99 @@ private fun SpeechRecognitionTestSection(store: SpeechSettingsStore) {
     }
 }
 
-/** 内置离线模型没有地址和凭据，只暴露推理线程数。 */
+/** 内置离线模型按需下载：先展示模型状态与下载入口，再提供推理线程与下载源。 */
 @Composable
 private fun LocalAsrCard(store: SpeechSettingsStore) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val model by LocalSpeechModel.state.collectAsState()
     val settings = store.settings
-    val threads = listOf(1, 2, 3, 4)
-    val items = threads.map { stringResource(R.string.speech_local_threads_value, it.toString()) }
-    val selected = threads.indexOf(settings.localAsr.threads).coerceAtLeast(0)
-    val onSelected: (Int) -> Unit = { index ->
-        threads.getOrNull(index)?.let { value ->
-            store.edit(settings.copy(localAsr = settings.localAsr.copy(threads = value)))
+    val config = settings.localAsr
+    val size = stringResource(R.string.speech_local_size, LocalSpeechModel.TOTAL_BYTES / 1024 / 1024)
+    LaunchedEffect(Unit) { LocalSpeechModel.refresh(context) }
+
+    val summary = when {
+        model.status == LocalSpeechModelStatus.DOWNLOADING ->
+            stringResource(R.string.speech_local_downloading, model.progress)
+        model.status == LocalSpeechModelStatus.READY ->
+            stringResource(R.string.speech_local_ready, model.current.ifBlank { size })
+        model.error != null -> model.error
+        else -> stringResource(R.string.speech_local_missing, size)
+    }
+    val actionTitle = stringResource(
+        if (model.status == LocalSpeechModelStatus.READY) R.string.speech_local_delete
+        else R.string.speech_local_download,
+    )
+    val onAction: () -> Unit = {
+        when {
+            model.busy -> Unit
+            model.status == LocalSpeechModelStatus.READY -> scope.launch {
+                LocalSpeechModel.delete(context)
+            }
+            else -> scope.launch {
+                runCatching { LocalSpeechModel.download(context, config.sourceUrl) }
+            }
         }
     }
-    SpeechGroupCard(title = stringResource(R.string.speech_group_local)) {
-        when (LocalUiStyle.current) {
-            AppearanceUiStyle.COUI -> CouiDropdownPreference(
-                title = stringResource(R.string.speech_local_threads),
-                items = items,
-                selectedIndex = selected,
-                onSelectedIndexChange = onSelected,
-            )
-            AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
-                title = stringResource(R.string.speech_local_threads),
-                items = items,
-                selectedIndex = selected,
-                onSelectedIndexChange = onSelected,
-            )
+
+    Column {
+        SpeechGroupCard(title = stringResource(R.string.speech_group_local_model)) {
+            when (LocalUiStyle.current) {
+                AppearanceUiStyle.COUI -> CouiPreference(
+                    title = actionTitle,
+                    summary = summary,
+                    summaryColor = if (model.error != null) MiuixTheme.colorScheme.error else Color.Unspecified,
+                    enabled = !model.busy,
+                    showChevron = false,
+                    onClick = onAction,
+                )
+                AppearanceUiStyle.MIUIX -> BasicComponent(
+                    title = actionTitle,
+                    summary = summary,
+                    summaryColor = if (model.error != null) {
+                        BasicComponentDefaults.summaryColor(color = MiuixTheme.colorScheme.error)
+                    } else {
+                        BasicComponentDefaults.summaryColor()
+                    },
+                    enabled = !model.busy,
+                    onClick = onAction,
+                )
+            }
         }
+        val threads = listOf(1, 2, 3, 4)
+        val items = threads.map { stringResource(R.string.speech_local_threads_value, it.toString()) }
+        val selected = threads.indexOf(config.threads).coerceAtLeast(0)
+        val onSelected: (Int) -> Unit = { index ->
+            threads.getOrNull(index)?.let { value ->
+                store.edit(settings.copy(localAsr = config.copy(threads = value)))
+            }
+        }
+        SpeechGroupCard(title = stringResource(R.string.speech_group_local)) {
+            when (LocalUiStyle.current) {
+                AppearanceUiStyle.COUI -> {
+                    CouiDropdownPreference(
+                        title = stringResource(R.string.speech_local_threads),
+                        items = items,
+                        selectedIndex = selected,
+                        onSelectedIndexChange = onSelected,
+                    )
+                    Divider()
+                }
+                AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
+                    title = stringResource(R.string.speech_local_threads),
+                    items = items,
+                    selectedIndex = selected,
+                    onSelectedIndexChange = onSelected,
+                )
+            }
+            SpeechFieldColumn {
+                SpeechField(
+                    label = stringResource(R.string.speech_local_source),
+                    value = config.sourceUrl,
+                    onChange = { store.edit(settings.copy(localAsr = config.copy(sourceUrl = it.trim()))) },
+                )
+            }
+        }
+        SpeechNote(stringResource(R.string.speech_local_note, size))
     }
 }

@@ -27,7 +27,7 @@ Eta 的「设置 → 语音」分别配置语音识别（ASR）与语音播报�
 | 千问短音频 ASR | `qwen3-asr-flash` | 百炼地域、API Key |
 | 千问文件转写 | `qwen3-asr-flash-filetrans` | 百炼地域、API Key、自有 OSS |
 | 豆包流式 ASR | 流式识别 2.0 | API Key；默认资源 ID `volc.seedasr.sauc.duration` |
-| 内置离线 ASR | `sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23`（int8） | 无需配置；模型随 APK 内置，推理全在本机 |
+| 内置离线 ASR | `sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23`（int8，约 24 MB） | 无需凭据；模型首次使用时下载，之后完全离线 |
 | 千问 TTS | `qwen3-tts-flash-realtime`，不可用时回落 `qwen3-tts-flash` | 百炼地域、独立播报 API Key、音色；默认 Cherry |
 | 豆包 TTS | 语音合成 2.0，双向流式，不可用时回落单向流式 | 独立播报 API Key、音色；默认 VV，资源 ID `seed-tts-2.0` |
 | Gemini TTS | Interactions 语音合成，分段流式 | Google AI Studio API Key、语音模型、音色；可选朗读风格 |
@@ -66,7 +66,7 @@ Eta 上传 WAV 后生成有效期 15 分钟的读取签名 URL，向百炼提交
 - `SpeechTranscriptRefiner` 通过 `RuntimeConfigRepository` 读取当前对话模型，复用 Provider 层发出独立的 `TRANSCRIPT_REFINE` 请求：不带工具、托管搜索与自定义请求体，可关闭思考时关闭，否则使用最低档。识别文字只作为用户消息，取消或超时会取消底层 HTTP 调用。
 - `SpeechSettingsRepository` 隔离持久化；普通配置进入现有 DataStore，凭据用 Android Keystore 的 AES-GCM 加密后保存。凭据不进入 RemotePreferences、会话、日志或数据导出；语音配置目前也不纳入手动备份。不可解密的凭据会要求重新填写，不静默当作空配置。
 - 设置页、聊天与浮窗复用相同控制器；网络与音频循环不进入 Composable、Hook 或 Agent loop，Runtime IPC 与归档格式保持兼容。
-- 内置离线识别由 `LocalSpeechRecognition` 实现：sherpa-onnx 流式 zipformer 直接消费 `SpeechRecorder` 的 16 kHz 单声道 PCM16 帧，不产生文件、不走网络。模型与许可位于 `assets/sherpa-zh-14m` 与 `assets/licenses`，AAR 只保留 `arm64-v8a`。断句沿用「停顿后自动发送」的时长写入 `EndpointRule`，未开启自动发送时用 800 ms 仅切分预览。模型在每次识别会话内创建并释放，初始化失败明确报错，不静默回退到云端服务。识别线程数默认为 2，可在设置中调整为 1～4。
+- 内置离线识别由 `LocalSpeechRecognition` 实现：sherpa-onnx 流式 zipformer 直接消费 `SpeechRecorder` 的 16 kHz 单声道 PCM16 帧，不产生文件、不走网络。模型不随 APK 分发，由 `LocalSpeechModel` 在「本地离线」页按需下载到应用私有目录：逐个文件写入 `.part` 临时文件、校验 SHA-256 后重命名，已完成的分片重试时直接复用；下载地址可改，默认使用国内可直连的镜像。APK 只带 `arm64-v8a` 的引擎 AAR，许可位于 `assets/licenses`。断句沿用「停顿后自动发送」的时长写入 `EndpointRule`，未开启自动发送时用 800 ms 仅切分预览。模型在每次识别会话内创建并释放，未下载或初始化失败明确报错，不静默回退到云端服务。识别线程数默认为 2，可在设置中调整为 1～4。
 
 ## 官方资料
 
