@@ -6,10 +6,27 @@ import kotlinx.serialization.Serializable
 enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, LOCAL }
 
 @Serializable
-enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX }
+enum class TtsProvider { NONE, SYSTEM, QWEN, DOUBAO, GEMINI, MINIMAX }
 
 @Serializable
 enum class SpeechRegion { BEIJING, SINGAPORE }
+
+/**
+ * 系统语音合成：直接使用设备已安装并启用的 TTS 引擎，不需要凭据与网络。
+ * [engine] 为空表示跟随系统当前默认引擎；[language] 为空表示使用系统默认语言。
+ */
+@Serializable
+data class SystemTtsConfig(
+    val engine: String = "",
+    val language: String = "",
+    val rate: Float = 1f,
+    val pitch: Float = 1f,
+) {
+    companion object {
+        val RATE_OPTIONS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+        val PITCH_OPTIONS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+    }
+}
 
 @Serializable
 data class QwenSpeechConfig(
@@ -93,6 +110,7 @@ data class SpeechSettings(
     val doubaoAsr: DoubaoSpeechConfig = DoubaoSpeechConfig(),
     val doubaoTts: DoubaoSpeechConfig = DoubaoSpeechConfig(),
     val localAsr: LocalAsrConfig = LocalAsrConfig(),
+    val systemTts: SystemTtsConfig = SystemTtsConfig(),
     val qwenVoice: String = "Cherry",
     val doubaoVoice: String = "zh_female_vv_uranus_bigtts",
     val geminiTts: GeminiTtsConfig = GeminiTtsConfig(),

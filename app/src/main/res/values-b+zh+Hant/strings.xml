@@ -1230,6 +1230,13 @@
   <string name="speech_local_source">模型下載位址</string>
   <string name="speech_local_note">模型約 %1$s，僅首次下載時連網；之後辨識完全離線，錄音不會上傳。</string>
   <string name="speech_tts_none">關閉</string>
+  <string name="speech_tts_system">系統 · 本機</string>
+  <string name="speech_tts_engine">語音引擎</string>
+  <string name="speech_tts_engine_default">系統預設</string>
+  <string name="speech_tts_language_hint">語言（留空跟隨系統，如 zh-CN、en-US）</string>
+  <string name="speech_tts_system_note">使用本機已安裝的語音合成引擎：不連網、不需要金鑰、不產生費用。音色與效果由該引擎與系統語音設定決定。</string>
+  <string name="speech_tts_system_missing">未找到語音合成引擎，請先在系統設定中安裝或啟用語音引擎。</string>
+  <string name="speech_pitch">音調</string>
   <string name="speech_tts_qwen">千問</string>
   <string name="speech_tts_doubao">豆包</string>
   <string name="speech_asr_note_streaming">邊說邊顯示文字。聊天聽寫點擊完成；助手浮窗可在停頓後自動提交。</string>

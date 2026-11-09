@@ -32,6 +32,16 @@ internal fun validateSpeechSettings(settings: SpeechSettings, secrets: SpeechCre
     if (synthesis) {
         when (settings.tts) {
             TtsProvider.NONE -> throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先在设置中配置语音播报")
+            // 系统引擎由设备提供，没有凭据与地址；引擎可用性在实际合成时确认并给出明确提示。
+            TtsProvider.SYSTEM -> {
+                val config = settings.systemTts
+                if (config.rate !in 0.5f..2f) {
+                    throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "语速须在 0.5～2 倍之间")
+                }
+                if (config.pitch !in 0.5f..2f) {
+                    throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "音调须在 0.5～2 倍之间")
+                }
+            }
             TtsProvider.QWEN -> {
                 required(secrets.qwenTts, "千问播报 API Key")
                 required(settings.qwenVoice, "音色")

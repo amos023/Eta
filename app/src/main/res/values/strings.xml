@@ -1261,6 +1261,13 @@
   <string name="speech_local_source">Model download URL</string>
   <string name="speech_local_note">The model is about %1$s and only needs the network once, for the download. After that recognition runs fully offline and audio never leaves the phone.</string>
   <string name="speech_tts_none">Off</string>
+  <string name="speech_tts_system">System · On-device</string>
+  <string name="speech_tts_engine">Speech engine</string>
+  <string name="speech_tts_engine_default">System default</string>
+  <string name="speech_tts_language_hint">Language (empty = system default, e.g. zh-CN, en-US)</string>
+  <string name="speech_tts_system_note">Uses the text-to-speech engine already installed on this phone: no network, no API key and no cost. Voice and quality come from that engine and the system speech settings.</string>
+  <string name="speech_tts_system_missing">No speech engine found. Install or enable a text-to-speech engine in system settings first.</string>
+  <string name="speech_pitch">Pitch</string>
   <string name="speech_tts_qwen">Qwen</string>
   <string name="speech_tts_doubao">Doubao</string>
   <string name="speech_asr_note_streaming">Text appears as you speak. Tap Done to finish dictation in chat; the assistant overlay can submit automatically after a pause.</string>

@@ -19,8 +19,15 @@ import top.yukonga.miuix.kmp.preference.OverlaySpinnerPreference
 @Composable
 internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
     val settings = store.settings
+    // 系统引擎的音色由引擎与系统设置决定，这里只提供语速与音调。
+    if (settings.tts == TtsProvider.SYSTEM) {
+        SpeechGroupCard(title = stringResource(R.string.speech_group_voice)) {
+            SpeechDeliveryFields(store)
+        }
+        return
+    }
     val voice = when (settings.tts) {
-        TtsProvider.NONE -> return
+        TtsProvider.NONE, TtsProvider.SYSTEM -> return
         TtsProvider.QWEN -> settings.qwenVoice
         TtsProvider.DOUBAO -> settings.doubaoVoice
         TtsProvider.GEMINI -> settings.geminiTts.voice
@@ -33,7 +40,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
     val change: (String) -> Unit = {
         store.edit(
             when (settings.tts) {
-                TtsProvider.NONE -> settings
+                TtsProvider.NONE, TtsProvider.SYSTEM -> settings
                 TtsProvider.QWEN -> settings.copy(qwenVoice = it)
                 TtsProvider.DOUBAO -> settings.copy(doubaoVoice = it)
                 TtsProvider.GEMINI -> settings.copy(geminiTts = settings.geminiTts.copy(voice = it))
@@ -90,7 +97,7 @@ internal fun SpeechVoiceSection(store: SpeechSettingsStore) {
                     TtsProvider.DOUBAO -> R.string.speech_doubao_voice_note
                     TtsProvider.GEMINI -> R.string.speech_gemini_voice_note
                     TtsProvider.MINIMAX -> R.string.speech_minimax_voice_note
-                    TtsProvider.NONE -> error("No synthesis provider")
+                    TtsProvider.NONE, TtsProvider.SYSTEM -> error("No synthesis provider")
                 },
             ),
         )
