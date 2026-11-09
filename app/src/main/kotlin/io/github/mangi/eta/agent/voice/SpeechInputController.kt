@@ -45,6 +45,16 @@ internal class SpeechInputController(
         () -> Unit,
         Int,
     ) -> String = ::recognizeSpeechStream,
+    /** 内置离线识别：不联网、不需要凭据，直接吃本机录音帧。 */
+    private val recognizeLocal: suspend (
+        Context,
+        SpeechSettings,
+        ReceiveChannel<ByteArray>,
+        () -> Unit,
+        (String) -> Unit,
+        () -> Unit,
+        Int,
+    ) -> String = ::recognizeSpeechLocal,
     private val onResult: (String) -> Unit,
 ) {
     private val mutableState = MutableStateFlow(SpeechInputState())
@@ -100,7 +110,17 @@ internal class SpeechInputController(
                         Unit
                     }
                     try {
-                        if (config.asr == AsrProvider.QWEN_REALTIME || config.asr == AsrProvider.DOUBAO) {
+                        if (config.asr == AsrProvider.LOCAL) {
+                            recognizeLocal(
+                                context,
+                                config,
+                                audio.frames,
+                                begin,
+                                { preview -> update { it.copy(preview = preview) } },
+                                { audio.finish() },
+                                endpointSilenceMs,
+                            )
+                        } else if (config.asr == AsrProvider.QWEN_REALTIME || config.asr == AsrProvider.DOUBAO) {
                             recognizeStream(
                                 config,
                                 secrets,

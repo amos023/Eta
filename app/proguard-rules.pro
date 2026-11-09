@@ -70,3 +70,9 @@
 -keep class io.github.mangi.eta.agent.virtualdisplay.VirtualDisplayCommandMain {
     public static void main(java.lang.String[]);
 }
+
+# sherpa-onnx（内置离线语音识别）通过 JNI 按类名与方法名反查，混淆会导致 native 绑定失效。
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}

@@ -1226,6 +1226,11 @@
   <string name="speech_asr_qwen_flash">千问 · 短音频识别</string>
   <string name="speech_asr_qwen_file">千问 · 文件转写</string>
   <string name="speech_asr_doubao">豆包 · 流式识别 2.0</string>
+  <string name="speech_asr_local">本地离线</string>
+  <string name="speech_asr_note_local">模型已内置在 Eta 中，全部在本机推理：不需要网络与密钥，录音不会上传。聊天听写点击完成后插入文字；助手浮窗可在停顿后自动发送。</string>
+  <string name="speech_group_local">本地模型</string>
+  <string name="speech_local_threads">推理线程</string>
+  <string name="speech_local_threads_value">%1$s 个线程</string>
   <string name="speech_tts_none">关闭</string>
   <string name="speech_tts_qwen">千问</string>
   <string name="speech_tts_doubao">豆包</string>

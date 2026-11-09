@@ -3,7 +3,7 @@ package io.github.mangi.eta.data.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO }
+enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, LOCAL }
 
 @Serializable
 enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX }
@@ -28,6 +28,13 @@ data class DoubaoSpeechConfig(
     val legacyAuth: Boolean = false,
     val appId: String = "",
     val resourceId: String = "",
+)
+
+/** 内置离线识别：模型随包发布，没有地址与凭据，只保留推理线程数。 */
+@Serializable
+data class LocalAsrConfig(
+    /** 1～4 个推理线程；越高越快，也越耗电。 */
+    val threads: Int = 2,
 )
 
 @Serializable
@@ -78,6 +85,7 @@ data class SpeechSettings(
     val qwenTts: QwenSpeechConfig = QwenSpeechConfig(),
     val doubaoAsr: DoubaoSpeechConfig = DoubaoSpeechConfig(),
     val doubaoTts: DoubaoSpeechConfig = DoubaoSpeechConfig(),
+    val localAsr: LocalAsrConfig = LocalAsrConfig(),
     val qwenVoice: String = "Cherry",
     val doubaoVoice: String = "zh_female_vv_uranus_bigtts",
     val geminiTts: GeminiTtsConfig = GeminiTtsConfig(),

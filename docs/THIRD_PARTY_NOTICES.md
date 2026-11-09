@@ -30,6 +30,12 @@ Eta 使用 [DexKit](https://github.com/LuckyPray/DexKit) 解析系统应用的 D
 
 DexKit 的 JVM 接口等非 `Core/` 代码采用 [Apache License 2.0](https://github.com/LuckyPray/DexKit/blob/2.2.0/LICENSE)，`Core/` 原生解析代码采用 [GNU LGPL v3](https://github.com/LuckyPray/DexKit/blob/2.2.0/Core/LICENSE)。Eta 通过官方 AAR 使用其独立原生动态库；上游源码、构建配置与版权声明可在 [官方源码](https://github.com/LuckyPray/DexKit/tree/2.2.0) 获取。这些第三方组件继续适用各自许可证。
 
+## sherpa-onnx（内置离线语音识别）
+
+内置离线语音识别使用 [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 2.0.1 的官方 Android AAR（仅保留 `arm64-v8a`）。sherpa-onnx 与随其分发的 [ONNX Runtime](https://github.com/microsoft/onnxruntime) 均采用 [Apache License 2.0](https://github.com/k2-fsa/sherpa-onnx/blob/master/LICENSE)；许可全文随 APK 保存在 [`assets/licenses/sherpa-onnx-Apache-2.0.txt`](../app/src/main/assets/licenses/sherpa-onnx-Apache-2.0.txt)。
+
+随包内置的中文流式模型为 [`sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23`](https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23)（int8 量化，基于 WenetSpeech 训练），采用 Apache License 2.0，文件位于 `assets/sherpa-zh-14m`。该模型与 AAR 均未修改；替换或升级时须保留相应版权与许可声明。
+
 ## JetBrains Mono
 
 终端界面使用 [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) 2.304 的无连字版本（Regular、Bold），以字体资源随 APK 分发。该字体采用 SIL Open Font License 1.1，版权归 The JetBrains Mono Project Authors；许可全文随 APK 保存在 [`assets/licenses/jetbrains-mono-OFL.txt`](../app/src/main/assets/licenses/jetbrains-mono-OFL.txt)。

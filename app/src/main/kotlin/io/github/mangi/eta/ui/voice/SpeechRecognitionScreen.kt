@@ -79,11 +79,14 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                 AsrProvider.QWEN_REALTIME, AsrProvider.DOUBAO -> R.string.speech_asr_note_streaming
                                 AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
                                 AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
+                                AsrProvider.LOCAL -> R.string.speech_asr_note_local
                             },
                         ),
                     )
                     SpeechConnectionSection(store, synthesis = false)
-                    if (settings.asr != AsrProvider.DOUBAO) {
+                    if (settings.asr == AsrProvider.LOCAL) {
+                        LocalAsrCard(store)
+                    } else if (settings.asr != AsrProvider.DOUBAO) {
                         SpeechGroupCard {
                             SpeechFieldColumn {
                                 SpeechField(
@@ -152,6 +155,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                         AsrProvider.QWEN_REALTIME, AsrProvider.DOUBAO -> R.string.speech_asr_note_streaming
                                         AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
                                         AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
+                                        AsrProvider.LOCAL -> R.string.speech_asr_note_local
                                     },
                                 ),
                             )
@@ -160,7 +164,9 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                     item(key = "connection") {
                         SpeechConnectionSection(store, synthesis = false)
                     }
-                    if (settings.asr != AsrProvider.DOUBAO) {
+                    if (settings.asr == AsrProvider.LOCAL) {
+                        item(key = "local") { LocalAsrCard(store) }
+                    } else if (settings.asr != AsrProvider.DOUBAO) {
                         item(key = "language") {
                             SpeechGroupCard {
                                 SpeechFieldColumn {
@@ -324,5 +330,35 @@ private fun SpeechRecognitionTestSection(store: SpeechSettingsStore) {
             }
         }
         SpeechNote(stringResource(R.string.speech_test_note))
+    }
+}
+
+/** 内置离线模型没有地址和凭据，只暴露推理线程数。 */
+@Composable
+private fun LocalAsrCard(store: SpeechSettingsStore) {
+    val settings = store.settings
+    val threads = listOf(1, 2, 3, 4)
+    val items = threads.map { stringResource(R.string.speech_local_threads_value, it.toString()) }
+    val selected = threads.indexOf(settings.localAsr.threads).coerceAtLeast(0)
+    val onSelected: (Int) -> Unit = { index ->
+        threads.getOrNull(index)?.let { value ->
+            store.edit(settings.copy(localAsr = settings.localAsr.copy(threads = value)))
+        }
+    }
+    SpeechGroupCard(title = stringResource(R.string.speech_group_local)) {
+        when (LocalUiStyle.current) {
+            AppearanceUiStyle.COUI -> CouiDropdownPreference(
+                title = stringResource(R.string.speech_local_threads),
+                items = items,
+                selectedIndex = selected,
+                onSelectedIndexChange = onSelected,
+            )
+            AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
+                title = stringResource(R.string.speech_local_threads),
+                items = items,
+                selectedIndex = selected,
+                onSelectedIndexChange = onSelected,
+            )
+        }
     }
 }

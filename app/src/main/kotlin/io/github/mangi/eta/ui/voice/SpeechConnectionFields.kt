@@ -39,6 +39,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 internal fun SpeechConnectionSection(store: SpeechSettingsStore, synthesis: Boolean) {
     if (!synthesis) {
+        // 内置离线识别没有服务地址与凭据，整段连接配置都不显示。
+        if (store.settings.asr == AsrProvider.LOCAL) return
         QwenDoubaoConnectionSection(store, synthesis = false)
         return
     }

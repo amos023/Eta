@@ -1245,6 +1245,11 @@
   <string name="speech_asr_qwen_flash">Qwen · Short audio</string>
   <string name="speech_asr_qwen_file">Qwen · File transcription</string>
   <string name="speech_asr_doubao">Doubao · Streaming 2.0</string>
+  <string name="speech_asr_local">On-device · Offline</string>
+  <string name="speech_asr_note_local">The model ships inside Eta and runs entirely on this phone: no network, no API key, and audio never leaves the device. Tap Done to finish dictation; the assistant overlay can submit after a pause.</string>
+  <string name="speech_group_local">On-device model</string>
+  <string name="speech_local_threads">Inference threads</string>
+  <string name="speech_local_threads_value">%1$s threads</string>
   <string name="speech_tts_none">Off</string>
   <string name="speech_tts_qwen">Qwen</string>
   <string name="speech_tts_doubao">Doubao</string>
