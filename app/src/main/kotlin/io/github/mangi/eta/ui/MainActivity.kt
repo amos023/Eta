@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.agent.runtime.AgentRuntimeService
 import io.github.mangi.eta.agent.voice.EtaAssistantOverlayService
 import io.github.mangi.eta.core.AndroidAgentLogger
@@ -38,71 +39,71 @@ class MainActivity : ComponentActivity() {
         installStartupSplash { contentReady }
         enableEdgeToEdge()
         launchRequests = MainActivityLaunchRequests.restore(savedInstanceState, intent)
-        lifecycleScope.launch {
-            val initialAppearance = AppearanceSettingsRepository.settings()
-            appliedPredictiveBackEnabled = initialAppearance.predictiveBackEnabled
-            setContent {
-                val appearance by AppearanceSettingsRepository.settingsFlow()
-                    .collectAsState(initial = initialAppearance)
+        // setContent 必须立刻执行：原实现在 lifecycleScope 里等 DataStore 首次读盘完成后
+        // 才调用，而启动遮罩要等 setContent 内部的 contentReady 置位才放行首帧，
+        // 结果是首帧被磁盘 IO 硬卡住——表现为「打开后卡几秒突然就好了」。
+        // 现在先用默认外观合成首帧，真实外观读到后由 Compose 自动重组覆盖。
+        setContent {
+            val appearance by AppearanceSettingsRepository.settingsFlow()
+                .collectAsState(initial = AppearanceSettings())
+            LaunchedEffect(appearance.themeMode) {
+                updateApplicationNightMode(appearance.themeMode)
+            }
 
-                LaunchedEffect(appearance.themeMode) {
-                    updateApplicationNightMode(appearance.themeMode)
-                }
-
-                LaunchedEffect(appearance.predictiveBackEnabled) {
-                    val enabled = appearance.predictiveBackEnabled
-                    if (enabled != appliedPredictiveBackEnabled &&
-                        PredictiveBackController.apply(applicationInfo, enabled)
-                    ) {
-                        appliedPredictiveBackEnabled = enabled
-                        recreateWithoutTransition()
-                    }
-                }
-
-                AgentAppTheme(
-                    appearance = appearance,
-                    applyInterfaceScale = true,
-                    onResolvedDarkModeChange = ::updateSystemBars,
+            LaunchedEffect(appearance.predictiveBackEnabled) {
+                val enabled = appearance.predictiveBackEnabled
+                if (enabled != appliedPredictiveBackEnabled &&
+                    PredictiveBackController.apply(applicationInfo, enabled)
                 ) {
-                    AgentAppRoot(
-                        assistantConversationKey = launchRequests.assistantConversationKey,
-                        requestedConversationId = launchRequests.conversationId,
-                        onRequestedConversationOpened = {
-                            launchRequests = launchRequests.copy(conversationId = null)
-                            intent?.action = null
-                        },
-                        requestedArchivedConversation = launchRequests.archivedConversation,
-                        onArchivedConversationOpened = {
-                            launchRequests = launchRequests.copy(archivedConversation = null)
-                            intent?.action = null
-                        },
-                        sharedContent = launchRequests.sharedContent,
-                        onSharedContentAccepted = {
-                            launchRequests = launchRequests.copy(sharedContent = null)
-                            intent?.action = null
-                        },
-                        openSpeechSettings = launchRequests.speechSettings,
-                        openTerminal = launchRequests.terminal,
-                        onTerminalOpened = {
-                            launchRequests = launchRequests.copy(terminal = false)
-                            intent?.action = null
-                        },
-                        onSpeechSettingsOpened = {
-                            launchRequests = launchRequests.copy(speechSettings = false)
-                            intent?.action = null
-                        },
-                        onAssistantConversationOpened = { opened ->
-                            launchRequests = launchRequests.copy(assistantConversationKey = null)
-                            intent?.action = null
-                            if (opened) {
-                                EtaAssistantOverlayService.notifyHandoffReady(this@MainActivity)
-                            }
-                        },
-                    )
+                    appliedPredictiveBackEnabled = enabled
+                    recreateWithoutTransition()
                 }
             }
-            contentReady = true
+
+            AgentAppTheme(
+                appearance = appearance,
+                applyInterfaceScale = true,
+                onResolvedDarkModeChange = ::updateSystemBars,
+            ) {
+                AgentAppRoot(
+                    assistantConversationKey = launchRequests.assistantConversationKey,
+                    requestedConversationId = launchRequests.conversationId,
+                    onRequestedConversationOpened = {
+                        launchRequests = launchRequests.copy(conversationId = null)
+                        intent?.action = null
+                    },
+                    requestedArchivedConversation = launchRequests.archivedConversation,
+                    onArchivedConversationOpened = {
+                        launchRequests = launchRequests.copy(archivedConversation = null)
+                        intent?.action = null
+                    },
+                    sharedContent = launchRequests.sharedContent,
+                    onSharedContentAccepted = {
+                        launchRequests = launchRequests.copy(sharedContent = null)
+                        intent?.action = null
+                    },
+                    openSpeechSettings = launchRequests.speechSettings,
+                    openTerminal = launchRequests.terminal,
+                    onTerminalOpened = {
+                        launchRequests = launchRequests.copy(terminal = false)
+                        intent?.action = null
+                    },
+                    onSpeechSettingsOpened = {
+                        launchRequests = launchRequests.copy(speechSettings = false)
+                        intent?.action = null
+                    },
+                    onAssistantConversationOpened = { opened ->
+                        launchRequests = launchRequests.copy(assistantConversationKey = null)
+                        intent?.action = null
+                        if (opened) {
+                            EtaAssistantOverlayService.notifyHandoffReady(this@MainActivity)
+                        }
+                    },
+                )
+            }
         }
+        // setContent 已经调用，首帧立即放行，不再等外观配置。
+        contentReady = true
     }
 
     override fun onStart() {

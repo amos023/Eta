@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -54,10 +55,15 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         RootAccess.initialize(this)
         applicationScope.launch { TerminalRuntime.backgroundJobs(this@EtaApp).resume() }
         SettingsDataStore.init(this)
-        val predictiveBackEnabled = runBlocking(Dispatchers.IO) {
-            AppearanceSettingsRepository.settings().predictiveBackEnabled
+        // 不能在这里 runBlocking 读 DataStore：Application.onCreate 在 UI 线程上，
+        // 同步等磁盘会让首帧整体推迟数百毫秒。改为后台读取、回到主线程再应用，
+        // 预测性返回设置晚一两百毫秒生效没有可感知影响。
+        applicationScope.launch {
+            val enabled = AppearanceSettingsRepository.settings().predictiveBackEnabled
+            withContext(Dispatchers.Main) {
+                PredictiveBackController.apply(applicationInfo, enabled)
+            }
         }
-        PredictiveBackController.apply(applicationInfo, predictiveBackEnabled)
         AgentMemoryRepository.init(this)
         ProviderRepository.init(this)
         McpServerRepository.init(this)
