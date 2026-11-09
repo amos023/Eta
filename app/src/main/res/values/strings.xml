@@ -1095,6 +1095,13 @@
     <item quantity="one">Configured providers (%d)</item>
     <item quantity="other">Configured providers (%d)</item>
   </plurals>
+  <string name="provider_sort_title">Sort providers</string>
+  <string name="provider_sort_by_name">By name</string>
+  <string name="provider_sort_by_name_summary">Alphabetical, Chinese by pinyin</string>
+  <string name="provider_sort_by_type">By API type</string>
+  <string name="provider_sort_by_type_summary">Grouped by interface type, then by name</string>
+  <string name="provider_sort_by_status">By setup state</string>
+  <string name="provider_sort_by_status_summary">Providers with models first, empty ones last</string>
   <string name="provider_empty">No model providers yet. Add one to get started</string>
   <string name="provider_no_matches">No matching providers</string>
   <plurals name="provider_models_count">

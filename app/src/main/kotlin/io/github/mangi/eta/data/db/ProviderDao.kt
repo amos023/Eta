@@ -11,12 +11,16 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 internal interface ProviderDao {
     @Transaction
-    @Query("SELECT * FROM model_providers ORDER BY sort_order ASC")
+    @Query("SELECT * FROM model_providers ORDER BY sort_order ASC, id ASC")
     fun providersFlow(): Flow<List<ProviderWithModels>>
 
     @Transaction
-    @Query("SELECT * FROM model_providers ORDER BY sort_order ASC")
+    @Query("SELECT * FROM model_providers ORDER BY sort_order ASC, id ASC")
     suspend fun providers(): List<ProviderWithModels>
+
+    /** 批量重排只改序号，不触碰其它字段与模型；id 兜底避免历史重复序号导致顺序不确定。 */
+    @Query("UPDATE model_providers SET sort_order = :sortOrder WHERE id = :id")
+    suspend fun setSortOrder(id: String, sortOrder: Int): Int
 
     @Query("DELETE FROM provider_models")
     suspend fun deleteAllModels()

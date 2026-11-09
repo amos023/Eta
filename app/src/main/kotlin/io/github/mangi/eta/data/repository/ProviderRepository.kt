@@ -1,6 +1,7 @@
 package io.github.mangi.eta.data.repository
 
 import android.content.Context
+import androidx.room.withTransaction
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.data.db.ProviderWithModelsSeed
@@ -88,6 +89,27 @@ internal object ProviderRepository {
             require(dao().updateProvider(provider.toEntity()) == 1) { "Provider 不存在" }
         }
         repairSelection()
+    }
+
+    /**
+     * 按给定 id 顺序重写所有提供商的 sort_order。未列出的提供商保持原有相对顺序追加在末尾，
+     * 序号整体压成 0..n-1，顺带修掉历史数据里可能出现的重复值。
+     */
+    suspend fun reorderProviders(orderedIds: List<String>) {
+        if (orderedIds.isEmpty()) return
+        mutationMutex.withLock {
+            val database = EtaDatabase.get(appContext())
+            database.withTransaction {
+                val current = allProviders()
+                val byId = current.associateBy { it.id }
+                val listed = orderedIds.toSet()
+                val reordered = orderedIds.mapNotNull { byId[it] } +
+                    current.filterNot { it.id in listed }
+                reordered.forEachIndexed { index, provider ->
+                    if (provider.sortOrder != index) dao().setSortOrder(provider.id, index)
+                }
+            }
+        }
     }
 
     internal suspend fun replaceModels(providerId: String, models: List<Model>) {

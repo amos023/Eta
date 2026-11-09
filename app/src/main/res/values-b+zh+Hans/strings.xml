@@ -1078,6 +1078,13 @@
   <plurals name="provider_configured_count">
     <item quantity="other">已配置提供商（共 %d 个）</item>
   </plurals>
+  <string name="provider_sort_title">整理顺序</string>
+  <string name="provider_sort_by_name">按名称</string>
+  <string name="provider_sort_by_name_summary">按名称排序，中文按拼音</string>
+  <string name="provider_sort_by_type">按接口类型</string>
+  <string name="provider_sort_by_type_summary">按类型分组，同组内按名称</string>
+  <string name="provider_sort_by_status">按配置状态</string>
+  <string name="provider_sort_by_status_summary">已配置（有模型）排在前，未配置的排在后</string>
   <string name="provider_empty">暂无模型提供商，请新增</string>
   <string name="provider_no_matches">未找到匹配的提供商</string>
   <plurals name="provider_models_count">

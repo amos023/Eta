@@ -5,11 +5,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,8 +32,13 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.itos.coui.dialog.CouiDialogAction
+import com.itos.coui.dialog.CouiDialogPlacement
+import com.itos.coui.dialog.Dialog
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Item
+import com.itos.coui.menu.rememberCouiWindowBackdrop
+import com.itos.coui.theme.CouiTheme
 import com.itos.coui.radiobutton.RadioButton
 import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text as CouiText
@@ -52,14 +60,18 @@ import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.CouiScaffoldPage
 import io.github.mangi.eta.ui.components.coui.CouiSearchBarBox
 import io.github.mangi.eta.ui.components.coui.CouiSettingsIcon
+import io.github.mangi.eta.ui.components.coui.CouiTopAppBarIconButton
+import io.github.mangi.eta.ui.components.coui.rememberCouiDialogMaterial
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.navigation.NewProviderType
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -74,6 +86,7 @@ internal fun ModelProviderListScreen(
     val selectedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
     var searchQuery by remember { mutableStateOf("") }
     var providerToDelete by remember { mutableStateOf<ProviderSetting?>(null) }
+    var sorting by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
@@ -92,7 +105,18 @@ internal fun ModelProviderListScreen(
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             val colors = CouiPageDefaults.themeColors()
-            CouiScaffoldPage(title = stringResource(R.string.ui_model_provider_e8c7f5), onBack = onBack) {
+            CouiScaffoldPage(
+                title = stringResource(R.string.ui_model_provider_e8c7f5),
+                onBack = onBack,
+                actions = {
+                    CouiTopAppBarIconButton(
+                        icon = Icons.Rounded.Sort,
+                        contentDescription = stringResource(R.string.provider_sort_title),
+                        enabled = providers.isNotEmpty(),
+                        onClick = { sorting = true },
+                    )
+                },
+            ) {
                 CouiSearchBarBox(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
@@ -188,7 +212,15 @@ internal fun ModelProviderListScreen(
         }
 
         AppearanceUiStyle.MIUIX -> {
-            MiuixScaffoldPage(title = stringResource(R.string.ui_model_provider_e8c7f5), onBack = onBack) {
+            MiuixScaffoldPage(
+                title = stringResource(R.string.ui_model_provider_e8c7f5),
+                onBack = onBack,
+                actions = {
+                    IconButton(onClick = { sorting = true }, enabled = providers.isNotEmpty()) {
+                        Icon(Icons.Rounded.Sort, contentDescription = stringResource(R.string.provider_sort_title))
+                    }
+                },
+            ) {
                 item(key = "search") {
                     InputField(
                         query = searchQuery,
@@ -292,6 +324,19 @@ internal fun ModelProviderListScreen(
                 }
             }
         }
+    }
+
+    if (sorting) {
+        val onApply: (ProviderSortRule) -> Unit = { rule ->
+            sorting = false
+            // 重排针对全部提供商；带着搜索结果排会把未命中项挤到末尾，先清空搜索更符合预期。
+            searchQuery = ""
+            scope.launch {
+                ProviderRepository.reorderProviders(providers.sortedByRule(rule).map { it.id })
+                RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+            }
+        }
+        ProviderSortDialog(onDismissRequest = { sorting = false }, onSelect = onApply)
     }
 
     if (providerToDelete != null) {
@@ -466,5 +511,104 @@ private fun ProviderListItem(
                 )
             }
         }
+    }
+}
+
+/** 排序方式选择：点选后立即按该规则整理顺序并写入数据库，弹层自动关闭。 */
+@Composable
+private fun ProviderSortDialog(
+    onDismissRequest: () -> Unit,
+    onSelect: (ProviderSortRule) -> Unit,
+) {
+    val dark = CouiTheme.isDark
+    when (LocalUiStyle.current) {
+        AppearanceUiStyle.COUI -> {
+            Dialog(
+                visible = true,
+                onDismissRequest = onDismissRequest,
+                dark = dark,
+                title = stringResource(R.string.provider_sort_title),
+                confirmAction = CouiDialogAction(
+                    text = stringResource(R.string.action_cancel),
+                    onClick = onDismissRequest,
+                ),
+                placement = CouiDialogPlacement.Bottom,
+                material = rememberCouiDialogMaterial(dark),
+                backdrop = rememberCouiWindowBackdrop(),
+            ) {
+                ProviderSortOptions(onSelect = onSelect)
+            }
+        }
+        AppearanceUiStyle.MIUIX -> {
+            OverlayBottomSheet(
+                show = true,
+                title = stringResource(R.string.provider_sort_title),
+                onDismissRequest = onDismissRequest,
+            ) {
+                ProviderSortOptions(onSelect = onSelect)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProviderSortOptions(onSelect: (ProviderSortRule) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        ProviderSortRow(
+            title = stringResource(R.string.provider_sort_by_name),
+            summary = stringResource(R.string.provider_sort_by_name_summary),
+            onOpen = { onSelect(ProviderSortRule.NAME) },
+        )
+        ProviderSortRow(
+            title = stringResource(R.string.provider_sort_by_type),
+            summary = stringResource(R.string.provider_sort_by_type_summary),
+            onOpen = { onSelect(ProviderSortRule.TYPE) },
+        )
+        ProviderSortRow(
+            title = stringResource(R.string.provider_sort_by_status),
+            summary = stringResource(R.string.provider_sort_by_status_summary),
+            onOpen = { onSelect(ProviderSortRule.STATUS) },
+        )
+    }
+}
+
+@Composable
+private fun ProviderSortRow(title: String, summary: String, onOpen: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onOpen)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            when (LocalUiStyle.current) {
+                AppearanceUiStyle.COUI -> {
+                    val colors = CouiPageDefaults.themeColors()
+                    CouiText(text = title, kind = CouiTextKind.PreferenceTitle, color = colors.title)
+                    CouiText(
+                        text = summary,
+                        kind = CouiTextKind.PreferenceSummary,
+                        color = colors.summary,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                AppearanceUiStyle.MIUIX -> {
+                    Text(text = title, style = MiuixTheme.textStyles.body1)
+                    Text(
+                        text = summary,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+        }
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+        )
     }
 }
