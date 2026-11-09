@@ -61,8 +61,6 @@ internal fun AsrProvider.label(): String = stringResource(
         AsrProvider.QWEN_FILE -> R.string.speech_asr_qwen_file
         AsrProvider.DOUBAO -> R.string.speech_asr_doubao
         AsrProvider.LOCAL -> R.string.speech_asr_local
-        AsrProvider.LOCAL_PARA -> R.string.speech_asr_local_para
-        AsrProvider.LOCAL_SENSE -> R.string.speech_asr_local_sense
     },
 )
 

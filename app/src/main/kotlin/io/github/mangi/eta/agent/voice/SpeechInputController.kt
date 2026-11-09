@@ -55,14 +55,6 @@ internal class SpeechInputController(
         () -> Unit,
         Int,
     ) -> String = ::recognizeSpeechLocal,
-    /** 内置离线整段识别：录完再识别，用于 Paraformer 与 SenseVoice。 */
-    private val recognizeLocalOffline: suspend (
-        Context,
-        LocalSpeechPack,
-        SpeechSettings,
-        ByteArray,
-        (String) -> Unit,
-    ) -> String = ::recognizeSpeechLocalOffline,
     private val onResult: (String) -> Unit,
 ) {
     private val mutableState = MutableStateFlow(SpeechInputState())
@@ -118,8 +110,7 @@ internal class SpeechInputController(
                         Unit
                     }
                     try {
-                        val localPack = LocalSpeechPack.of(config.asr)
-                        if (localPack != null && localPack.streaming) {
+                        if (config.asr == AsrProvider.LOCAL) {
                             recognizeLocal(
                                 context,
                                 config,
@@ -129,14 +120,6 @@ internal class SpeechInputController(
                                 { audio.finish() },
                                 endpointSilenceMs,
                             )
-                        } else if (localPack != null) {
-                            // 整段识别：先收齐录音，再一次性送入模型，录音结束即给出最终文字。
-                            begin()
-                            val wav = withTimeout(65_000) { collectSpeechAudio(audio.frames) }
-                            audio.finish()
-                            recognizeLocalOffline(context, localPack, config, wav) { progress ->
-                                update { it.copy(phase = EtaSpeechPhase.RECOGNIZING, progress = progress) }
-                            }
                         } else if (config.asr == AsrProvider.QWEN_REALTIME || config.asr == AsrProvider.DOUBAO) {
                             recognizeStream(
                                 config,

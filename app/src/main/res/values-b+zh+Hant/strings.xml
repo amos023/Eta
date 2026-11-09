@@ -1215,11 +1215,7 @@
   <string name="speech_asr_qwen_file">千問 · 檔案轉寫</string>
   <string name="speech_asr_doubao">豆包 · 串流識別 2.0</string>
   <string name="speech_asr_local">本機離線</string>
-  <string name="speech_asr_local_para">本機離線 · 中文高精度</string>
-  <string name="speech_asr_local_sense">本機離線 · 多語種</string>
   <string name="speech_asr_note_local">全部在本機推理，不需要金鑰；模型僅首次下載時連網，之後完全離線，錄音不會上傳。聊天聽寫點擊完成後插入文字；助手懸浮窗可在停頓後自動傳送。</string>
-  <string name="speech_asr_note_local_para">錄完再整段辨識，全部在本機完成：比串流模型更準也更快，但沒有邊說邊出字的預覽。聊天聽寫點擊完成；助手懸浮窗在停頓後提交。</string>
-  <string name="speech_asr_note_local_sense">錄完再整段辨識，全部在本機完成：支援國語、粵語等多種語言並自動補標點，但沒有邊說邊出字的預覽。聊天聽寫點擊完成；助手懸浮窗在停頓後提交。</string>
   <string name="speech_group_local">本機模型</string>
   <string name="speech_local_threads">推理執行緒</string>
   <string name="speech_local_threads_value">%1$s 個執行緒</string>
@@ -1232,9 +1228,6 @@
   <string name="speech_local_missing">未下載（%1$s）</string>
   <string name="speech_local_size">%1$d MB</string>
   <string name="speech_local_source">模型下載位址</string>
-  <string name="speech_local_language">辨識語言</string>
-  <string name="speech_local_language_auto">自動判斷</string>
-  <string name="speech_local_language_code">%1$s</string>
   <string name="speech_local_note">模型約 %1$s，僅首次下載時連網；之後辨識完全離線，錄音不會上傳。</string>
   <string name="speech_tts_none">關閉</string>
   <string name="speech_tts_system">系統 · 本機</string>

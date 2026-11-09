@@ -72,7 +72,7 @@ internal fun validateSpeechSettings(settings: SpeechSettings, secrets: SpeechCre
         }
     } else when (settings.asr) {
         // 内置离线模型没有服务地址与凭据；模型是否就绪由识别链路检查并提示。
-        AsrProvider.LOCAL, AsrProvider.LOCAL_PARA, AsrProvider.LOCAL_SENSE -> Unit
+        AsrProvider.LOCAL -> Unit
         AsrProvider.DOUBAO -> {
             required(secrets.doubaoAsr, "豆包识别凭据")
             speechBaseUrl(settings.doubaoAsr.baseUrl)

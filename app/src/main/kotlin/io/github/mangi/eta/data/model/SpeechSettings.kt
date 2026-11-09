@@ -3,7 +3,7 @@ package io.github.mangi.eta.data.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, LOCAL, LOCAL_PARA, LOCAL_SENSE }
+enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, LOCAL }
 
 @Serializable
 enum class TtsProvider { NONE, SYSTEM, QWEN, DOUBAO, GEMINI, MINIMAX }
@@ -52,8 +52,6 @@ data class DoubaoSpeechConfig(
 data class LocalAsrConfig(
     /** 1～4 个推理线程；越高越快，也越耗电。 */
     val threads: Int = 2,
-    /** SenseVoice 的识别语言；留空自动判断，中文场景填 zh 更快更稳。 */
-    val senseLanguage: String = "zh",
 )
 
 @Serializable

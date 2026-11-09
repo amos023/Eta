@@ -1246,11 +1246,7 @@
   <string name="speech_asr_qwen_file">Qwen · File transcription</string>
   <string name="speech_asr_doubao">Doubao · Streaming 2.0</string>
   <string name="speech_asr_local">On-device · Offline</string>
-  <string name="speech_asr_local_para">On-device · Chinese, accurate</string>
-  <string name="speech_asr_local_sense">On-device · Multilingual</string>
   <string name="speech_asr_note_local">Recognition runs entirely on this phone: no API key and no network after the one-time model download, and audio never leaves the device. Tap Done to finish dictation; the assistant overlay can submit after a pause.</string>
-  <string name="speech_asr_note_local_para">Recognizes the whole clip after you finish recording, fully on this phone: more accurate and faster than the streaming model, but no live preview. Tap Done to finish; the overlay submits after a pause.</string>
-  <string name="speech_asr_note_local_sense">Recognizes the whole clip fully on this device, covering Mandarin, Cantonese and several other languages, with punctuation. No live preview. Tap Done to finish; the overlay submits after a pause.</string>
   <string name="speech_group_local">On-device model</string>
   <string name="speech_local_threads">Inference threads</string>
   <string name="speech_local_threads_value">%1$s threads</string>
@@ -1263,9 +1259,6 @@
   <string name="speech_local_missing">Not downloaded (%1$s)</string>
   <string name="speech_local_size">%1$d MB</string>
   <string name="speech_local_source">Model download URL</string>
-  <string name="speech_local_language">Recognition language</string>
-  <string name="speech_local_language_auto">Auto detect</string>
-  <string name="speech_local_language_code">%1$s</string>
   <string name="speech_local_note">The model is about %1$s and only needs the network once, for the download. After that recognition runs fully offline and audio never leaves the phone.</string>
   <string name="speech_tts_none">Off</string>
   <string name="speech_tts_system">System · On-device</string>

@@ -86,13 +86,11 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                 AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
                                 AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
                                 AsrProvider.LOCAL -> R.string.speech_asr_note_local
-                                AsrProvider.LOCAL_PARA -> R.string.speech_asr_note_local_para
-                                AsrProvider.LOCAL_SENSE -> R.string.speech_asr_note_local_sense
                             },
                         ),
                     )
                     SpeechConnectionSection(store, synthesis = false)
-                    if (LocalSpeechPack.of(settings.asr) != null) {
+                    if (settings.asr == AsrProvider.LOCAL) {
                         LocalAsrCard(store)
                     } else if (settings.asr != AsrProvider.DOUBAO) {
                         SpeechGroupCard {
@@ -164,8 +162,6 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                                         AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
                                         AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
                                         AsrProvider.LOCAL -> R.string.speech_asr_note_local
-                                        AsrProvider.LOCAL_PARA -> R.string.speech_asr_note_local_para
-                                        AsrProvider.LOCAL_SENSE -> R.string.speech_asr_note_local_sense
                                     },
                                 ),
                             )
@@ -341,21 +337,21 @@ private fun SpeechRecognitionTestSection(store: SpeechSettingsStore) {
         }
         SpeechNote(
             stringResource(
-                if (LocalSpeechPack.of(store.settings.asr) != null) R.string.speech_test_note_local
+                if (store.settings.asr == AsrProvider.LOCAL) R.string.speech_test_note_local
                 else R.string.speech_test_note,
             ),
         )
     }
 }
 
-/** 本地模型按需下载：显示当前所选服务对应的模型包状态，再提供线程数与下载地址。 */
+/** 本地模型按需下载：显示模型包状态与下载入口，再提供推理线程数。 */
 @Composable
 private fun LocalAsrCard(store: SpeechSettingsStore) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings = store.settings
     val config = settings.localAsr
-    val pack = LocalSpeechPack.of(settings.asr) ?: return
+    val pack = LocalSpeechPack.STREAMING
     val states by LocalSpeechModel.state.collectAsState()
     val model = states[pack] ?: LocalSpeechModelState()
     val size = stringResource(R.string.speech_local_size, (pack.totalBytes / 1024 / 1024).toInt())
@@ -365,7 +361,7 @@ private fun LocalAsrCard(store: SpeechSettingsStore) {
         model.status == LocalSpeechModelStatus.DOWNLOADING ->
             stringResource(R.string.speech_local_downloading, model.progress)
         model.status == LocalSpeechModelStatus.READY ->
-            stringResource(R.string.speech_local_ready, model.current.ifBlank { size })
+            stringResource(R.string.speech_local_ready, size)
         model.error != null -> model.error
         else -> stringResource(R.string.speech_local_missing, size)
     }
@@ -421,58 +417,17 @@ private fun LocalAsrCard(store: SpeechSettingsStore) {
         }
         SpeechGroupCard(title = stringResource(R.string.speech_group_local)) {
             when (LocalUiStyle.current) {
-                AppearanceUiStyle.COUI -> {
-                    CouiDropdownPreference(
-                        title = stringResource(R.string.speech_local_threads),
-                        items = items,
-                        selectedIndex = selected,
-                        onSelectedIndexChange = onSelected,
-                    )
-                    Divider()
-                }
-                AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
+                AppearanceUiStyle.COUI -> CouiDropdownPreference(
                     title = stringResource(R.string.speech_local_threads),
                     items = items,
                     selectedIndex = selected,
                     onSelectedIndexChange = onSelected,
                 )
-            }
-            // SenseVoice 才有多语种开关；Paraformer 与流式包都是纯中文。
-            if (pack == LocalSpeechPack.SENSE_VOICE) {
-                val languages = listOf("zh", "auto", "yue", "en", "ja", "ko")
-                val labels = languages.map {
-                    stringResource(if (it == "auto") R.string.speech_local_language_auto else R.string.speech_local_language_code, it)
-                }
-                val langIndex = languages.indexOf(config.senseLanguage).coerceAtLeast(0)
-                val onLanguage: (Int) -> Unit = { index ->
-                    languages.getOrNull(index)?.let { value ->
-                        store.edit(settings.copy(localAsr = config.copy(senseLanguage = value)))
-                    }
-                }
-                when (LocalUiStyle.current) {
-                    AppearanceUiStyle.COUI -> {
-                        CouiDropdownPreference(
-                            title = stringResource(R.string.speech_local_language),
-                            items = labels,
-                            selectedIndex = langIndex,
-                            onSelectedIndexChange = onLanguage,
-                        )
-                        Divider()
-                    }
-                    AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
-                        title = stringResource(R.string.speech_local_language),
-                        items = labels,
-                        selectedIndex = langIndex,
-                        onSelectedIndexChange = onLanguage,
-                    )
-                }
-            }
-            SpeechFieldColumn {
-                SpeechField(
-                    label = stringResource(R.string.speech_local_source),
-                    value = pack.sourceUrl,
-                    enabled = false,
-                    onChange = { },
+                AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
+                    title = stringResource(R.string.speech_local_threads),
+                    items = items,
+                    selectedIndex = selected,
+                    onSelectedIndexChange = onSelected,
                 )
             }
         }

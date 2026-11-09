@@ -27,9 +27,7 @@ Eta 的「设置 → 语音」分别配置语音识别（ASR）与语音播报�
 | 千问短音频 ASR | `qwen3-asr-flash` | 百炼地域、API Key |
 | 千问文件转写 | `qwen3-asr-flash-filetrans` | 百炼地域、API Key、自有 OSS |
 | 豆包流式 ASR | 流式识别 2.0 | API Key；默认资源 ID `volc.seedasr.sauc.duration` |
-| 本地离线 ASR（流式） | `sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23`（int8，约 24 MB） | 无需凭据；边说边出字，普通话 |
-| 本地离线 ASR（中文高精度） | `sherpa-onnx-paraformer-zh-small-2024-03-09`（int8，约 78 MB） | 无需凭据；整段识别，RTF 约 0.014 |
-| 本地离线 ASR（多语种） | `sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17`（int8，约 228 MB） | 无需凭据；整段识别，含粤语与标点 ITN |
+| 本地离线 ASR | `sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30`（zipformer2，约 160 MB） | 无需凭据；边说边出字，中文高精度 |
 | 系统 TTS | 设备已安装的语音引擎（默认引擎或指定引擎） | 无需配置；可选语言、语速与音调，离线运行 |
 | 千问 TTS | `qwen3-tts-flash-realtime`，不可用时回落 `qwen3-tts-flash` | 百炼地域、独立播报 API Key、音色；默认 Cherry |
 | 豆包 TTS | 语音合成 2.0，双向流式，不可用时回落单向流式 | 独立播报 API Key、音色；默认 VV，资源 ID `seed-tts-2.0` |
@@ -72,7 +70,7 @@ Eta 上传 WAV 后生成有效期 15 分钟的读取签名 URL，向百炼提交
 - 设置页、聊天与浮窗复用相同控制器；网络与音频循环不进入 Composable、Hook 或 Agent loop，Runtime IPC 与归档格式保持兼容。
 - 内置离线识别由 `LocalSpeechRecognition` 实现：sherpa-onnx 流式 zipformer 直接消费 `SpeechRecorder` 的 16 kHz 单声道 PCM16 帧，不产生文件、不走网络。模型不随 APK 分发，由 `LocalSpeechModel` 在「本地离线」页按需下载到应用私有目录：逐个文件写入 `.part` 临时文件、校验 SHA-256 后重命名，已完成的分片重试时直接复用；下载地址可改，默认使用国内可直连的镜像。APK 只带 `arm64-v8a` 的引擎 AAR，许可位于 `assets/licenses`。断句沿用「停顿后自动发送」的时长写入 `EndpointRule`，未开启自动发送时用 800 ms 仅切分预览。模型在每次识别会话内创建并释放，未下载或初始化失败明确报错，不静默回退到云端服务。识别线程数默认为 2，可在设置中调整为 1～4。
 
-- 三个本地模型包由 `LocalSpeechPack` 描述（目录、是否流式、上游地址、逐文件大小与 SHA-256），`LocalSpeechModel` 统一负责按需下载与校验：每包独立目录与状态，`.part` 临时文件落盘后校验再改名，已完成文件在重试与取消后仍可复用；下载挂在进程级作用域，离开设置页不中断。流式包走 `LocalSpeechRecognition`（`OnlineRecognizer`），两个非流式包走 `LocalSpeechOffline`（`OfflineRecognizer`，Paraformer 与 SenseVoice 各自一套模型配置）：录音收齐后一次性推理，SenseVoice 额外支持语言选择、ITN 标点与情感/事件标签。三者均不联网、不需要凭据，未下载时明确提示且不静默回退云端。
+- 本地模型由 `LocalSpeechPack` 描述（目录、上游地址、模型类型、逐文件大小与 SHA-256），`LocalSpeechModel` 负责按需下载与校验：`.part` 临时文件落盘后校验再改名，已完成文件在重试与取消后仍可复用；下载挂在进程级作用域，离开设置页不中断。识别走 `LocalSpeechRecognition`：大模型加载一次要数秒，因此 `LocalRecognizerCache` 进程内复用同一个 `OnlineRecognizer`（按线程数与模型目录 mtime 重建），首次付出加载代价、之后秒开。停顿时长不依赖模型的端点参数（否则每次会话都要重建模型），改由识别循环按静音帧累计，与「停顿后自动发送」的设置对齐。未下载时明确提示，不静默回退云端。
 
 ## 官方资料
 
