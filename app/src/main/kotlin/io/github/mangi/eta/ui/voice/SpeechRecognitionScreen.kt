@@ -333,7 +333,12 @@ private fun SpeechRecognitionTestSection(store: SpeechSettingsStore) {
                 }
             }
         }
-        SpeechNote(stringResource(R.string.speech_test_note))
+        SpeechNote(
+            stringResource(
+                if (store.settings.asr == AsrProvider.LOCAL) R.string.speech_test_note_local
+                else R.string.speech_test_note,
+            ),
+        )
     }
 }
 
@@ -357,18 +362,20 @@ private fun LocalAsrCard(store: SpeechSettingsStore) {
         else -> stringResource(R.string.speech_local_missing, size)
     }
     val actionTitle = stringResource(
-        if (model.status == LocalSpeechModelStatus.READY) R.string.speech_local_delete
-        else R.string.speech_local_download,
+        when {
+            model.busy -> R.string.speech_local_cancel
+            model.status == LocalSpeechModelStatus.READY -> R.string.speech_local_delete
+            else -> R.string.speech_local_download
+        },
     )
     val onAction: () -> Unit = {
         when {
-            model.busy -> Unit
+            // 下载跑在进程级作用域，这里只负责取消；中断后回到可重试状态。
+            model.busy -> LocalSpeechModel.cancel(context)
             model.status == LocalSpeechModelStatus.READY -> scope.launch {
                 LocalSpeechModel.delete(context)
             }
-            else -> scope.launch {
-                runCatching { LocalSpeechModel.download(context, config.sourceUrl) }
-            }
+            else -> LocalSpeechModel.start(context, config.sourceUrl)
         }
     }
 
@@ -379,7 +386,7 @@ private fun LocalAsrCard(store: SpeechSettingsStore) {
                     title = actionTitle,
                     summary = summary,
                     summaryColor = if (model.error != null) MiuixTheme.colorScheme.error else Color.Unspecified,
-                    enabled = !model.busy,
+                    enabled = true,
                     showChevron = false,
                     onClick = onAction,
                 )
@@ -391,7 +398,7 @@ private fun LocalAsrCard(store: SpeechSettingsStore) {
                     } else {
                         BasicComponentDefaults.summaryColor()
                     },
-                    enabled = !model.busy,
+                    enabled = true,
                     onClick = onAction,
                 )
             }

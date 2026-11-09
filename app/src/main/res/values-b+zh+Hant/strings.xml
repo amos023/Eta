@@ -1222,6 +1222,7 @@
   <string name="speech_group_local_model">離線模型</string>
   <string name="speech_local_download">下載離線模型</string>
   <string name="speech_local_delete">刪除離線模型</string>
+  <string name="speech_local_cancel">取消下載</string>
   <string name="speech_local_downloading">正在下載 %1$d%%</string>
   <string name="speech_local_ready">已下載（%1$s）</string>
   <string name="speech_local_missing">未下載（%1$s）</string>
@@ -1302,6 +1303,7 @@
   <string name="speech_test_recognition">測試識別</string>
   <string name="speech_test_finish">完成錄音</string>
   <string name="speech_test_note">測試會調用所選服務，可能產生費用；使用當前填寫的配置，不會自動儲存。</string>
+  <string name="speech_test_note_local">測試完全在本機完成，不連網、不產生費用；使用目前草稿，不會自動儲存。</string>
   <string name="speech_preview_voice">試聽音色</string>
   <string name="speech_preview_stop">停止試聽</string>
   <string name="speech_preview_note">試聽使用當前填寫的配置，不會自動儲存。</string>

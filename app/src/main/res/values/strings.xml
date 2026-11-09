@@ -1253,6 +1253,7 @@
   <string name="speech_group_local_model">Offline model</string>
   <string name="speech_local_download">Download model</string>
   <string name="speech_local_delete">Delete model</string>
+  <string name="speech_local_cancel">Cancel download</string>
   <string name="speech_local_downloading">Downloading %1$d%%</string>
   <string name="speech_local_ready">Downloaded (%1$s)</string>
   <string name="speech_local_missing">Not downloaded (%1$s)</string>
@@ -1334,6 +1335,7 @@
   <string name="speech_test_recognition">Test recognition</string>
   <string name="speech_test_finish">Finish recording</string>
   <string name="speech_test_note">Testing calls the selected service and may incur charges. It uses the current form values and does not save them.</string>
+  <string name="speech_test_note_local">The test runs fully on this device: no network request and no cost. It uses the current draft and is not saved automatically.</string>
   <string name="speech_preview_voice">Preview voice</string>
   <string name="speech_preview_stop">Stop preview</string>
   <string name="speech_preview_note">The preview uses the current form values and does not save them.</string>

@@ -4,10 +4,15 @@ import android.content.Context
 import io.github.mangi.eta.core.AndroidAgentLogger
 import java.io.File
 import java.security.MessageDigest
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -75,6 +80,9 @@ internal object LocalSpeechModel {
     private val mutableState = MutableStateFlow(LocalSpeechModelState())
     val state: StateFlow<LocalSpeechModelState> = mutableState.asStateFlow()
     private val mutex = Mutex()
+    /** 下载挂在进程级作用域：设置页退出或重组都不会中断，状态与进度仍然可见。 */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var job: Job? = null
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -97,6 +105,20 @@ internal object LocalSpeechModel {
         } else {
             LocalSpeechModelState(LocalSpeechModelStatus.MISSING)
         }
+    }
+
+    /** 在进程级作用域里启动下载；重复点击不会起第二个任务。 */
+    fun start(context: Context, sourceUrl: String) {
+        if (job?.isActive == true) return
+        val appContext = context.applicationContext
+        job = scope.launch { runCatching { download(appContext, sourceUrl) } }
+    }
+
+    /** 取消进行中的下载并把状态复位，避免按钮永久停在「正在下载」。 */
+    fun cancel(context: Context) {
+        job?.cancel()
+        job = null
+        if (!installed(context)) mutableState.value = LocalSpeechModelState(LocalSpeechModelStatus.MISSING)
     }
 
     suspend fun download(context: Context, sourceUrl: String) = withContext(Dispatchers.IO) {
@@ -142,6 +164,11 @@ internal object LocalSpeechModel {
                 }
                 mutableState.value = LocalSpeechModelState(LocalSpeechModelStatus.READY, progress = 100)
             } catch (error: Exception) {
+                if (error is CancellationException) {
+                    // 取消不是失败：清掉半成品并回到可重试状态。
+                    mutableState.value = LocalSpeechModelState(LocalSpeechModelStatus.MISSING)
+                    throw error
+                }
                 AndroidAgentLogger.warn("Eta local speech download failed: ${error.javaClass.simpleName}")
                 val failure = error.speechFailure()
                 mutableState.value = LocalSpeechModelState(
