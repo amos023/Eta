@@ -402,7 +402,7 @@ internal class SubagentExecutor(
         private val lock = Any()
         private val steps = mutableListOf<SubagentStepSnapshot>()
         private var status = SubagentActivitySnapshot.STATUS_RUNNING
-        private var currentAction = "正在思考…"
+        private var currentAction = "正在思考"
         private val roundTexts = linkedMapOf<Int, StringBuilder>()
         private var finalOutput = ""
         private var errorText: String? = null
@@ -410,7 +410,7 @@ internal class SubagentExecutor(
         fun onChildEvent(event: AgentEvent): Boolean = synchronized(lock) {
             when (event) {
                 is AgentEvent.RoundStarted -> {
-                    currentAction = if (event.round <= 1) "正在思考…" else "第 ${event.round} 轮思考…"
+                    currentAction = if (event.round <= 1) "正在思考" else "第 ${event.round} 轮思考"
                     true
                 }
 
@@ -433,7 +433,7 @@ internal class SubagentExecutor(
                                 status = SubagentStepSnapshot.STATUS_RUNNING,
                             )
                         }
-                        currentAction = "正在思考…"
+                        currentAction = "正在思考"
                         false
                     }
 

@@ -496,7 +496,7 @@
   <string name="copy_code">复制代码</string>
   <string name="copy_command">复制命令</string>
   <string name="shell_command">Shell 命令</string>
-  <string name="reasoning_in_progress">正在思考…</string>
+  <string name="reasoning_in_progress">正在思考</string>
   <string name="reasoning_completed">思考已完成</string>
   <plurals name="reasoning_completed_seconds">
       <item quantity="other">思考已完成 · 用时 %d 秒</item>

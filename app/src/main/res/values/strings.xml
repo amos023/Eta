@@ -509,7 +509,7 @@
   <string name="copy_code">Copy code</string>
   <string name="copy_command">Copy command</string>
   <string name="shell_command">Shell command</string>
-  <string name="reasoning_in_progress">Reasoning…</string>
+  <string name="reasoning_in_progress">Reasoning</string>
   <string name="reasoning_completed">Reasoning completed</string>
   <plurals name="reasoning_completed_seconds">
     <item quantity="one">Reasoning completed · %d second</item>
