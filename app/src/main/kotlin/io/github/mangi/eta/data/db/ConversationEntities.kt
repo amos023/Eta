@@ -25,6 +25,25 @@ internal data class ConversationEntity(
     /** 会话最近使用的本地 Model.id；null 表示跟随默认模型。 */
     @ColumnInfo(name = "model_id") val modelId: String? = null,
     @ColumnInfo(name = "is_pinned", defaultValue = "0") val isPinned: Boolean = false,
+    /** 由「分支」创建时的来源会话；主线会话为 null。 */
+    @ColumnInfo(name = "parent_conversation_id") val parentConversationId: String? = null,
+    /** 手动归入的分组；null 表示未分组。 */
+    @ColumnInfo(name = "group_id") val groupId: String? = null,
+)
+
+/**
+ * 会话分组。用于把同一项目下的多个会话（含各自分支）收拢在一起。
+ * 顺序由 sort_order 决定，UI 按此升序渲染。
+ */
+@Entity(
+    tableName = "conversation_groups",
+    indices = [Index(value = ["sort_order"])],
+)
+internal data class ConversationGroupEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    @ColumnInfo(name = "sort_order", defaultValue = "0") val sortOrder: Int = 0,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
 )
 
 internal data class ConversationMetadata(
@@ -39,6 +58,8 @@ internal data class ConversationMetadata(
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(name = "model_id") val modelId: String? = null,
     @ColumnInfo(name = "is_pinned") val isPinned: Boolean = false,
+    @ColumnInfo(name = "parent_conversation_id") val parentConversationId: String? = null,
+    @ColumnInfo(name = "group_id") val groupId: String? = null,
 )
 
 /** 会话侧栏只读取定长预览，不读取上下文、角色卡与修订正文。 */
@@ -55,6 +76,8 @@ internal data class ConversationIndexRow(
     @ColumnInfo(name = "tool_name") val toolName: String?,
     @ColumnInfo(name = "has_roleplay") val hasRoleplay: Boolean,
     @ColumnInfo(name = "is_pinned") val isPinned: Boolean = false,
+    @ColumnInfo(name = "parent_conversation_id") val parentConversationId: String? = null,
+    @ColumnInfo(name = "group_id") val groupId: String? = null,
 )
 
 internal data class ConversationIdentity(

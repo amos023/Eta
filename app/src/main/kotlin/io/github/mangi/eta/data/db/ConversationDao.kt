@@ -12,6 +12,7 @@ import androidx.room.Upsert
 internal interface ConversationDao : ChunkedTextDao {
     @Query(
         "SELECT c.id, c.title, c.reasoning_effort, c.created_at, c.updated_at, c.model_id, c.is_pinned, " +
+            "c.parent_conversation_id, c.group_id, " +
             "(c.roleplay_json != '') AS has_roleplay, " +
             "m.id AS message_id, m.type AS message_type, m.tool_name, " +
             "COALESCE((SELECT substr(content, 1, 256) FROM agent_text_chunks " +
@@ -26,12 +27,37 @@ internal interface ConversationDao : ChunkedTextDao {
     @Query("SELECT id, title, created_at, updated_at, is_pinned FROM conversations")
     suspend fun conversationIdentities(): List<ConversationIdentity>
 
+    @Query("UPDATE conversations SET parent_conversation_id = :parentId WHERE id = :conversationId")
+    suspend fun setConversationParent(conversationId: String, parentId: String?)
+
+    @Query("UPDATE conversations SET group_id = :groupId WHERE id = :conversationId")
+    suspend fun setConversationGroup(conversationId: String, groupId: String?)
+
+    // ── 分组 ────────────────────────────────────────────────────────────────
+
+    @Query("SELECT * FROM conversation_groups ORDER BY sort_order ASC, created_at ASC")
+    suspend fun groups(): List<ConversationGroupEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGroup(group: ConversationGroupEntity)
+
+    @Query("DELETE FROM conversation_groups WHERE id = :groupId")
+    suspend fun deleteGroup(groupId: String)
+
+    /** 删除分组时把成员退回未分组，避免出现指向已删除分组的孤儿引用。 */
+    @Query("UPDATE conversations SET group_id = NULL WHERE group_id = :groupId")
+    suspend fun clearGroupMembers(groupId: String)
+
+    @Query("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM conversation_groups")
+    suspend fun nextGroupSortOrder(): Int
+
     @Query("UPDATE conversations SET title = :title, updated_at = :updatedAt, is_pinned = :isPinned WHERE id = :conversationId")
     suspend fun updateConversationTitle(conversationId: String, title: String, updatedAt: Long, isPinned: Boolean = false)
 
     @Query(
         "SELECT id, title, thinking_enabled, reasoning_effort, " +
-            "applied_runtime_run_ids_json, roleplay_json, revisions_json, created_at, updated_at, model_id, is_pinned " +
+            "applied_runtime_run_ids_json, roleplay_json, revisions_json, created_at, updated_at, model_id, is_pinned, " +
+            "parent_conversation_id, group_id " +
             "FROM conversations WHERE id = :conversationId"
     )
     suspend fun conversationMetadataRow(conversationId: String): ConversationMetadata?

@@ -40,6 +40,8 @@ internal class AgentConversationPersistence(initial: AgentConversationStore.Snap
         val database = EtaDatabase.get(context)
         val state = database.withTransaction {
             ConversationBranchRepository.create(database, sourceId, targetMessageId, branchId, title, now)
+            // 在同一事务里登记父子关系，分支在侧栏才能折叠到来源会话下。
+            database.conversationDao().setConversationParent(branchId, sourceId)
             checkNotNull(AgentConversationStore.loadConversation(context, branchId))
         }
         val content = Content(state, title, now)

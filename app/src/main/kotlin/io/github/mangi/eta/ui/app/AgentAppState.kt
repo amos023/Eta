@@ -94,6 +94,9 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import io.github.mangi.eta.ui.model.ConversationGroupUi
+import io.github.mangi.eta.data.db.EtaDatabase
+import io.github.mangi.eta.data.db.ConversationGroupEntity
 
 internal class AgentAppState(
     context: Context,
@@ -144,6 +147,10 @@ internal class AgentAppState(
     private var conversationTitles: Map<String, String> = initialConversations.titles
     private var conversationUpdatedAt: Map<String, Long> = initialConversations.updatedAt
     private var conversationPinnedIds: Set<String> = initialConversations.pinnedIds
+    private var conversationParents: Map<String, String> = initialConversations.parents
+    private var conversationGroups: Map<String, String> = initialConversations.groups
+    /** 手动分组定义；侧栏按 sortOrder 渲染。 */
+    private var groupDefinitions: List<ConversationGroupUi> = emptyList()
 
     var homeState by mutableStateOf(
         selectedConversationId?.let(conversationsById::get) ?: emptyChatState(defaultThinkingEnabled)
@@ -172,6 +179,7 @@ internal class AgentAppState(
 
     init {
         refreshConversationSummaries()
+        scope.launch { reloadGroupDefinitions() }
         observeRuntimeSelection()
         runtimeRecoveryInProgress.set(true)
         scope.launch(Dispatchers.IO) {
@@ -334,6 +342,8 @@ internal class AgentAppState(
             conversationTitles = snapshot.titles
             conversationUpdatedAt = snapshot.updatedAt
             conversationPinnedIds = snapshot.pinnedIds
+            conversationParents = snapshot.parents
+            conversationGroups = snapshot.groups
             conversationPersistence = AgentConversationPersistence(snapshot)
             fileAttachmentOwnerVersion += 1
             homeState = selectedConversationId
@@ -1015,6 +1025,86 @@ internal class AgentAppState(
         )
         refreshConversationSummaries()
         persistConversations()
+    }
+
+    // ── 会话分组 ────────────────────────────────────────────────────────────
+
+    /** 重新读取分组定义；建组、改名、删组后调用。 */
+    private suspend fun reloadGroupDefinitions() {
+        val rows = withContext(Dispatchers.IO) {
+            EtaDatabase.get(appContext).conversationDao().groups()
+        }
+        withContext(Dispatchers.Main.immediate) {
+            groupDefinitions = rows.map { ConversationGroupUi(it.id, it.name, it.sortOrder) }
+            refreshConversationSummaries()
+        }
+    }
+
+    /** 新建分组；同名允许不同 id，UI 上按 id 区分。 */
+    fun createConversationGroup(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        scope.launch {
+            val dao = EtaDatabase.get(appContext).conversationDao()
+            withContext(Dispatchers.IO) {
+                dao.insertGroup(
+                    ConversationGroupEntity(
+                        id = newGroupId(),
+                        name = trimmed,
+                        sortOrder = dao.nextGroupSortOrder(),
+                        createdAt = System.currentTimeMillis(),
+                    ),
+                )
+            }
+            reloadGroupDefinitions()
+        }
+    }
+
+    /** 把会话移入分组；[groupId] 为 null 表示移出到未分组。 */
+    fun assignConversationGroup(conversationId: String, groupId: String?) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                EtaDatabase.get(appContext).conversationDao()
+                    .setConversationGroup(conversationId, groupId)
+            }
+            withContext(Dispatchers.Main.immediate) {
+                conversationGroups = if (groupId == null) {
+                    conversationGroups - conversationId
+                } else {
+                    conversationGroups + (conversationId to groupId)
+                }
+                refreshConversationSummaries()
+            }
+        }
+    }
+
+    /** 重命名分组。 */
+    fun renameConversationGroup(groupId: String, name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        scope.launch {
+            val dao = EtaDatabase.get(appContext).conversationDao()
+            val existing = withContext(Dispatchers.IO) { dao.groups() }.firstOrNull { it.id == groupId }
+                ?: return@launch
+            withContext(Dispatchers.IO) { dao.insertGroup(existing.copy(name = trimmed)) }
+            reloadGroupDefinitions()
+        }
+    }
+
+    /** 删除分组；成员退回未分组，不删除任何会话。 */
+    fun deleteConversationGroup(groupId: String) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val dao = EtaDatabase.get(appContext).conversationDao()
+                dao.clearGroupMembers(groupId)
+                dao.deleteGroup(groupId)
+            }
+            withContext(Dispatchers.Main.immediate) {
+                conversationGroups = conversationGroups.filterValues { it != groupId }
+                refreshConversationSummaries()
+            }
+            reloadGroupDefinitions()
+        }
     }
 
     fun branchConversation(conversationId: String, messageId: String, draftText: String = homeState.input) {
@@ -2505,6 +2595,8 @@ internal class AgentAppState(
                     updatedAtMillis = conversationUpdatedAt[id] ?: 0L,
                     mode = ConversationModeUi.Chat,
                     isPinned = id in conversationPinnedIds,
+                    parentConversationId = conversationParents[id],
+                    groupId = conversationGroups[id],
                     characterName = state.roleplay?.characterName ?: state.conversationCharacterName,
                     characterAvatarPath = state.roleplay?.avatarPath ?: state.conversationCharacterAvatarPath,
                     isActiveRun = state.isStreaming,
@@ -2518,6 +2610,7 @@ internal class AgentAppState(
         val query = conversationPaneState.searchQuery.trim()
         conversationPaneState = conversationPaneState.copy(
             selectedConversationId = selectedConversationId,
+            groups = groupDefinitions,
             conversations = if (query.isBlank()) {
                 summaries
             } else {
@@ -2595,6 +2688,7 @@ internal class AgentAppState(
                 thinkingEnabled = thinkingEnabled,
             )
 
+        fun newGroupId(): String = "grp-${UUID.randomUUID()}"
         fun newConversationId(): String = "conv-${UUID.randomUUID()}"
     }
 }

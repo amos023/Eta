@@ -54,6 +54,10 @@ internal object AgentConversationStore {
         val titles: Map<String, String>,
         val updatedAt: Map<String, Long>,
         val pinnedIds: Set<String> = emptySet(),
+        /** 会话 -> 父会话（分支来源）。 */
+        val parents: Map<String, String> = emptyMap(),
+        /** 会话 -> 分组 id。 */
+        val groups: Map<String, String> = emptyMap(),
         /**
          * 加载后列表下标与库中 sort_index 不一致的会话。流式占位等未入库消息会在排序中留下空洞，
          * 重启后列表被压紧；增量保存按下标截断后缀，这些会话必须先整段重写一次。
@@ -201,6 +205,8 @@ internal object AgentConversationStore {
         val titles = mutableMapOf<String, String>()
         val updatedAt = mutableMapOf<String, Long>()
         val pinnedIds = mutableSetOf<String>()
+        val parents = mutableMapOf<String, String>()
+        val groups = mutableMapOf<String, String>()
         conversations.forEach { conversation ->
             val effort = ReasoningEffort.fromWireValue(conversation.reasoningEffort) ?: ReasoningEffort.DEFAULT
             val character = if (conversation.hasRoleplay) loadCharacterSummary(dao, conversation.id) else null
@@ -219,6 +225,8 @@ internal object AgentConversationStore {
             titles[conversation.id] = conversation.title.takeUnless { it == LEGACY_UNNAMED_TITLE }.orEmpty()
             updatedAt[conversation.id] = conversation.updatedAt
             if (conversation.isPinned) pinnedIds += conversation.id
+            conversation.parentConversationId?.takeIf { it.isNotBlank() }?.let { parents[conversation.id] = it }
+            conversation.groupId?.takeIf { it.isNotBlank() }?.let { groups[conversation.id] = it }
         }
 
         val selected = dao.state()?.selectedConversationId
@@ -236,6 +244,8 @@ internal object AgentConversationStore {
             titles = titles,
             updatedAt = updatedAt,
             pinnedIds = pinnedIds,
+            parents = parents,
+            groups = groups,
             unalignedConversationIds = unaligned,
         )
     }

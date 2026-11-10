@@ -11,6 +11,7 @@ import androidx.room.migration.Migration
     entities = [
         AgentTextChunkEntity::class,
         ConversationEntity::class,
+        ConversationGroupEntity::class,
         ConversationContextCheckpointEntity::class,
         ConversationMessageEntity::class,
         ConversationStateEntity::class,
@@ -26,7 +27,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -68,6 +69,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_22_23,
                         MIGRATION_23_24,
                         MIGRATION_24_25,
+                        MIGRATION_25_26,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -132,6 +134,22 @@ internal abstract class EtaDatabase : RoomDatabase() {
             database.execSQL("ALTER TABLE conversation_messages ADD COLUMN ttft_steps INTEGER")
             database.execSQL("ALTER TABLE conversation_messages ADD COLUMN decode_ms INTEGER")
             database.execSQL("ALTER TABLE conversation_messages ADD COLUMN decode_tokens INTEGER")
+        }
+
+        internal val MIGRATION_25_26 = Migration(25, 26) { database ->
+            // 会话分组：collections 与父子关系。
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS `conversation_groups` (" +
+                    "`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                    "`sort_order` INTEGER NOT NULL DEFAULT 0, `created_at` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`id`))"
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_conversation_groups_sort_order` " +
+                    "ON `conversation_groups` (`sort_order`)"
+            )
+            database.execSQL("ALTER TABLE conversations ADD COLUMN parent_conversation_id TEXT")
+            database.execSQL("ALTER TABLE conversations ADD COLUMN group_id TEXT")
         }
 
         private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {
