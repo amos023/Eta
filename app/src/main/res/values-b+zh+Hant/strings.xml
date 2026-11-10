@@ -1066,6 +1066,7 @@
   <plurals name="provider_configured_count">
     <item quantity="other">已設定供應商（共 %d 個）</item>
   </plurals>
+  <string name="provider_unconfigured_count">未設定（%1$d 個）</string>
   <string name="provider_sort_title">整理順序</string>
   <string name="provider_sort_by_name">按名稱</string>
   <string name="provider_sort_by_name_summary">按名稱排序，中文按拼音</string>

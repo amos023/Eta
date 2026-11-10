@@ -1095,6 +1095,7 @@
     <item quantity="one">Configured providers (%d)</item>
     <item quantity="other">Configured providers (%d)</item>
   </plurals>
+  <string name="provider_unconfigured_count">Not configured yet (%1$d)</string>
   <string name="provider_sort_title">Sort providers</string>
   <string name="provider_sort_by_name">By name</string>
   <string name="provider_sort_by_name_summary">Alphabetical, Chinese by pinyin</string>

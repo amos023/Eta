@@ -92,6 +92,13 @@ internal fun ModelProviderListScreen(
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
     }
 
+    val selectProvider: (String) -> Unit = { providerId ->
+        scope.launch {
+            RuntimeConfigRepository.setSelectedProviderId(providerId)
+            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+        }
+    }
+
     val filteredProviders = remember(providers, searchQuery) {
         val query = searchQuery.trim()
         providers.filter { provider ->
@@ -100,6 +107,14 @@ internal fun ModelProviderListScreen(
                 provider.baseUrl.contains(query, ignoreCase = true) ||
                 provider.typeLabel.contains(query, ignoreCase = true)
         }
+    }
+    // 零模型的提供商通常只是占位或还没配好，和有模型的混在一张卡里很难扫读；
+    // 拆成两个分组，卡片之间自然出现间距。分组内保持原有 sortOrder 顺序。
+    val configuredProviders = remember(filteredProviders) {
+        filteredProviders.filter { it.models.isNotEmpty() }
+    }
+    val unconfiguredProviders = remember(filteredProviders) {
+        filteredProviders.filter { it.models.isEmpty() }
     }
 
     when (LocalUiStyle.current) {
@@ -158,14 +173,14 @@ internal fun ModelProviderListScreen(
                     )
                 }
 
-                ProviderSection(
-                    title = pluralStringResource(
-                        R.plurals.provider_configured_count,
-                        filteredProviders.size,
-                        filteredProviders.size,
-                    ),
-                ) {
-                    if (filteredProviders.isEmpty()) {
+                if (filteredProviders.isEmpty()) {
+                    ProviderSection(
+                        title = pluralStringResource(
+                            R.plurals.provider_configured_count,
+                            filteredProviders.size,
+                            filteredProviders.size,
+                        ),
+                    ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -182,27 +197,39 @@ internal fun ModelProviderListScreen(
                                 color = colors.summary,
                             )
                         }
-                    } else {
-                        filteredProviders.forEachIndexed { index, provider ->
-                            ProviderListItem(
-                                provider = provider,
-                                isSelected = provider.id == selectedProviderId,
-                                onOpen = { onNavigate(AppRoute.ModelProviderDetail(provider.id)) },
-                                onDelete = if (!provider.isBuiltIn) {
-                                    { providerToDelete = provider }
-                                } else {
-                                    null
-                                },
-                                onSelect = {
-                                    scope.launch {
-                                        RuntimeConfigRepository.setSelectedProviderId(provider.id)
-                                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                                    }
-                                },
+                    }
+                } else {
+                    if (configuredProviders.isNotEmpty()) {
+                        ProviderSection(
+                            title = pluralStringResource(
+                                R.plurals.provider_configured_count,
+                                configuredProviders.size,
+                                configuredProviders.size,
+                            ),
+                        ) {
+                            ProviderGroupRows(
+                                providers = configuredProviders,
+                                selectedProviderId = selectedProviderId,
+                                onOpen = { onNavigate(AppRoute.ModelProviderDetail(it)) },
+                                onDelete = { providerToDelete = it },
+                                onSelect = selectProvider,
                             )
-                            if (index < filteredProviders.lastIndex) {
-                                CouiIconDivider()
-                            }
+                        }
+                    }
+                    if (unconfiguredProviders.isNotEmpty()) {
+                        ProviderSection(
+                            title = stringResource(
+                                R.string.provider_unconfigured_count,
+                                unconfiguredProviders.size,
+                            ),
+                        ) {
+                            ProviderGroupRows(
+                                providers = unconfiguredProviders,
+                                selectedProviderId = selectedProviderId,
+                                onOpen = { onNavigate(AppRoute.ModelProviderDetail(it)) },
+                                onDelete = { providerToDelete = it },
+                                onSelect = selectProvider,
+                            )
                         }
                     }
                 }
@@ -284,8 +311,14 @@ internal fun ModelProviderListScreen(
                 }
 
                 item(key = "list_section") {
-                    ProviderSection(title = pluralStringResource(R.plurals.provider_configured_count, filteredProviders.size, filteredProviders.size)) {
-                        if (filteredProviders.isEmpty()) {
+                    if (filteredProviders.isEmpty()) {
+                        ProviderSection(
+                            title = pluralStringResource(
+                                R.plurals.provider_configured_count,
+                                filteredProviders.size,
+                                filteredProviders.size,
+                            ),
+                        ) {
                             Box(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                                 contentAlignment = Alignment.Center,
@@ -300,23 +333,38 @@ internal fun ModelProviderListScreen(
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 )
                             }
-                        } else {
-                            filteredProviders.forEach { provider ->
-                                ProviderListItem(
-                                    provider = provider,
-                                    isSelected = provider.id == selectedProviderId,
-                                    onOpen = { onNavigate(AppRoute.ModelProviderDetail(provider.id)) },
-                                    onDelete = if (!provider.isBuiltIn) {
-                                        { providerToDelete = provider }
-                                    } else {
-                                        null
-                                    },
-                                    onSelect = {
-                                        scope.launch {
-                                            RuntimeConfigRepository.setSelectedProviderId(provider.id)
-                                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                                        }
-                                    },
+                        }
+                    } else {
+                        if (configuredProviders.isNotEmpty()) {
+                            ProviderSection(
+                                title = pluralStringResource(
+                                    R.plurals.provider_configured_count,
+                                    configuredProviders.size,
+                                    configuredProviders.size,
+                                ),
+                            ) {
+                                ProviderGroupRows(
+                                    providers = configuredProviders,
+                                    selectedProviderId = selectedProviderId,
+                                    onOpen = { onNavigate(AppRoute.ModelProviderDetail(it)) },
+                                    onDelete = { providerToDelete = it },
+                                    onSelect = selectProvider,
+                                )
+                            }
+                        }
+                        if (unconfiguredProviders.isNotEmpty()) {
+                            ProviderSection(
+                                title = stringResource(
+                                    R.string.provider_unconfigured_count,
+                                    unconfiguredProviders.size,
+                                ),
+                            ) {
+                                ProviderGroupRows(
+                                    providers = unconfiguredProviders,
+                                    selectedProviderId = selectedProviderId,
+                                    onOpen = { onNavigate(AppRoute.ModelProviderDetail(it)) },
+                                    onDelete = { providerToDelete = it },
+                                    onSelect = selectProvider,
                                 )
                             }
                         }
@@ -377,6 +425,37 @@ internal fun ModelProviderListScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * 一个分组内的提供商行。分隔线只在 COUI 下显式画：
+ * MIUIX 的 Card 会自己分隔条目，重复画会出现双线。
+ */
+@Composable
+private fun ProviderGroupRows(
+    providers: List<ProviderSetting>,
+    selectedProviderId: String?,
+    onOpen: (String) -> Unit,
+    onDelete: (ProviderSetting) -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    val showDivider = LocalUiStyle.current == AppearanceUiStyle.COUI
+    providers.forEachIndexed { index, provider ->
+        ProviderListItem(
+            provider = provider,
+            isSelected = provider.id == selectedProviderId,
+            onOpen = { onOpen(provider.id) },
+            onDelete = if (!provider.isBuiltIn) {
+                { onDelete(provider) }
+            } else {
+                null
+            },
+            onSelect = { onSelect(provider.id) },
+        )
+        if (showDivider && index < providers.lastIndex) {
+            CouiIconDivider()
         }
     }
 }
