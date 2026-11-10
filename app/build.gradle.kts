@@ -34,8 +34,13 @@ android {
     compileSdk = 37
     ndkVersion = libs.versions.ndk.get()
 
+    // 正式版需要与测试版共存：两者签名不同，同 applicationId 必然互相覆盖。
+    // 构建正式版时用 -Peta.appIdSuffix=.stable 派生独立安装标识，
+    // 代码包名（namespace）保持不变，类名与 JNI 符号都不受影响。
+    val appIdSuffix = providers.gradleProperty("eta.appIdSuffix").orNull.orEmpty()
+
     defaultConfig {
-        applicationId = "io.github.mangi.eta"
+        applicationId = "io.github.mangi.eta$appIdSuffix"
         minSdk = 33
         targetSdk = 37
         // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
