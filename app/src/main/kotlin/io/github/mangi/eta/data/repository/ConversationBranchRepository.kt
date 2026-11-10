@@ -87,8 +87,8 @@ internal object ConversationBranchRepository {
     private suspend fun loadJournal(dao: ConversationDao, id: String): List<ConversationMessage> {
         val stored = dao.contextCheckpointRow(id)?.journalJson?.takeIf { it.isNotBlank() }
             ?: throw ConversationBranchUnavailable()
-        return dao.openTextStream("conversation_context_checkpoints", id, "journal", stored).use {
-            AgentConversationCodec.decodeTranscript(it)
-        }
+        val raw = dao.openTextStream("conversation_context_checkpoints", id, "journal", stored)
+            .use { stream -> stream.readBytes().toString(Charsets.UTF_8) }
+        return AgentConversationCodec.decodeTranscriptLenient(raw)
     }
 }

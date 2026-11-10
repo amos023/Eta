@@ -374,9 +374,11 @@ internal object AgentConversationStore {
 
     private fun decodeCheckpoint(dao: ConversationDao, conversationId: String, field: String, stored: String?): List<AgentModelClient.ConversationMessage> {
         if (stored.isNullOrBlank()) return emptyList()
-        return dao.openTextStream("conversation_context_checkpoints", conversationId, field, stored).use { stream ->
-            AgentConversationCodec.decodeTranscript(stream)
-        }
+        // 读全串再容错解码：旧版本写下的 checkpoint 可能多编码一层，
+        // 直接抛异常会让整个 App 在启动加载会话时崩溃。
+        val raw = dao.openTextStream("conversation_context_checkpoints", conversationId, field, stored)
+            .use { stream -> stream.readBytes().toString(Charsets.UTF_8) }
+        return AgentConversationCodec.decodeTranscriptLenient(raw)
     }
 
     private suspend fun loadLegacyHistory(dao: ConversationDao, conversationId: String): List<AgentModelClient.ConversationMessage> =

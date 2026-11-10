@@ -2,6 +2,7 @@ package io.github.mangi.eta.data.repository
 
 import android.content.Context
 import androidx.room.withTransaction
+import io.github.mangi.eta.agent.model.AgentConversationCodec
 import io.github.mangi.eta.data.db.ConversationContextCheckpointEntity
 import io.github.mangi.eta.data.db.ConversationEntity
 import io.github.mangi.eta.data.db.ConversationMessageEntity
@@ -191,7 +192,7 @@ internal object EtaBackupRepository {
                             phase = "restore_checkpoints"
                             staged.checkpoints {
                                 cancellation.ensureActive()
-                                dao.insertContextCheckpoints(listOf(it))
+                                dao.insertContextCheckpoints(listOf(it.normalizedCheckpoint()))
                             }
                             document.conversationState?.let { dao.insertState(it) }
                             phase = "restore_roleplay"
@@ -289,4 +290,20 @@ internal object EtaBackupRepository {
         AndroidAgentLogger.error("Agent backup failed: operation=$operation phase=$phase " +
             "type=${failure.safeLogType()}\n${failure.safeStackTrace()}")
     }
+}
+
+/**
+ * 备份里的 checkpoint 可能来自把 transcript 多编码一层的旧版本。
+ * 导入时统一解成标准 JSON 再落库，避免坏数据进库后让会话加载崩溃。
+ */
+private fun ConversationContextCheckpointEntity.normalizedCheckpoint(): ConversationContextCheckpointEntity {
+    fun normalize(raw: String): String {
+        if (raw.isBlank()) return raw
+        val decoded = AgentConversationCodec.decodeTranscriptLenient(raw)
+        return if (decoded.isEmpty()) raw else AgentConversationCodec.encodeTranscriptForStorage(decoded)
+    }
+    return copy(
+        historyJson = normalize(historyJson),
+        journalJson = normalize(journalJson),
+    )
 }

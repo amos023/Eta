@@ -33,6 +33,21 @@ internal object AgentConversationCodec {
             json.decodeFromString<List<AgentModelClient.ConversationMessage>>(raw)
         }
 
+    /**
+     * 容错解码。历史版本存在把 transcript 多编码一层的情况：同一段 JSON 被当成字符串
+     * 再序列化一次，读回来是 `[{\"id\":...}]`，标准解码会直接抛异常并把整条会话拖崩。
+     * 这里逐级降级：标准解码 → 拆掉多余的一层字符串转义 → 放弃该段并返回空。
+     */
+    fun decodeTranscriptLenient(raw: String?): List<AgentModelClient.ConversationMessage> {
+        if (raw.isNullOrBlank()) return emptyList()
+        runCatching { decodeTranscript(raw) }.onSuccess { return it }
+        // 多编码一层：整段本身是一个 JSON 字符串，解开后才是 transcript。
+        runCatching { json.decodeFromString<String>(raw) }.onSuccess { inner ->
+            runCatching { decodeTranscript(inner) }.onSuccess { return it }
+        }
+        return emptyList()
+    }
+
     @OptIn(ExperimentalSerializationApi::class)
     fun decodeTranscript(input: InputStream): List<AgentModelClient.ConversationMessage> =
         json.decodeFromStream(input)
