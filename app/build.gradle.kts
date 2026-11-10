@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,10 +7,30 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-val releaseStoreFile = System.getenv("ETA_RELEASE_STORE_FILE")
-val releaseStorePassword = System.getenv("ETA_RELEASE_STORE_PASSWORD")
-val releaseKeyAlias = System.getenv("ETA_RELEASE_KEY_ALIAS")
-val releaseKeyPassword = System.getenv("ETA_RELEASE_KEY_PASSWORD")
+// 签名六件套：环境变量（CI 走这条）优先，缺省回落仓库根 keystore.properties。
+// keystore.properties 已在 .gitignore 中，只留在本机，不进版本库。
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val hasKeystoreProperties = keystorePropertiesFile.isFile
+if (hasKeystoreProperties) {
+    keystorePropertiesFile.inputStream().use { input ->
+        keystoreProperties.load(input)
+    }
+}
+
+fun signingValue(envName: String, propName: String): String? {
+    val fromEnv = System.getenv(envName)
+    if (fromEnv != null && fromEnv.isNotBlank()) return fromEnv
+    val fromFile = keystoreProperties.getProperty(propName)
+    if (fromFile != null && fromFile.isNotBlank()) return fromFile
+    return null
+}
+
+val releaseStoreFile = signingValue("ETA_RELEASE_STORE_FILE", "storeFile")
+val releaseStorePassword = signingValue("ETA_RELEASE_STORE_PASSWORD", "storePassword")
+val releaseKeyAlias = signingValue("ETA_RELEASE_KEY_ALIAS", "keyAlias")
+val releaseKeyPassword = signingValue("ETA_RELEASE_KEY_PASSWORD", "keyPassword")
+
 val hasReleaseSigning = listOf(
     releaseStoreFile,
     releaseStorePassword,
