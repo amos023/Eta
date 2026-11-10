@@ -4,6 +4,7 @@ import io.github.mangi.eta.agent.model.AgentContextSnapshot
 import io.github.mangi.eta.agent.model.AssistantScreenContextProjection
 
 import android.content.ComponentName
+import io.github.mangi.eta.BuildConfig
 import android.content.Intent
 import android.os.Bundle
 import android.os.Parcel
@@ -44,8 +45,12 @@ internal object AgentRuntimeWire {
         "Agent Runtime 请求元数据过大（$sizeBytes bytes）；请缩短输入或会话历史后重试"
     )
 
-    /** bind 获取服务端 Messenger 的 Intent action。 */
-    const val ACTION_BIND = "io.github.mangi.eta.agent.runtime.BIND"
+    /**
+     * bind 获取服务端 Messenger 的 Intent action。
+     * 从 applicationId 派生：正式版与测试版共存时，
+     * 若沿用固定 action，一方会绑到另一方的服务上。
+     */
+    val ACTION_BIND = "${BuildConfig.APPLICATION_ID}.agent.runtime.BIND"
 
     // Messenger.what
     /** client -> service：开始一次 Agent 运行，[Message.replyTo] 携带 client Messenger。 */
@@ -90,7 +95,8 @@ internal object AgentRuntimeWire {
     /** service -> client：返回各运行的会话归属与当前阶段。 */
     const val MSG_QUERY_ACTIVE_RUNS_RESPONSE = 17
 
-    private const val MODULE_PACKAGE = "io.github.mangi.eta"
+    /** 同进程内绑定自己：包名必须跟随 applicationId，不能写死。 */
+    private val MODULE_PACKAGE = BuildConfig.APPLICATION_ID
     private const val SERVICE_CLASS = "io.github.mangi.eta.agent.runtime.AgentRuntimeService"
 
     private const val KEY_TYPE = "type"
