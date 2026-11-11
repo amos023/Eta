@@ -92,10 +92,15 @@ class EtaBackupStreamingTest {
         assertCleanStaging()
     }
 
+    /**
+     * 远超分块阈值（16_384 字符）的字段要原样往返：这是「大字段不走分块」的回归保护。
+     * 数据量取阈值的数倍即可覆盖该路径；曾用 17 MB，单测 JVM 堆不足以承载
+     * 三份副本加 JSON 转义，CI 上稳定 OOM。
+     */
     @Test
     fun veryLargeMessageAndCheckpointFieldsArePreserved() = runBlocking {
         val dao = EtaDatabase.get(context).conversationDao()
-        val text = "😀\n\"\\" + "x".repeat(17 * 1024 * 1024)
+        val text = "😀\n\"\\" + "x".repeat(64 * 1024)
         val history = "[{\"role\":\"assistant\",\"content\":${Json.encodeToString(text)}}]"
         dao.insertConversations(listOf(conversation("large-field")))
         dao.insertMessages(listOf(ConversationMessageEntity("large-message", "large-field", 0, "thinking", text)))

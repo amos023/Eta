@@ -161,6 +161,8 @@ android {
                 "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
                 "--enable-native-access=ALL-UNNAMED",
             )
+            // 显式给出上限：此前依赖默认值（CI 上偏小），大字段用例会稳定 OOM。
+            it.maxHeapSize = "2g"
         }
     }
 }
