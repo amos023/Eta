@@ -665,6 +665,8 @@ private fun BoxScope.AssistantPanel(
                     AgentConversationMessages(
                         visibleMessages = state.messages,
                         scrollState = listState,
+                        // 语音浮层不提供「消息定位」，也不需要整表索引。
+                        conversationId = null,
                         isStreaming = state.phase == EtaVoicePhase.PROCESSING,
                         bottomInset = 8.dp,
                         keepBottomAnchored = keepBottomAnchored,

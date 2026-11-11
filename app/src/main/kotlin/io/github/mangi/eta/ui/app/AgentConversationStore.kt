@@ -320,6 +320,28 @@ internal object AgentConversationStore {
         return MessagePage(rows.mapNotNull { it.toMessageOrNull() }, startIndex, dao.hasMessagesBefore(conversationId, startIndex))
     }
 
+    /**
+     * 「消息定位」的全量候选：整个会话的用户提问，不受当前加载窗口限制。
+     * 只取 id 与正文，正文可能是分块存储，逐块还原。
+     */
+    suspend fun loadUserPrompts(context: Context, conversationId: String): List<Pair<String, String>> =
+        withContext(Dispatchers.IO) {
+            val database = EtaDatabase.get(context.applicationContext)
+            database.withTransaction {
+                val dao = database.conversationDao()
+                val ids = dao.userMessageIds(conversationId)
+                if (ids.isEmpty()) return@withTransaction emptyList()
+                val contents = buildMap {
+                    for (page in ids.chunked(MESSAGE_LOAD_PAGE_SIZE)) {
+                        dao.messageContents(conversationId, page).forEach { row ->
+                            put(row.id, dao.restoreText("conversation_messages", row.id, "content", row.content))
+                        }
+                    }
+                }
+                ids.map { id -> id to contents[id].orEmpty() }
+            }
+        }
+
     suspend fun loadAllMessages(context: Context, conversationId: String): List<AgentChatMessageUi> =
         withContext(Dispatchers.IO) {
             val database = EtaDatabase.get(context.applicationContext)
@@ -605,6 +627,6 @@ internal object AgentConversationStore {
     private const val TYPE_THINKING = "thinking"
     private const val TYPE_TOOL = "tool"
     private const val TYPE_TOOL_SUMMARY = "tool_summary"
-    private const val MESSAGE_LOAD_PAGE_SIZE = 128
+    private const val MESSAGE_LOAD_PAGE_SIZE = 256
     private const val LEGACY_UNNAMED_TITLE = "新对话"
 }

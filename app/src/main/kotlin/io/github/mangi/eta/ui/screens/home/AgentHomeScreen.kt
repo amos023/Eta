@@ -103,6 +103,8 @@ internal fun AgentHomeScreen(
                     onOpenBrowser = { onAction(AgentHomeAction.OpenBrowser) },
                     hasEarlierMessages = state.hasEarlierMessages,
                     messageStartIndex = state.messageStartIndex,
+                    conversationId = conversationKey,
+                    onRevealHiddenMessage = { id -> onAction(AgentHomeAction.RevealHiddenMessage(id)) },
                     historyLoadState = historyLoadState,
                     onLoadEarlierMessages = { onAction(AgentHomeAction.LoadEarlierMessages) },
                     onHistoryViewportChanged = { onAction(AgentHomeAction.HistoryViewportChanged(it)) },

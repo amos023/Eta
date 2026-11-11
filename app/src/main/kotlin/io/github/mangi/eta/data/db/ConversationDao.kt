@@ -180,6 +180,10 @@ internal interface ConversationDao : ChunkedTextDao {
     @Query("SELECT id, content FROM conversation_messages WHERE conversation_id = :conversationId AND id IN (:messageIds)")
     suspend fun messageContents(conversationId: String, messageIds: List<String>): List<ConversationMessageContent>
 
+    /** 「消息定位」用：整个会话的全部用户提问，与当前加载窗口无关。 */
+    @Query("SELECT id FROM conversation_messages WHERE conversation_id = :conversationId AND type = 'user' ORDER BY sort_index ASC")
+    suspend fun userMessageIds(conversationId: String): List<String>
+
     @Query("SELECT EXISTS(SELECT 1 FROM conversation_messages WHERE conversation_id = :conversationId AND id = :messageId)")
     suspend fun hasMessage(conversationId: String, messageId: String): Boolean
 

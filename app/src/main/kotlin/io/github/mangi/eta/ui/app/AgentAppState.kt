@@ -910,6 +910,71 @@ internal class AgentAppState(
 
     fun loadEarlierMessages() = changeMessageWindow(loadEarlier = true)
 
+    /**
+     * 「消息定位」跳转到不在当前窗口内的旧消息：把整个会话装进窗口。
+     * 用户主动点击才发生，且只此一次；随后列表可自由滚到任意位置，
+     * 不必再依赖逐页上翻把目标「翻」出来。
+     */
+    fun revealHiddenMessage(messageId: String) {
+        val conversationId = selectedConversationId ?: return
+        if (homeState.messages.any { it.id == messageId }) return
+        if (historyPageJob?.isActive == true || !homeState.isConversationLoaded ||
+            homeState.isStreaming || homeState.messageEdit != null) return
+        val pageVersion = ++historyPageVersion
+        historyPageReleasesEarlier = false
+        historyLoadState = ConversationHistoryLoadState.Loading
+        historyPageJob = scope.launch {
+            try {
+                conversationLoadMutex.withLock {
+                    val state = conversationsById[conversationId] ?: return@withLock
+                    if (state.messages.any { it.id == messageId }) return@withLock
+                    val title = conversationTitles[conversationId].orEmpty()
+                    val updatedAt = conversationUpdatedAt[conversationId] ?: 0L
+                    check(persistConversations().await()) { "Conversation persistence failed" }
+                    val all = AgentConversationStore.loadAllMessages(appContext, conversationId)
+                    if (all.isEmpty()) return@withLock
+                    val current = conversationsById[conversationId] ?: return@withLock
+                    if (!current.canReplaceMessageWindowOf(state)) return@withLock
+                    var window = RoleplayConversationReducer.decorate(
+                        state.copy(
+                            messages = all,
+                            messageStartIndex = 0,
+                            hasEarlierMessages = false,
+                        )
+                    )
+                    window = window.copy(roleplayOriginalContents = AgentConversationStore.loadRoleplayMessageContents(
+                        appContext, conversationId, RoleplayConversationReducer.requiredOriginalContentIds(window),
+                    ))
+                    conversationPersistence.adoptConversation(
+                        conversationId, window, title, updatedAt,
+                        conversationId in conversationPinnedIds,
+                    )
+                    val latest = conversationsById[conversationId] ?: return@withLock
+                    if (!latest.canReplaceMessageWindowOf(state)) return@withLock
+                    updateConversation(conversationId, latest.copy(
+                        messages = window.messages,
+                        messageStartIndex = window.messageStartIndex,
+                        hasEarlierMessages = window.hasEarlierMessages,
+                        roleplayOriginalContents = window.roleplayOriginalContents,
+                    ), updateTimestamp = false)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                AndroidAgentLogger.error("Agent message reveal failed: type=${failure.safeLogType()}")
+                if (historyPageVersion == pageVersion) {
+                    historyLoadState = ConversationHistoryLoadState.Failed
+                }
+            } finally {
+                if (historyPageVersion == pageVersion) {
+                    if (historyLoadState == ConversationHistoryLoadState.Loading) {
+                        historyLoadState = ConversationHistoryLoadState.Idle
+                    }
+                }
+            }
+        }
+    }
+
     fun updateHistoryViewport(atLatest: Boolean) {
         if (!atLatest) {
             if (historyPageReleasesEarlier) cancelHistoryPageLoad()

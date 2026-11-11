@@ -4,6 +4,8 @@ import io.github.mangi.eta.data.model.ReasoningEffort
 
 sealed interface AgentHomeAction {
     data object LoadEarlierMessages : AgentHomeAction
+    /** 定位到窗口外的旧消息：把整个会话装进窗口后滚到该条。 */
+    data class RevealHiddenMessage(val messageId: String) : AgentHomeAction
     data class HistoryViewportChanged(val atLatest: Boolean) : AgentHomeAction
     data object RetryConversationLoad : AgentHomeAction
     data object CompactContext : AgentHomeAction

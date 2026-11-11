@@ -419,6 +419,8 @@ fun AgentAppRoot(
                                     agentState.updateReasoningEffort(action.effort)
                                 AgentHomeAction.CompactContext -> agentState.compactCurrentContext()
                                 AgentHomeAction.LoadEarlierMessages -> agentState.loadEarlierMessages()
+                                is AgentHomeAction.RevealHiddenMessage ->
+                                    agentState.revealHiddenMessage(action.messageId)
                                 is AgentHomeAction.HistoryViewportChanged -> agentState.updateHistoryViewport(action.atLatest)
                                 AgentHomeAction.RetryConversationLoad -> agentState.retryConversationLoad()
                                 is AgentHomeAction.ModelSelected -> agentState.selectModel(action.modelId)
