@@ -16,9 +16,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 与打包并行且不接触签名 Secrets；失败不影响 APK 上传，但会阻止发版草稿
+  # 与打包并行且不接触签名 Secrets；失败不影响 APK 上传，但会阻止发版草稿。
+  #
+  # 只在推标签（发版）时跑：全套 lint + 2003 个用例在共享 runner 上要十几分钟，
+  # 每次推 main 都跑一遍对日常提交没有收益——编码阶段的反馈由本地构建提供，
+  # 发版前的把关由标签构建提供。
   verify:
     name: Lint 与单元测试
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
