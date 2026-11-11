@@ -627,6 +627,11 @@ internal object AgentConversationStore {
     private const val TYPE_THINKING = "thinking"
     private const val TYPE_TOOL = "tool"
     private const val TYPE_TOOL_SUMMARY = "tool_summary"
-    private const val MESSAGE_LOAD_PAGE_SIZE = 256
+    /**
+     * 单页加载的消息行数。思考与工具调用同样占行，实测长会话里一页仅有
+     * 约 4 条是用户消息，翻一页几乎看不到实质对话，因此放到 256。
+     * 测试直接引用此常量，避免页大小调整时散落硬编码跟着失效。
+     */
+    internal const val MESSAGE_LOAD_PAGE_SIZE = 256
     private const val LEGACY_UNNAMED_TITLE = "新对话"
 }

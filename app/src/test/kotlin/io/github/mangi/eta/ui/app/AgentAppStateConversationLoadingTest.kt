@@ -104,19 +104,20 @@ class AgentAppStateConversationLoadingTest {
 
     @Test
     fun loadingAnEarlierPageThenDeletingATurnPreservesTheEarlierPrefix() {
-        seed("first" to conversation("first", count = 150))
+        val total = AgentConversationStore.MESSAGE_LOAD_PAGE_SIZE + 22
+        seed("first" to conversation("first", count = total))
         val state = AgentAppState(context, scope)
         assertTrue(state.homeState.hasEarlierMessages)
-        assertEquals(128, state.homeState.messages.size)
+        assertEquals(AgentConversationStore.MESSAGE_LOAD_PAGE_SIZE, state.homeState.messages.size)
 
         state.loadEarlierMessages()
         awaitCondition { !state.isLoadingEarlierMessages && !state.homeState.hasEarlierMessages }
-        assertEquals((0 until 150).map { "first-$it" }, state.homeState.messages.map { it.id })
-        state.deleteMessageTurn("first-149")
-        awaitCondition { runBlocking { EtaDatabase.get(context).conversationDao().messageCount("first") == 149 } }
+        assertEquals((0 until total).map { "first-$it" }, state.homeState.messages.map { it.id })
+        state.deleteMessageTurn("first-${total - 1}")
+        awaitCondition { runBlocking { EtaDatabase.get(context).conversationDao().messageCount("first") == total - 1 } }
 
         val messages = runBlocking { AgentConversationStore.loadAllMessages(context, "first") }
-        assertEquals((0 until 149).map { "first-$it" }, messages.map { it.id })
+        assertEquals((0 until total - 1).map { "first-$it" }, messages.map { it.id })
     }
 
     @Test
@@ -136,20 +137,23 @@ class AgentAppStateConversationLoadingTest {
 
     @Test
     fun repeatedPrefetchRequestsLoadOnlyOnePage() {
-        seed("first" to conversation("first", count = 600))
+        val pageSize = AgentConversationStore.MESSAGE_LOAD_PAGE_SIZE
+        val total = pageSize * 3
+        seed("first" to conversation("first", count = total))
         val state = AgentAppState(context, scope)
 
         repeat(10) { state.loadEarlierMessages() }
         awaitCondition { !state.isLoadingEarlierMessages }
 
-        assertEquals(256, state.homeState.messages.size)
-        assertEquals(256, state.homeState.messages.map { it.id }.distinct().size)
-        assertEquals("first-344", state.homeState.messages.first().id)
+        assertEquals(pageSize * 2, state.homeState.messages.size)
+        assertEquals(pageSize * 2, state.homeState.messages.map { it.id }.distinct().size)
+        assertEquals("first-${total - pageSize * 2}", state.homeState.messages.first().id)
     }
 
     @Test
     fun switchingConversationCancelsAnOutstandingHistoryRead() {
-        seed("first" to conversation("first", count = 600), "second" to conversation("second"))
+        val total = AgentConversationStore.MESSAGE_LOAD_PAGE_SIZE * 3
+        seed("first" to conversation("first", count = total), "second" to conversation("second"))
         val state = AgentAppState(context, scope)
 
         state.loadEarlierMessages()
@@ -158,12 +162,13 @@ class AgentAppStateConversationLoadingTest {
 
         assertEquals(ConversationHistoryLoadState.Idle, state.historyLoadState)
         assertEquals(listOf("second-0", "second-1", "second-2"), state.homeState.messages.map { it.id })
-        assertEquals(600, runBlocking { EtaDatabase.get(context).conversationDao().messageCount("first") })
+        assertEquals(total, runBlocking { EtaDatabase.get(context).conversationDao().messageCount("first") })
     }
 
     @Test
     fun failedPageKeepsTheCurrentWindowAndCanBeRetried() {
-        val original = conversation("first", count = 300)
+        val pageSize = AgentConversationStore.MESSAGE_LOAD_PAGE_SIZE
+        val original = conversation("first", count = pageSize + 44)
         val longMessage = UserMessageUi("first-100", "历史正文".repeat(6_000))
         seed("first" to original.copy(messages = original.messages.map { if (it.id == longMessage.id) longMessage else it }))
         val state = AgentAppState(context, scope)
@@ -173,8 +178,8 @@ class AgentAppStateConversationLoadingTest {
 
         state.loadEarlierMessages()
         awaitCondition { state.historyLoadState == ConversationHistoryLoadState.Failed }
-        assertEquals(128, state.homeState.messages.size)
-        assertEquals("first-172", state.homeState.messages.first().id)
+        assertEquals(pageSize, state.homeState.messages.size)
+        assertEquals("first-44", state.homeState.messages.first().id)
 
         runBlocking {
             EtaDatabase.get(context).conversationDao().insertMessages(listOf(
@@ -185,34 +190,38 @@ class AgentAppStateConversationLoadingTest {
         awaitCondition { !state.isLoadingEarlierMessages }
         assertEquals(ConversationHistoryLoadState.Idle, state.historyLoadState)
         assertEquals(longMessage, state.homeState.messages.first { it.id == longMessage.id })
-        assertEquals(300, runBlocking { EtaDatabase.get(context).conversationDao().messageCount("first") })
+        assertEquals(pageSize + 44, runBlocking { EtaDatabase.get(context).conversationDao().messageCount("first") })
     }
 
     @Test
     fun returningToTheLatestMessagesReleasesOldPagesWithoutDeletingHistory() {
-        seed("first" to conversation("first", count = 600))
+        val pageSize = AgentConversationStore.MESSAGE_LOAD_PAGE_SIZE
+        val total = pageSize * 5
+        seed("first" to conversation("first", count = total))
         val state = AgentAppState(context, scope)
         repeat(3) {
             state.loadEarlierMessages()
             awaitCondition { !state.isLoadingEarlierMessages }
         }
-        assertEquals(512, state.homeState.messages.size)
+        assertEquals(pageSize * 4, state.homeState.messages.size)
 
         state.updateHistoryViewport(atLatest = true)
         awaitCondition { !state.isLoadingEarlierMessages }
-        assertEquals(128, state.homeState.messages.size)
-        assertEquals("first-472", state.homeState.messages.first().id)
-        assertEquals(600, runBlocking { EtaDatabase.get(context).conversationDao().messageCount("first") })
+        assertEquals(pageSize, state.homeState.messages.size)
+        assertEquals("first-${total - pageSize}", state.homeState.messages.first().id)
+        assertEquals(total, runBlocking { EtaDatabase.get(context).conversationDao().messageCount("first") })
 
         state.loadEarlierMessages()
         awaitCondition { !state.isLoadingEarlierMessages }
-        assertEquals(256, state.homeState.messages.size)
-        assertEquals("first-344", state.homeState.messages.first().id)
+        assertEquals(pageSize * 2, state.homeState.messages.size)
+        assertEquals("first-${total - pageSize * 2}", state.homeState.messages.first().id)
     }
 
     @Test
     fun scrollingBackToHistoryCancelsPageReleaseWithoutCancellingTheNextRead() {
-        seed("first" to conversation("first", count = 600))
+        val pageSize = AgentConversationStore.MESSAGE_LOAD_PAGE_SIZE
+        val total = pageSize * 5
+        seed("first" to conversation("first", count = total))
         val state = AgentAppState(context, scope)
         repeat(3) {
             state.loadEarlierMessages()
@@ -223,7 +232,7 @@ class AgentAppStateConversationLoadingTest {
         state.loadEarlierMessages()
         awaitCondition { !state.isLoadingEarlierMessages }
 
-        assertEquals(600, state.homeState.messages.size)
+        assertEquals(total, state.homeState.messages.size)
         assertFalse(state.homeState.hasEarlierMessages)
         assertEquals(ConversationHistoryLoadState.Idle, state.historyLoadState)
     }
