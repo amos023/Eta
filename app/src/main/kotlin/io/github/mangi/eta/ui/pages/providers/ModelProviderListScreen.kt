@@ -44,6 +44,7 @@ import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text as CouiText
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
@@ -110,11 +111,13 @@ internal fun ModelProviderListScreen(
     }
     // 零模型的提供商通常只是占位或还没配好，和有模型的混在一张卡里很难扫读；
     // 拆成两个分组，卡片之间自然出现间距。分组内保持原有 sortOrder 顺序。
+    // 判据不能只看「有没有模型」：内置提供商自带预置模型，没填 API Key 也会被算成
+    // 已配置，把真正配置好的挤下去。要求同时具备可用凭据才算已配置。
     val configuredProviders = remember(filteredProviders) {
-        filteredProviders.filter { it.models.isNotEmpty() }
+        filteredProviders.filter { it.models.isNotEmpty() && it.hasUsableCredentials() }
     }
     val unconfiguredProviders = remember(filteredProviders) {
-        filteredProviders.filter { it.models.isEmpty() }
+        filteredProviders.filter { it.models.isEmpty() || !it.hasUsableCredentials() }
     }
 
     when (LocalUiStyle.current) {
@@ -691,3 +694,15 @@ private fun ProviderSortRow(title: String, summary: String, onOpen: () -> Unit) 
         )
     }
 }
+
+/**
+ * 是否具备可用的调用凭据。
+ *
+ * - 填了 API Key：可用。
+ * - OAuth 登录（ChatGPT / Grok）：凭据不在 apiKey 字段，按 authMode 判断。
+ *
+ * 本地代理与内置占位项一律按同一标准判断：没有 Key 就是没配好，
+ * 免得「本地地址代理」这类 0 模型的空壳占据已配置分组。
+ */
+internal fun ProviderSetting.hasUsableCredentials(): Boolean =
+    apiKey.isNotBlank() || ProviderAuthModes.isOAuth(authMode)
