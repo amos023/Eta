@@ -1493,4 +1493,21 @@
   <string name="conversation_branch_title">%1$s · Branch</string>
   <string name="conversation_branch_unavailable">Cannot branch here: only turns with complete context and finished tool calls are supported.</string>
   <string name="conversation_branch_failed">Could not create a branch. The original conversation has been kept. Please try again.</string>
+
+  <string name="conversation_groups_caption">Groups</string>
+  <string name="conversation_group_delete">Delete group</string>
+  <string name="conversation_group_move_to">Move to group</string>
+  <string name="conversation_section_ungrouped">Ungrouped</string>
+  <string name="conversation_group_new">New group…</string>
+  <string name="conversation_group_new_title">Group name</string>
+  <string name="conversation_group_delete_summary">Conversations stay, the group is removed</string>
+  <string name="conversation_group_remove">Remove from group</string>
+  <string name="conversation_group_branch_count">%1$d branches</string>
+  <string name="conversation_files_title">Conversation files</string>
+  <string name="conversation_files_empty">No files shared in this conversation yet</string>
+  <string name="message_nav_title">Jump to a message</string>
+  <string name="message_nav_empty">No messages to jump to yet</string>
+  <string name="message_nav_jump_latest">Jump to latest</string>
+  <string name="message_nav_untitled">Untitled turn</string>
+  <string name="message_nav_hint">Tap an entry to scroll to that turn.</string>
 </resources>

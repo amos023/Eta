@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,6 +92,7 @@ import io.github.mangi.eta.data.repository.ConversationBranchBoundary
 import io.github.mangi.eta.ui.model.branchMessageOutline
 import io.github.mangi.eta.ui.app.AgentConversationRevisionReducer
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.app.AgentConversationStore
 import io.github.mangi.eta.ui.markdown.StreamingMarkdownStateCache
 import io.github.mangi.eta.ui.model.ConversationHistoryLoadState
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
@@ -117,6 +119,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.IconButtonDefaults
@@ -127,6 +131,7 @@ import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -178,6 +183,10 @@ internal fun AgentChatBody(
     onOpenBrowser: () -> Unit,
     hasEarlierMessages: Boolean = false,
     messageStartIndex: Int = 0,
+    /** 会话标识；消息定位要拉整个会话的提问，而不是只看已加载窗口。 */
+    conversationId: String? = null,
+    /** 定位到窗口外的旧消息。 */
+    onRevealHiddenMessage: (String) -> Unit = {},
     historyLoadState: ConversationHistoryLoadState = ConversationHistoryLoadState.Idle,
     onLoadEarlierMessages: () -> Unit = {},
     onHistoryViewportChanged: (Boolean) -> Unit = {},
@@ -303,6 +312,8 @@ internal fun AgentChatBody(
             currentBrowserMessageId = currentBrowserMessageId,
             hasEarlierMessages = hasEarlierMessages,
             messageStartIndex = messageStartIndex,
+            conversationId = conversationId,
+            onRevealHiddenMessage = onRevealHiddenMessage,
             historyLoadState = historyLoadState,
             onLoadEarlierMessages = onLoadEarlierMessages,
             onHistoryViewportChanged = onHistoryViewportChanged,
@@ -363,6 +374,8 @@ private fun AgentChatScaffold(
     currentBrowserMessageId: String?,
     hasEarlierMessages: Boolean,
     messageStartIndex: Int,
+    conversationId: String?,
+    onRevealHiddenMessage: (String) -> Unit,
     historyLoadState: ConversationHistoryLoadState,
     onLoadEarlierMessages: () -> Unit,
     onHistoryViewportChanged: (Boolean) -> Unit,
@@ -443,6 +456,8 @@ private fun AgentChatScaffold(
                 currentBrowserMessageId = currentBrowserMessageId,
                 hasEarlierMessages = hasEarlierMessages,
                 messageStartIndex = messageStartIndex,
+                conversationId = conversationId,
+                onRevealHiddenMessage = onRevealHiddenMessage,
                 historyLoadState = historyLoadState,
                 onLoadEarlierMessages = onLoadEarlierMessages,
                 onHistoryViewportChanged = onHistoryViewportChanged,
@@ -476,6 +491,8 @@ internal fun AgentConversationMessages(
     currentBrowserMessageId: String? = null,
     hasEarlierMessages: Boolean = false,
     messageStartIndex: Int = 0,
+    conversationId: String? = null,
+    onRevealHiddenMessage: (String) -> Unit = {},
     historyLoadState: ConversationHistoryLoadState = ConversationHistoryLoadState.Idle,
     onLoadEarlierMessages: () -> Unit = {},
     onHistoryViewportChanged: (Boolean) -> Unit = {},
@@ -521,6 +538,51 @@ internal fun AgentConversationMessages(
     }
     val earlierMessagesItemCount = if (hasEarlierMessages) 1 else 0
     val bottomItemIndex = timelineEntries.size + earlierMessagesItemCount
+    val context = LocalContext.current
+    // 列表按条目分组渲染，消息下标与条目下标不一致；定位与等待定位都要用同一换算。
+    fun timelineEntryIndexOf(messageId: String): Int = timelineEntries.indexOfFirst { entry ->
+        when (entry) {
+            is AgentTimelineEntry.Message -> entry.message.id == messageId
+            is AgentTimelineEntry.WorkProcess -> entry.messages.any { it.id == messageId }
+        }
+    }
+    var showMessageNavigator by remember { mutableStateOf(false) }
+    var pendingRevealMessageId by remember { mutableStateOf<String?>(null) }
+    val navScope = rememberCoroutineScope()
+
+    // 定位候选来自数据库整表而不是已加载窗口：窗口只装一页时，定位列表会退化成
+    // 「我翻两下就能看到的内容」，对长会话毫无用处。
+    var fullPromptIndex by remember(conversationId) { mutableStateOf<List<Pair<String, String>>?>(null) }
+    LaunchedEffect(conversationId) {
+        fullPromptIndex = null
+        if (conversationId != null) {
+            fullPromptIndex = withContext(Dispatchers.IO) {
+                AgentConversationStore.loadUserPrompts(context, conversationId)
+            }
+        }
+    }
+    // 索引尚未读回时先用窗口内的提问兜底，避免弹层空白。
+    val messageNavItems = remember(fullPromptIndex, visibleMessages) {
+        val indexed = fullPromptIndex
+        if (indexed.isNullOrEmpty()) {
+            visibleMessages.filterIsInstance<UserMessageUi>().map { message ->
+                MessageNavItem(
+                    messageId = message.id,
+                    prompt = AgentFileReferencePromptCodec.parse(message.content).request,
+                )
+            }
+        } else {
+            indexed.map { (id, content) ->
+                MessageNavItem(
+                    messageId = id,
+                    prompt = AgentFileReferencePromptCodec.parse(content).request,
+                )
+            }
+        }
+    }
+    LaunchedEffect(Unit) {
+        AgentMessageNavigation.openRequests.collect { showMessageNavigator = true }
+    }
     val isUserDragging by scrollState.interactionSource.collectIsDraggedAsState()
     val isAtBottom by remember(scrollState) {
         derivedStateOf { !scrollState.canScrollForward }
@@ -888,6 +950,42 @@ internal fun AgentConversationMessages(
             }
         }
     }
+    // 目标消息被读进窗口后立即定位；读完仍找不到（例如已被删除）就放弃，不卡住状态。
+    LaunchedEffect(pendingRevealMessageId, timelineEntries, historyLoadState) {
+        val target = pendingRevealMessageId ?: return@LaunchedEffect
+        val index = timelineEntryIndexOf(target)
+        if (index >= 0) {
+            onBottomAnchorChanged(false)
+            scrollState.scrollToItem(index + earlierMessagesItemCount)
+            pendingRevealMessageId = null
+        } else if (historyLoadState == ConversationHistoryLoadState.Failed) {
+            pendingRevealMessageId = null
+        }
+    }
+    MessageNavigatorSheet(
+        visible = showMessageNavigator,
+        items = messageNavItems,
+        onDismissRequest = { showMessageNavigator = false },
+        onJump = { item ->
+            showMessageNavigator = false
+            if (timelineEntryIndexOf(item.messageId) >= 0) {
+                onBottomAnchorChanged(false)
+                navScope.launch {
+                    scrollState.scrollToItem(timelineEntryIndexOf(item.messageId) + earlierMessagesItemCount)
+                }
+            } else {
+                // 目标还没在当前窗口里：先把它读进来，等它出现在列表后再滚。
+                pendingRevealMessageId = item.messageId
+                onRevealHiddenMessage(item.messageId)
+            }
+        },
+        onJumpToLatest = {
+            showMessageNavigator = false
+            onBottomAnchorChanged(true)
+            navScope.launch { scrollState.scrollToItem(bottomItemIndex) }
+        },
+    )
+
 }
 
 private data class BottomFollowLayout(

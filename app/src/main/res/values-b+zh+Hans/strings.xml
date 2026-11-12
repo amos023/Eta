@@ -1474,4 +1474,21 @@
   <string name="conversation_branch_title">%1$s · 分支</string>
   <string name="conversation_branch_unavailable">无法从此处分支：仅支持上下文完整且工具调用已结束的轮次。</string>
   <string name="conversation_branch_failed">创建分支失败，原对话已保留，请重试。</string>
+
+  <string name="conversation_groups_caption">分组</string>
+  <string name="conversation_group_delete">删除分组</string>
+  <string name="conversation_group_move_to">移入分组</string>
+  <string name="conversation_section_ungrouped">未分组</string>
+  <string name="conversation_group_new">新建分组…</string>
+  <string name="conversation_group_new_title">分组名称</string>
+  <string name="conversation_group_delete_summary">会话会保留，仅删除分组</string>
+  <string name="conversation_group_remove">移出分组</string>
+  <string name="conversation_group_branch_count">%1$d 个分支</string>
+  <string name="conversation_files_title">会话文件</string>
+  <string name="conversation_files_empty">此会话还没有发送过文件</string>
+  <string name="message_nav_title">消息定位</string>
+  <string name="message_nav_empty">还没有可定位的消息</string>
+  <string name="message_nav_jump_latest">跳到最新消息</string>
+  <string name="message_nav_untitled">无标题轮次</string>
+  <string name="message_nav_hint">点任意一条即可跳转到该轮对话。</string>
 </resources>

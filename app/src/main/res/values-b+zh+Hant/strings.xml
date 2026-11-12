@@ -1405,4 +1405,21 @@
   <string name="conversation_branch_title">%1$s · 分支</string>
   <string name="conversation_branch_unavailable">無法從此處分支：僅支援上下文完整且工具呼叫已結束的輪次。</string>
   <string name="conversation_branch_failed">建立分支失敗，原對話已保留，請重試。</string>
+
+  <string name="conversation_groups_caption">分組</string>
+  <string name="conversation_group_delete">刪除分組</string>
+  <string name="conversation_group_move_to">移入分組</string>
+  <string name="conversation_section_ungrouped">未分組</string>
+  <string name="conversation_group_new">新建分組…</string>
+  <string name="conversation_group_new_title">分組名稱</string>
+  <string name="conversation_group_delete_summary">會話會保留，僅刪除分組</string>
+  <string name="conversation_group_remove">移出分組</string>
+  <string name="conversation_group_branch_count">%1$d 個分支</string>
+  <string name="conversation_files_title">會話檔案</string>
+  <string name="conversation_files_empty">此會話還沒有傳送過檔案</string>
+  <string name="message_nav_title">訊息定位</string>
+  <string name="message_nav_empty">還沒有可定位的訊息</string>
+  <string name="message_nav_jump_latest">跳到最新訊息</string>
+  <string name="message_nav_untitled">無標題輪次</string>
+  <string name="message_nav_hint">點任意一則即可跳轉到該輪對話。</string>
 </resources>
