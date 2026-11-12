@@ -371,16 +371,17 @@ private fun UserMessageBubble(
             )
         }
         if (visiblePrompt.request.isNotBlank()) {
-            SelectionContainer {
-                Text(
-                    text = visiblePrompt.request,
-                    style = MiuixTheme.textStyles.body1.copy(
-                        lineHeight = 23.sp,
-                        lineHeightStyle = EditorialLineHeightStyle,
-                    ),
-                    color = MiuixTheme.colorScheme.onSurface,
-                )
-            }
+            // 不套 SelectionContainer：气泡整体挂在 combinedClickable 上，
+            // 文本选择容器会先接管长按，系统的复制/翻译浮条和自己的消息菜单会一起弹出。
+            // 用户消息通常很短，菜单里的「复制」已能整段取走正文。
+            Text(
+                text = visiblePrompt.request,
+                style = MiuixTheme.textStyles.body1.copy(
+                    lineHeight = 23.sp,
+                    lineHeightStyle = EditorialLineHeightStyle,
+                ),
+                color = MiuixTheme.colorScheme.onSurface,
+            )
         }
         if (message.isEdited) {
             Text(
