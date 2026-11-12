@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  会话文件可能位于共享存储的任意目录，这里按外部存储根路径与常见下载目录暴露，
+  只读授权通过 FLAG_GRANT_READ_URI_PERMISSION 临时授予查看器。
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-path name="external" path="." />
+    <root-path name="root" path="/" />
+</paths>

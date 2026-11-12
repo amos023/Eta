@@ -547,6 +547,7 @@ internal fun AgentConversationMessages(
         }
     }
     var showMessageNavigator by remember { mutableStateOf(false) }
+    var showConversationFiles by remember { mutableStateOf(false) }
     var pendingRevealMessageId by remember { mutableStateOf<String?>(null) }
     val navScope = rememberCoroutineScope()
 
@@ -583,6 +584,11 @@ internal fun AgentConversationMessages(
     LaunchedEffect(Unit) {
         AgentMessageNavigation.openRequests.collect { showMessageNavigator = true }
     }
+    LaunchedEffect(Unit) {
+        AgentMessageNavigation.fileOpenRequests.collect { showConversationFiles = true }
+    }
+    // 会话内所有用户消息携带的文件引用汇总，供「会话文件」展示。
+    val conversationFiles = remember(visibleMessages) { collectConversationFiles(visibleMessages) }
     val isUserDragging by scrollState.interactionSource.collectIsDraggedAsState()
     val isAtBottom by remember(scrollState) {
         derivedStateOf { !scrollState.canScrollForward }
@@ -962,6 +968,16 @@ internal fun AgentConversationMessages(
             pendingRevealMessageId = null
         }
     }
+    ConversationFilesSheet(
+        files = conversationFiles,
+        visible = showConversationFiles,
+        onDismissRequest = { showConversationFiles = false },
+        onOpen = { reference ->
+            // 交给系统按类型打开；文件已被移动或删除时静默失败并关闭弹层。
+            showConversationFiles = false
+            openConversationFile(context, reference)
+        },
+    )
     MessageNavigatorSheet(
         visible = showMessageNavigator,
         items = messageNavItems,

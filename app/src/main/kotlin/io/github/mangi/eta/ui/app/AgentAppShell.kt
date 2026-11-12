@@ -26,6 +26,8 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Terminal
@@ -62,6 +64,7 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.data.repository.SpeechSettingsRepository
+import io.github.mangi.eta.ui.components.AgentMessageNavigation
 import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
 import io.github.mangi.eta.ui.components.AgentTopBarChatHeader
 import io.github.mangi.eta.ui.components.ChatActionIcons
@@ -337,6 +340,8 @@ private fun CouiTopBarOverflowMenu(
     val autoReadText = stringResource(
         if (autoReadEnabled) R.string.speech_disable_auto_read else R.string.speech_enable_auto_read,
     )
+    val navigateMessageText = stringResource(R.string.message_nav_title)
+    val conversationFilesText = stringResource(R.string.conversation_files_title)
     val menuItems = remember(
         newConversationText,
         openTerminalText,
@@ -347,15 +352,20 @@ private fun CouiTopBarOverflowMenu(
         autoReadText,
         hasSpeechPlayback,
         autoReadEnabled,
+        navigateMessageText,
+        conversationFilesText,
     ) {
+        // 菜单顺序：按文案字数从少到多排列，Kimi Web 两项固定垫底（安装放最后一项）。
+        // 用固定序号而不是运行时对文案排序：切语言后文案长度会变，动态排序会让顺序来回跳。
         buildList {
+            // 4 字
             add(CouiMenuItem(value = 0, text = newConversationText, icon = ChatActionIcons.NewChat))
+            add(CouiMenuItem(value = 6, text = navigateMessageText, icon = Icons.Rounded.FormatListNumbered))
+            add(CouiMenuItem(value = 7, text = conversationFilesText, icon = Icons.Rounded.FolderOpen))
             add(CouiMenuItem(value = 1, text = openTerminalText, icon = Icons.Rounded.Terminal))
-            add(CouiMenuItem(value = 2, text = kimiWebLabel, icon = Icons.Rounded.Code))
+            // 5 字
             add(CouiMenuItem(value = 3, text = openBrowserText, icon = Icons.Rounded.Language))
-            if (canStopKimiWeb) {
-                add(CouiMenuItem(value = 4, text = stopKimiWebText, icon = Icons.Rounded.Stop))
-            }
+            // 6 字（条件项）
             if (hasSpeechPlayback) {
                 add(
                     CouiMenuItem(
@@ -365,6 +375,11 @@ private fun CouiTopBarOverflowMenu(
                     ),
                 )
             }
+            // Kimi Web：固定垫底，安装放最后一项。
+            if (canStopKimiWeb) {
+                add(CouiMenuItem(value = 4, text = stopKimiWebText, icon = Icons.Rounded.Stop))
+            }
+            add(CouiMenuItem(value = 2, text = kimiWebLabel, icon = Icons.Rounded.Code))
         }
     }
 
@@ -392,6 +407,8 @@ private fun CouiTopBarOverflowMenu(
                     2 -> onLaunchKimiWeb()
                     3 -> onOpenBrowser()
                     4 -> onStopKimiWeb()
+                    6 -> AgentMessageNavigation.requestOpen()
+                    7 -> AgentMessageNavigation.requestOpenFiles()
                     5 -> speechSettings?.let { current ->
                         scope.launch {
                             SpeechSettingsRepository.save(current.copy(chatAutoSpeak = !current.chatAutoSpeak))
