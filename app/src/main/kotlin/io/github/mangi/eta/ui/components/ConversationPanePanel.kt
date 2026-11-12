@@ -1055,7 +1055,9 @@ private fun ConversationDrawerGroup.localizedLabel(): String = when (val value =
 private fun List<ConversationSummaryUi>.groupForDrawer(
     folders: List<ConversationGroupUi> = emptyList(),
 ): List<ConversationDrawerGroup> {
-    if (isEmpty()) return emptyList()
+    // 会话为空但有分组时仍要渲染：否则新建的空分组永远不可见，
+    // 也就没有任何入口把会话移进去。
+    if (isEmpty() && folders.isEmpty()) return emptyList()
     val result = mutableListOf<ConversationDrawerGroup>()
 
     val pinned = filter { it.isPinned }
@@ -1066,8 +1068,9 @@ private fun List<ConversationSummaryUi>.groupForDrawer(
 
     val groupedByFolder = rest.filter { !it.groupId.isNullOrBlank() }.groupBy { it.groupId!! }
     folders.forEach { folder ->
-        val members = groupedByFolder[folder.id] ?: return@forEach
-        if (members.isEmpty()) return@forEach
+        // 空分组也要显示：用户新建分组后正是要先看到它，才能把会话移进去。
+        // 之前跳过空组会让「新建分组」看起来毫无反应。
+        val members = groupedByFolder[folder.id].orEmpty()
         result += ConversationDrawerGroup(
             section = ConversationDrawerSection.Folder(folder.id, folder.name),
             items = members,

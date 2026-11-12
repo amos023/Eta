@@ -352,6 +352,12 @@ fun AgentAppRoot(
             onConversationRename = { conversation ->
                 conversationRenameTarget = conversation
             },
+            onConversationAssignGroup = { conversation, groupId ->
+                agentState.assignConversationGroup(conversation.id, groupId)
+            },
+            onCreateGroup = { name -> agentState.createConversationGroup(name) },
+            onDeleteGroup = { groupId -> agentState.deleteConversationGroup(groupId) },
+            onRenameGroup = { groupId, name -> agentState.renameConversationGroup(groupId, name) },
             onConversationExport = { conversation ->
                 conversationExportTarget = conversation
                 conversationExportLauncher.launch(
