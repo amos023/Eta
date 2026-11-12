@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
@@ -316,6 +317,7 @@ internal fun ChatStatsPopoverPopup(
 ) {
     val density = LocalDensity.current
     val positionProvider = remember(density) { StatsPopoverPositionProvider(density) }
+    val windowWidth = with(density) { LocalWindowInfo.current.containerSize.width.toDp() }
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val couiDark = CouiTheme.isDark
 
@@ -359,10 +361,18 @@ internal fun ChatStatsPopoverPopup(
                 )
         }
 
-        Column(
-            modifier = cardModifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            content = content,
-        )
+        // 水平位置交给布局：外层显式取窗口宽度、卡片在内部居中。
+        // 不用 fillMaxWidth：Popup 的内容约束是 wrap-content，撑不满窗口；
+        // 也不用按锚点算坐标再 clamp，那样在右下角会被压到边界、左右留白不等。
+        Box(
+            modifier = Modifier.width(windowWidth),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Column(
+                modifier = cardModifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                content = content,
+            )
+        }
     }
 }
 
@@ -523,14 +533,9 @@ private class StatsPopoverPositionProvider(
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
     ): IntOffset {
-        val minX = marginPx
-        val maxX = (windowSize.width - popupContentSize.width - marginPx).coerceAtLeast(minX)
-        val preferredX = if (layoutDirection == LayoutDirection.Rtl) {
-            anchorBounds.right - popupContentSize.width
-        } else {
-            anchorBounds.left
-        }
-        val x = preferredX.coerceIn(minX, maxX)
+        // 宽度已由内容占满窗口，水平位置固定为 0，
+        // 居中由 Box 的 TopCenter 完成，不在这里做 clamp。
+        val x = 0
 
         val aboveY = anchorBounds.top - popupContentSize.height - verticalGapPx
         val belowY = anchorBounds.bottom + verticalGapPx

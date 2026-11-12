@@ -8,7 +8,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,7 +92,19 @@ internal fun EtaSpeechFeedback(
                     .heightIn(min = 36.dp)
                     .clip(CircleShape)
                     .background(colors.chipBackground)
-                    .border(0.75.dp, colors.chipStroke, CircleShape)
+                    // 不用 border：描边骑在边界上，一半会被 clip 裁掉，四角出现缺口。
+                    // 改为内缩半个线宽自绘圆角矩形，四边完整；与排队条保持一致。
+                    .drawBehind {
+                        val stroke = 0.75.dp.toPx()
+                        val inset = stroke / 2f
+                        drawRoundRect(
+                            color = colors.chipStroke,
+                            topLeft = Offset(inset, inset),
+                            size = Size(size.width - stroke, size.height - stroke),
+                            cornerRadius = CornerRadius(size.height / 2f - inset, size.height / 2f - inset),
+                            style = Stroke(width = stroke),
+                        )
+                    }
                     .then(
                         if (speech.configureAvailable) {
                             Modifier.clickable(onClick = onOpenSpeechSettings)

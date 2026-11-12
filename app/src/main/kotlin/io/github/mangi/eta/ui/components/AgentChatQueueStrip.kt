@@ -48,8 +48,6 @@ import io.github.mangi.eta.ui.model.QueuedMessageUi
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val QueueContainerCornerRadius = 16.dp
@@ -86,18 +84,14 @@ internal fun AgentChatQueueStrip(
     )
     val first = queuedMessages.first()
 
+    // 不用 squircleSurface + squircleBorder：两者叠加时描边按曲线算、与背景填充范围不一致，
+    // 四周会被切出缺口。这里只保留圆角底色，不描边。
+    val queueShape = RoundedCornerShape(QueueContainerCornerRadius)
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .squircleSurface(
-                color = MiuixTheme.colorScheme.surfaceContainer,
-                cornerRadius = QueueContainerCornerRadius,
-            )
-            .squircleBorder(
-                width = 0.5.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
-                cornerRadius = QueueContainerCornerRadius,
-            ),
+            .clip(queueShape)
+            .background(MiuixTheme.colorScheme.surfaceContainer, queueShape),
     ) {
         Row(
             modifier = Modifier
