@@ -144,9 +144,8 @@ internal fun VirtualDisplayStageSection(
     snapshot: VirtualDisplaySnapshot,
     accent: Color,
     isPaused: Boolean,
+    // 画布上的点按会自动切到接管；按钮本身已经移到外层动作行。
     onTakeOver: () -> Unit,
-    onResumeAuto: () -> Unit,
-    onFullscreen: () -> Unit,
     onTapCanvas: (Float, Float, Boolean) -> Unit,
     onSwipeCanvas: (Float, Float, Float, Float, Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -246,59 +245,6 @@ internal fun VirtualDisplayStageSection(
             )
         }
 
-        Spacer(Modifier.height(10.dp))
-
-        // ── 极简画廊信息与接管栏 ───────────────────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val modeLabel = stringResource(
-                if (snapshot.userControlling || isPaused) {
-                    R.string.overlay_virtual_canvas_takeover
-                } else {
-                    R.string.overlay_virtual_canvas_auto
-                },
-            )
-            val footerTitle = if (snapshot.appName.isNotBlank()) {
-                "${snapshot.appName} · $modeLabel"
-            } else {
-                modeLabel
-            }
-            Text(
-                text = footerTitle,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            StagePillButton(
-                label = stringResource(
-                    if (snapshot.userControlling || isPaused) {
-                        R.string.overlay_virtual_continue
-                    } else {
-                        R.string.overlay_virtual_takeover
-                    },
-                ),
-                highlighted = snapshot.userControlling || isPaused,
-                accent = accent,
-                onClick = {
-                    if (snapshot.userControlling || isPaused) onResumeAuto() else onTakeOver()
-                },
-            )
-            Spacer(Modifier.width(6.dp))
-            StagePillButton(
-                label = stringResource(R.string.overlay_virtual_fullscreen),
-                highlighted = false,
-                accent = accent,
-                onClick = onFullscreen,
-            )
-        }
     }
 }
 
@@ -486,7 +432,7 @@ internal fun VirtualDisplayMaterializeOverlay(
 
 private val StageMattePadding = 10.dp
 private val StageCanvasCorner = 18.dp
-internal val StageCanvasHeight = 336.dp
+internal val StageCanvasHeight = 376.dp
 internal val StageCapsuleWidth = 296.dp
 internal val MicroLensCapsuleWidth = 264.dp
 internal val DefaultCapsuleWidth = 248.dp

@@ -38,6 +38,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Stop
@@ -265,8 +267,6 @@ internal fun AgentOverlayCapsule(
                                 accent = accent,
                                 isPaused = state.phase == AgentOverlayPhase.PAUSED,
                                 onTakeOver = onTakeOverVirtualDisplay,
-                                onResumeAuto = onResumeVirtualDisplay,
-                                onFullscreen = onFullscreenVirtualDisplay,
                                 onTapCanvas = onTapVirtualCanvas,
                                 onSwipeCanvas = onSwipeVirtualCanvas,
                             )
@@ -283,37 +283,77 @@ internal fun AgentOverlayCapsule(
                                 },
                             )
                         } else {
+                            // 接管固定最左、全屏固定最右，中间的编辑/暂停/停止保持居中：
+                            // 左右各放一个等重量的槽位，无论接管与全屏在不在，中间那组都不会偏移。
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                CapsuleAction(
-                                    icon = Icons.Rounded.Edit,
-                                    label = stringResource(R.string.overlay_supplement),
-                                    tint = MiuixTheme.colorScheme.onSurface,
-                                    onClick = { setSupplementMode(true) },
-                                )
-                                if (state.phase == AgentOverlayPhase.RUNNING) {
+                                Box(
+                                    modifier = Modifier.weight(1f),
+                                    contentAlignment = Alignment.CenterStart,
+                                ) {
+                                    if (virtualDisplay.active) {
+                                        val controlling =
+                                            virtualDisplay.userControlling || state.phase == AgentOverlayPhase.PAUSED
+                                        CapsuleAction(
+                                            icon = Icons.Rounded.TouchApp,
+                                            label = stringResource(
+                                                if (controlling) {
+                                                    R.string.overlay_virtual_continue
+                                                } else {
+                                                    R.string.overlay_virtual_takeover
+                                                },
+                                            ),
+                                            tint = if (controlling) accent else MiuixTheme.colorScheme.onSurface,
+                                            onClick = {
+                                                if (controlling) onResumeVirtualDisplay() else onTakeOverVirtualDisplay()
+                                            },
+                                        )
+                                    }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     CapsuleAction(
-                                        icon = Icons.Rounded.Pause,
-                                        label = stringResource(R.string.overlay_pause),
+                                        icon = Icons.Rounded.Edit,
+                                        label = stringResource(R.string.overlay_supplement),
                                         tint = MiuixTheme.colorScheme.onSurface,
-                                        onClick = onPause,
+                                        onClick = { setSupplementMode(true) },
                                     )
-                                } else if (state.phase == AgentOverlayPhase.PAUSED) {
+                                    if (state.phase == AgentOverlayPhase.RUNNING) {
+                                        CapsuleAction(
+                                            icon = Icons.Rounded.Pause,
+                                            label = stringResource(R.string.overlay_pause),
+                                            tint = MiuixTheme.colorScheme.onSurface,
+                                            onClick = onPause,
+                                        )
+                                    } else if (state.phase == AgentOverlayPhase.PAUSED) {
+                                        CapsuleAction(
+                                            icon = Icons.Rounded.PlayArrow,
+                                            label = stringResource(R.string.overlay_resume),
+                                            tint = MiuixTheme.colorScheme.primary,
+                                            onClick = onResume,
+                                        )
+                                    }
                                     CapsuleAction(
-                                        icon = Icons.Rounded.PlayArrow,
-                                        label = stringResource(R.string.overlay_resume),
-                                        tint = MiuixTheme.colorScheme.primary,
-                                        onClick = onResume,
+                                        icon = Icons.Rounded.Stop,
+                                        label = stringResource(R.string.action_stop),
+                                        tint = MiuixTheme.colorScheme.error,
+                                        onClick = onStop,
                                     )
                                 }
-                                CapsuleAction(
-                                    icon = Icons.Rounded.Stop,
-                                    label = stringResource(R.string.action_stop),
-                                    tint = MiuixTheme.colorScheme.error,
-                                    onClick = onStop,
-                                )
+                                Box(
+                                    modifier = Modifier.weight(1f),
+                                    contentAlignment = Alignment.CenterEnd,
+                                ) {
+                                    if (virtualDisplay.active) {
+                                        CapsuleAction(
+                                            icon = Icons.Rounded.Fullscreen,
+                                            label = stringResource(R.string.overlay_virtual_fullscreen),
+                                            tint = MiuixTheme.colorScheme.onSurface,
+                                            onClick = onFullscreenVirtualDisplay,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
