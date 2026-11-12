@@ -77,6 +77,9 @@ internal data class ProviderModelEntity(
     @ColumnInfo(name = "owned_by") val ownedBy: String?,
     @ColumnInfo(name = "context_window") val contextWindow: Int?,
     @ColumnInfo(name = "context_window_override") val contextWindowOverride: Int?,
+    // 输出上限功能已下线，两列仅为兼容已升级到 27 的库而保留，不再读写。
+    @ColumnInfo(name = "max_output_tokens") val maxOutputTokens: Int? = null,
+    @ColumnInfo(name = "max_output_tokens_override") val maxOutputTokensOverride: Int? = null,
     @ColumnInfo(name = "input_modalities_json") val inputModalitiesJson: String,
     @ColumnInfo(name = "output_modalities_json") val outputModalitiesJson: String,
     @ColumnInfo(name = "attachment") val attachment: Boolean?,

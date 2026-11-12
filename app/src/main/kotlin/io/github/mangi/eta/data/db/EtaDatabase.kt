@@ -27,7 +27,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 26,
+    version = 27,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -70,6 +70,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_23_24,
                         MIGRATION_24_25,
                         MIGRATION_25_26,
+                        MIGRATION_26_27,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -150,6 +151,12 @@ internal abstract class EtaDatabase : RoomDatabase() {
             )
             database.execSQL("ALTER TABLE conversations ADD COLUMN parent_conversation_id TEXT")
             database.execSQL("ALTER TABLE conversations ADD COLUMN group_id TEXT")
+        }
+
+        internal val MIGRATION_26_27 = Migration(26, 27) { database ->
+            // 模型级输出上限：远端值 + 用户覆盖值，两条都允许为空。
+            database.execSQL("ALTER TABLE provider_models ADD COLUMN max_output_tokens INTEGER")
+            database.execSQL("ALTER TABLE provider_models ADD COLUMN max_output_tokens_override INTEGER")
         }
 
         private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {
