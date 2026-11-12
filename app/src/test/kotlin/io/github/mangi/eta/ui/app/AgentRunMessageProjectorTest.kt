@@ -51,13 +51,79 @@ class AgentRunMessageProjectorTest {
         val projector = AgentRunMessageProjector { 1_000L }
         val messages = projector.appendTextDelta("run", 1, 0, "回答", emptyList())
         listOf(
-            AgentEvent.RoundStarted(1, 2),
             AgentEvent.ProviderRequestStarted(1),
             AgentEvent.AssistantReceived(1, 2, "", emptyList()),
             AgentEvent.UsageReceived(1, AgentTokenUsage(null, null, null, null, null)),
             AgentEvent.UsageReceived(9, AgentTokenUsage(null, 10, 2, null, null)),
             AgentEvent.UserSupplementReceived(0, "补充"),
         ).forEach { event -> assertSame(event.toString(), messages, projector.applyEvent("run", event, messages)) }
+    }
+
+    /** 轮次开始即占一条占位思考：发送到首个分片之间界面必须有反馈，不能空白。 */
+    @Test
+    fun roundStartInsertsPendingThinkingPlaceholderBeforeFirstToken() {
+        val projector = AgentRunMessageProjector { 1_000L }
+        val started = projector.applyEvent("run", AgentEvent.RoundStarted(1, 2), emptyList())
+        val thinking = started.filterIsInstance<ThinkingMessageUi>().single()
+        assertEquals("run-thinking-1-pending", thinking.id)
+        assertEquals("", thinking.content)
+        assertTrue(thinking.isStreaming)
+        // 同一轮再次收到轮次开始不重复插入
+        assertSame(started, projector.applyEvent("run", AgentEvent.RoundStarted(1, 2), started))
+    }
+
+    /** 占位思考收到权威内容时就地转正，不会多出一条空块。 */
+    @Test
+    fun pendingThinkingIsFilledByAuthoritativeReasoningInsteadOfAppendingAnother() {
+        val projector = AgentRunMessageProjector { 1_000L }
+        var messages = projector.applyEvent("run", AgentEvent.RoundStarted(1, 2), emptyList())
+        messages = projector.applyEvent("run", AgentEvent.AssistantReceived(1, 1, "先看构建脚本", emptyList()), messages)
+        val thinking = messages.filterIsInstance<ThinkingMessageUi>().single()
+        assertEquals("run-thinking-1-pending", thinking.id)
+        assertEquals("先看构建脚本", thinking.content)
+        assertFalse(thinking.isStreaming)
+    }
+
+    /** 模型没吐 reasoning 的轮次不能留下「展开后什么都没有」的思考条目。 */
+    @Test
+    fun blankReasoningNeverProducesExpandableThinkingEntry() {
+        val projector = AgentRunMessageProjector { 1_000L }
+        var messages = projector.applyEvent("run", AgentEvent.RoundStarted(1, 2), emptyList())
+        // 纯空白分片不建条目
+        assertSame(messages, projector.appendReasoningDelta("run", 1, 0, " ", messages))
+        assertSame(messages, projector.appendReasoningDelta("run", 1, 0, "\n\t", messages))
+        // 权威内容为空时占位条目被丢弃，不留空壳
+        val received = projector.applyEvent("run", AgentEvent.AssistantReceived(1, 1, "", emptyList()), messages)
+        assertTrue(received.filterIsInstance<ThinkingMessageUi>().isEmpty())
+    }
+
+    /** 占位思考被首个分片就地接管，不会同时留下占位与真实内容两条。 */
+    @Test
+    fun firstDeltaTakesOverPlaceholderInsteadOfLeavingTwoThinkingBlocks() {
+        val projector = AgentRunMessageProjector { 1_000L }
+        var messages = projector.applyEvent("run", AgentEvent.RoundStarted(1, 2), emptyList())
+        messages = projector.appendReasoningDelta("run", 1, 0, "开始分析", messages)
+        val thinking = messages.filterIsInstance<ThinkingMessageUi>()
+        assertEquals("占位应只有一条", 1, thinking.size)
+        assertEquals("run-thinking-1-0", thinking.single().id)
+        assertEquals("开始分析", thinking.single().content)
+        // 后续分片继续追加到同一条
+        messages = projector.appendReasoningDelta("run", 1, 0, "，再看文件", messages)
+        assertEquals("开始分析，再看文件", messages.filterIsInstance<ThinkingMessageUi>().single().content)
+    }
+
+    /** 同一轮多个思考块按 index 保持独立，不能被合并成一条。 */
+    @Test
+    fun multipleThinkingBlocksInSameRoundStaySeparate() {
+        val projector = AgentRunMessageProjector { 1_000L }
+        var messages = projector.appendReasoningDelta("run", 1, 0, "第一块", emptyList())
+        messages = projector.finalizeThinkingBlock("run", 1, 0, null, messages)
+        messages = projector.appendReasoningDelta("run", 1, 2, "第二块", messages)
+        messages = projector.finalizeThinkingBlock("run", 1, 2, null, messages)
+        val thinking = messages.filterIsInstance<ThinkingMessageUi>()
+        assertEquals(2, thinking.size)
+        assertEquals("第一块", thinking[0].content)
+        assertEquals("第二块", thinking[1].content)
     }
 
     @Test

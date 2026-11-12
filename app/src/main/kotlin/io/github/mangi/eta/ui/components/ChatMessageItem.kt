@@ -1362,13 +1362,20 @@ internal fun ThinkingRow(
                 },
                 modifier = Modifier.weight(1f, fill = !compact),
             )
-            ExpandChevron(
-                expanded = expanded,
-                contentDescription = stringResource(
-                    if (expanded) R.string.reasoning_collapse else R.string.reasoning_expand,
-                ),
-                modifier = Modifier.padding(start = 4.dp, end = if (compact) 4.dp else 0.dp),
-            )
+            // 等待首 token 时没有内容可展开，箭头原位换成三圆点，切换时不产生位移。
+            if (message.isStreaming && message.content.isBlank()) {
+                AITypingIndicator(
+                    modifier = Modifier.padding(start = 4.dp, end = if (compact) 4.dp else 0.dp),
+                )
+            } else {
+                ExpandChevron(
+                    expanded = expanded,
+                    contentDescription = stringResource(
+                        if (expanded) R.string.reasoning_collapse else R.string.reasoning_expand,
+                    ),
+                    modifier = Modifier.padding(start = 4.dp, end = if (compact) 4.dp else 0.dp),
+                )
+            }
         }
 
         AnimatedVisibility(visible = expanded && message.content.isNotBlank()) {

@@ -63,17 +63,43 @@ internal class AgentRunMessageProjector(
         }
         is AgentEvent.ModelRetryScheduled -> scheduleModelRetry(runId, event, messages)
         is AgentEvent.RunFailed -> failRunningTools(event.reason, finalizeText(runId, finalizeThinking(runId, messages)))
-        is AgentEvent.AssistantReceived -> if (event.reasoningContent.isBlank()) messages else {
+        // 空白 reasoning 同样要进来：它负责丢弃本轮占位思考，不能直接原样返回。
+        is AgentEvent.AssistantReceived ->
             ensureCompletedThinking(runId, event.round, event.reasoningContent, messages)
-        }
         is AgentEvent.RunFinished -> finalizeText(runId, finalizeThinking(runId, messages))
+        // 每轮请求发出前就占一条思考占位，覆盖等待响应与首个分片之间的空窗。
+        is AgentEvent.RoundStarted -> ensurePendingThinking(runId, event.round, messages)
         is AgentEvent.UserSupplementReceived,
         is AgentEvent.RunStarted,
         is AgentEvent.ProviderRequestStarted,
         is AgentEvent.ProviderResponseStarted,
         is AgentEvent.ToolImagesAttached,
-        is AgentEvent.RoundStarted,
         -> messages
+    }
+
+    /**
+     * 提交瞬间先占一条思考占位，覆盖从发消息到首个思考/文本分片之间的空窗。
+     * 没有这一条时，网络请求、等待响应头、模型开始生成这三段界面完全没有反馈。
+     *
+     * 首个分片到达时由 appendReasoningDelta 把这条改造成真实 index id 继续续写，
+     * 因此不会出现「占位一条、真实内容又一条」的上下两个思考。
+     */
+    fun ensurePendingThinking(
+        runId: String,
+        round: Int,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> {
+        if (messages.any { it is ThinkingMessageUi && isThinkingMessageForRound(it.id, runId, round) }) {
+            return messages
+        }
+        val thinkingId = thinkingPlaceholderId(runId, round)
+        return messages + ThinkingMessageUi(
+            id = thinkingId,
+            content = "",
+            isStreaming = true,
+            elapsedSeconds = elapsedSeconds(thinkingId),
+            collapsed = false,
+        )
     }
 
     private fun attachSearchSuggestions(
@@ -237,7 +263,8 @@ internal class AgentRunMessageProjector(
         delta: String,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
-        if (delta.isEmpty()) return messages
+        // 纯空白分片不建条目：部分中转站会先吐一个空格，落库后就成了展开无内容的空思考。
+        if (delta.isBlank()) return messages
 
         val transitioned = transitionVisibleBlock(
             runId = runId,
@@ -248,23 +275,36 @@ internal class AgentRunMessageProjector(
         )
         val thinkingId = thinkingMessageId(runId, round, index)
         val elapsedSeconds = elapsedSeconds(thinkingId)
-        var updated = false
-        val next = transitioned.map { message ->
-            if (message is ThinkingMessageUi && message.id == thinkingId) {
-                updated = true
-                message.copy(
-                    content = message.content + delta,
-                    isStreaming = true,
-                    elapsedSeconds = elapsedSeconds,
-                    collapsed = false,
-                )
-            } else {
-                message
+        // 同一轮可以有多个思考块（靠 index 区分），所以只复用两条中的一条：
+        // 优先精确命中 index id，其次消化本轮的占位条目——占位被改造成真实 id 后
+        // 继续留在原位，不会与真实分片各占一条形成上下两个思考。
+        val placeholderId = thinkingPlaceholderId(runId, round)
+        val exact = transitioned.firstOrNull { it is ThinkingMessageUi && it.id == thinkingId }
+            as? ThinkingMessageUi
+        val placeholder = if (exact == null) {
+            transitioned.firstOrNull { it is ThinkingMessageUi && it.id == placeholderId }
+                as? ThinkingMessageUi
+        } else {
+            null
+        }
+        val target = exact ?: placeholder
+        if (target != null) {
+            return transitioned.map { message ->
+                if (message === target) {
+                    target.copy(
+                        id = thinkingId,
+                        content = target.content + delta,
+                        isStreaming = true,
+                        elapsedSeconds = elapsedSeconds,
+                        collapsed = false,
+                    )
+                } else {
+                    message
+                }
             }
         }
-        if (updated) return next
 
-        return next + ThinkingMessageUi(
+        return transitioned + ThinkingMessageUi(
             id = thinkingId,
             content = delta,
             isStreaming = true,
@@ -279,6 +319,35 @@ internal class AgentRunMessageProjector(
         content: String,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
+        // 内容为空白时不建条目：模型没吐 reasoning（普通对话、纯工具轮）时，
+        // 过去会落一条「思考已完成」，展开后里面什么都没有。占位思考也要一并丢弃。
+        if (content.isBlank()) {
+            // 没有占位思考时原样返回同一列表，避免调用方误判为有变化而刷新与写库。
+            if (messages.none { it is ThinkingMessageUi && it.isPendingPlaceholder() }) {
+                return messages
+            }
+            return finalizeThinkingRound(runId, round, messages.dropPendingThinking(runId, round))
+        }
+        // 只有占位思考（还没收到任何分片）时，直接把权威内容写进这条，避免多出一条空块。
+        val pending = messages.firstOrNull {
+            it is ThinkingMessageUi && it.isPendingPlaceholder() &&
+                isThinkingMessageForRound(it.id, runId, round)
+        }
+        if (pending != null) {
+            val filled = messages.map { message ->
+                if (message === pending) {
+                    (message as ThinkingMessageUi).copy(
+                        content = content,
+                        isStreaming = false,
+                        elapsedSeconds = elapsedSeconds(message.id),
+                        collapsed = true,
+                    )
+                } else {
+                    message
+                }
+            }
+            return finalizeThinkingRound(runId, round, filled)
+        }
         if (messages.any {
                 it is ThinkingMessageUi && isThinkingMessageForRound(it.id, runId, round)
             }
@@ -296,18 +365,20 @@ internal class AgentRunMessageProjector(
                 isStreaming = false,
                 elapsedSeconds = elapsedSeconds(thinkingId),
                 collapsed = true,
-            )
+            ),
         )
     }
 
     fun finalizeThinking(runId: String, messages: List<AgentChatMessageUi>): List<AgentChatMessageUi> =
-        messages.map { message ->
-            if (message is ThinkingMessageUi && message.id.startsWith("$runId-thinking-")) {
-                message.finished()
-            } else {
-                message
+        messages
+            .filterNot { it is ThinkingMessageUi && it.isPendingPlaceholder() }
+            .map { message ->
+                if (message is ThinkingMessageUi && message.id.startsWith("$runId-thinking-")) {
+                    message.finished()
+                } else {
+                    message
+                }
             }
-        }
 
     /** 终态不依赖各块结束事件全部到齐；缺少工具结果时只能标为未知，不能推断执行成功。 */
     fun finalizeRun(runId: String, messages: List<AgentChatMessageUi>): List<AgentChatMessageUi> =
@@ -344,9 +415,9 @@ internal class AgentRunMessageProjector(
         replacementContent: String?,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
-        val thinkingId = thinkingMessageId(runId, round, index)
         return messages.map { message ->
-            if (message is ThinkingMessageUi && message.id == thinkingId) {
+            // 占位思考沿用了本轮第一条，块结束时按轮次收尾而不只认 index id。
+            if (message is ThinkingMessageUi && isThinkingMessageForRound(message.id, runId, round)) {
                 message.finished(replacementContent)
             } else {
                 message
@@ -555,6 +626,21 @@ internal class AgentRunMessageProjector(
             collapsed = true,
         )
 
+    /** 占位思考：已创建但还没收到任何分片，界面上只显示动画。 */
+    private fun ThinkingMessageUi.isPendingPlaceholder(): Boolean =
+        content.isBlank() && isStreaming
+
+    private fun List<AgentChatMessageUi>.dropPendingThinking(
+        runId: String,
+        round: Int,
+    ): List<AgentChatMessageUi> = filterNot {
+        it is ThinkingMessageUi && it.isPendingPlaceholder() && isThinkingMessageForRound(it.id, runId, round)
+    }
+
+    /**
+     * 部分中转站会把上一轮的 reasoning 原样回吐，导致连续两轮思考内容完全相同。
+     * 只把「与本 run 上一条已完成思考重复」的条目标记，不改内容也不删条目。
+     */
     private fun elapsedSeconds(thinkingId: String): Int {
         val startedAt = thinkingStartedAt.getOrPut(thinkingId, nowElapsedRealtime)
         return ((nowElapsedRealtime() - startedAt) / 1000).toInt().coerceAtLeast(0)
@@ -620,6 +706,10 @@ internal class AgentRunMessageProjector(
 
     private fun thinkingMessageId(runId: String, round: Int, index: Int): String =
         "$runId-thinking-$round-$index"
+
+    /** 每轮唯一：等待首 token 的占位思考。收到首个分片后会被改造成真实 id。 */
+    private fun thinkingPlaceholderId(runId: String, round: Int): String =
+        "$runId-thinking-$round-pending"
 
     private fun thinkingFallbackMessageId(runId: String, round: Int): String =
         "$runId-thinking-$round-fallback"

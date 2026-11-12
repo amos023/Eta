@@ -41,7 +41,14 @@ internal fun List<AgentChatMessageUi>.toWorkSteps(): List<AgentWorkStep> = build
         run.clear()
     }
 
-    this@toWorkSteps.forEach { message ->
+    // 已完成的空壳不参与时间线：外层节点会先画灯泡与连线，
+    // 里面的 ThinkingRow 若自行返回，就会留下一个只有图标没有文字的空节点。
+    // 占位态（仍在流式且尚无内容）要保留，否则等待动画没有落点。
+    val visible = this@toWorkSteps.filterNot { message ->
+        message is ThinkingMessageUi && message.content.isBlank() && !message.isStreaming
+    }
+
+    visible.forEach { message ->
         val groupable = message is ToolActivityMessageUi && message.toolName !in UNGROUPED_TOOLS
         if (groupable && run.isNotEmpty() && run.first().toolName != (message as ToolActivityMessageUi).toolName) {
             flushRun()
@@ -66,7 +73,7 @@ internal data class AgentWorkSummary(
 )
 
 internal fun List<AgentChatMessageUi>.workSummary(): AgentWorkSummary = AgentWorkSummary(
-    thinkingCount = count { it is ThinkingMessageUi },
+    thinkingCount = count { it is ThinkingMessageUi && (it.content.isNotBlank() || it.isStreaming) },
     toolCount = count { it is ToolActivityMessageUi },
     failedCount = count { it is ToolActivityMessageUi && it.status == ToolActivityStatusUi.Failed },
 )
