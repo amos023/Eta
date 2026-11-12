@@ -72,10 +72,12 @@ internal fun RemoteModelImportSheet(
     var shown by remember { mutableStateOf(pending) }
     if (pending != null) shown = pending
     var selected by remember(pending) { mutableStateOf(emptySet<String>()) }
-    val confirmText = if (selected.isNotEmpty()) {
-        stringResource(R.string.remote_model_import_confirm, selected.size)
+    // 主按钮固定存在：未选中时显示「添加」并置灰，选中后显示「添加 N 个」。
+    // 不再用「选择要添加的模型」这种占位提示占据按钮位置。
+    val confirmText = if (selected.isEmpty()) {
+        stringResource(R.string.action_add)
     } else {
-        stringResource(R.string.remote_model_import_pick_hint)
+        stringResource(R.string.remote_model_import_confirm, selected.size)
     }
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {

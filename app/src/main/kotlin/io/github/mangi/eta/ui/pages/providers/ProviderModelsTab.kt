@@ -88,6 +88,7 @@ import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.GeminiProviderSetting
+import io.github.mangi.eta.data.provider.ModelCapabilityPresets
 import io.github.mangi.eta.data.provider.GeminiModelCapabilities
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ReasoningEffort
@@ -938,8 +939,11 @@ private fun ModelEditDialog(
     var displayName by remember(model.id, isNew) { mutableStateOf(model.displayName) }
     var modelId by remember(model.id, isNew) { mutableStateOf(model.modelId) }
     var contextWindowOverrideText by remember(model.id, isNew) {
-        // 早先拉取、未写入窗口的模型也带着远端标注，打开编辑时直接预填。
-        mutableStateOf((model.contextWindowOverride ?: model.contextWindow)?.toString().orEmpty())
+        // 早先拉取、未写入窗口的模型也带着远端标注，打开编辑时直接预填；
+        // 库里什么都没有时按模型名给一份预设建议值，保存后才落库。
+        val stored = model.contextWindowOverride ?: model.contextWindow
+        val suggested = ModelCapabilityPresets.forModel(model.modelId)?.contextWindow
+        mutableStateOf((stored ?: suggested)?.toString().orEmpty())
     }
     var reasoningOverrideActive by remember(model.id, isNew) {
         mutableStateOf(
@@ -953,8 +957,10 @@ private fun ModelEditDialog(
         )
     }
     var selectedReasoningEfforts by remember(model.id, isNew) {
+        val capabilities = initialCapabilities
+            ?: ModelCapabilityPresets.forModel(model.modelId)?.toCapabilities()
         mutableStateOf(
-            initialCapabilities
+            capabilities
                 ?.selectableEfforts
                 ?.toSet()
                 .orEmpty() + ReasoningEffort.DEFAULT

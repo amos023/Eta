@@ -17,6 +17,7 @@ import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.ModelSource
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.provider.withPresetCapabilities
 import io.github.mangi.eta.data.provider.OfficialModelCatalog
 import io.github.mangi.eta.data.provider.ProviderConnectionProfile
 import java.util.UUID
@@ -69,7 +70,9 @@ internal object RemoteModelFetcher {
                     profile == null && provider is AnthropicProviderSetting -> fetchAnthropic(provider, controller, client, credentials)
                     else -> fetchOpenAiCompatible(provider, controller, client, credentials)
                 }
-                val models = if (profile == ProviderConnectionProfile.OPENAI_CODEX) fetched else fetched.filter(::isChatCapableModel)
+                val models = (if (profile == ProviderConnectionProfile.OPENAI_CODEX) fetched else fetched.filter(::isChatCapableModel))
+                    // 中转站通常只给模型 id，按预设补齐上下文窗口与思考档位，编辑弹窗打开即可看到默认值。
+                    .map { it.withPresetCapabilities() }
                 controller.throwIfCancelled()
                 if (binding != null && !credentials.isCurrent(binding)) {
                     throw ProviderAuthException("oauth_session_changed", "登录账号已变更，请重新拉取模型")

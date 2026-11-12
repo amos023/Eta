@@ -180,7 +180,8 @@ internal object ReasoningCapabilityResolver {
                 else -> mandatoryDefault()
             }
 
-            else -> null
+            // 中转站等自定义来源没有固定 sourceType，只能按模型名推断。
+            else -> ModelCapabilityPresets.forModel(model)?.toCapabilities()
         }
     }
 
