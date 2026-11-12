@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -45,6 +45,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
@@ -72,12 +73,12 @@ import com.itos.coui.menu.couiMenuAnchor
 import com.itos.coui.menu.rememberCouiMenuAnchor
 import com.itos.coui.menu.rememberCouiWindowBackdrop
 import com.itos.coui.layout.CouiPageDefaults
+import com.itos.coui.layout.Divider
 import com.itos.coui.layout.Group
 import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
-import io.github.mangi.eta.ui.components.coui.CouiChipTabs
 import io.github.mangi.eta.ui.components.coui.CouiIconDivider
 import io.github.mangi.eta.ui.components.coui.CouiSearchBarBox
 import io.github.mangi.eta.ui.components.coui.rememberCouiDialogMaterial
@@ -475,15 +476,21 @@ private fun ModelSheetContent(
     onModelSelected: (String) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    var providerFilter by remember { mutableStateOf<String?>(null) }
-    val groups = remember(state.providerGroups, query, providerFilter) {
-        state.filterGroups(query)
-            .filter { providerFilter == null || it.providerId == providerFilter }
-    }
+    // 不再做服务商分类筛选：整份列表一次给全，靠分组标题折叠来收敛。
+    // 折叠状态按 providerId 记，搜索换关键词时保留，方便边找边收。
+    var collapsedProviders by remember { mutableStateOf(emptySet<String>()) }
+    val groups = remember(state.providerGroups, query) { state.filterGroups(query) }
     val selectedIndex = groups.indexOfFirst { group -> group.models.any { it.id == state.selectedModel?.id } }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedIndex - 1).coerceAtLeast(0))
+    // 弹层刚组合时列表还没测量，initialFirstVisibleItemIndex 会落空，打开后仍停在顶部。
+    // 等 groups 就绪后再主动定位一次到当前选中项所在的组。
+    LaunchedEffect(groups, state.selectedModel?.id) {
+        if (groups.isEmpty()) return@LaunchedEffect
+        val index = groups.indexOfFirst { group -> group.models.any { it.id == state.selectedModel?.id } }
+        if (index > 0) listState.scrollToItem(index)
+    }
     LaunchedEffect(listState) {
-        snapshotFlow { query to providerFilter }.drop(1).collect { listState.scrollToItem(0) }
+        snapshotFlow { query }.drop(1).collect { listState.scrollToItem(0) }
     }
     val select = rememberConfirmedSelection(onModelSelected)
     val selectedId = select.pendingId ?: state.selectedModel?.id
@@ -505,18 +512,6 @@ private fun ModelSheetContent(
                     placeholder = stringResource(R.string.ui_search_model_df5586),
                     backgroundColor = Color.Transparent,
                 )
-                if (state.providerGroups.size > 1) {
-                    val allLabel = stringResource(R.string.model_picker_filter_all)
-                    val tabItems = remember(state.providerGroups, allLabel) {
-                        listOf("" to allLabel) + state.providerGroups.map { it.providerId to it.providerName }
-                    }
-                    CouiChipTabs(
-                        items = tabItems,
-                        selectedKey = providerFilter.orEmpty(),
-                        onSelectedKeyChange = { key -> providerFilter = key.takeIf { it.isNotEmpty() } },
-                        backgroundColor = Color.Transparent,
-                    )
-                }
             }
             AppearanceUiStyle.MIUIX -> {
                 InputField(
@@ -531,33 +526,11 @@ private fun ModelSheetContent(
                         .padding(horizontal = 16.dp)
                         .padding(top = 4.dp, bottom = 8.dp),
                 )
-                if (state.providerGroups.size > 1) {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(bottom = 6.dp),
-                    ) {
-                        item(key = "all") {
-                            EtaChoiceChip(
-                                text = stringResource(R.string.model_picker_filter_all),
-                                selected = providerFilter == null,
-                                onClick = { providerFilter = null },
-                            )
-                        }
-                        items(state.providerGroups, key = { it.providerId }) { group ->
-                            EtaChoiceChip(
-                                text = group.providerName,
-                                selected = providerFilter == group.providerId,
-                                onClick = { providerFilter = group.providerId },
-                            )
-                        }
-                    }
-                }
             }
         }
         LazyColumn(
             state = listState,
-            contentPadding = PaddingValues(top = 2.dp, bottom = 12.dp),
+            contentPadding = PaddingValues(top = 6.dp, bottom = 104.dp),
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
@@ -576,12 +549,18 @@ private fun ModelSheetContent(
                 }
             }
             items(groups, key = { "provider:${it.providerId}" }) { group ->
-                // 每个服务商一张卡，卡内首行标注归属与数量；筛选到单个服务商时标题省掉，
-                // 上方选中的标签已经说明了归属。
+                // 每个服务商一张卡，卡内首行标注归属与数量，右侧箭头可收起这一组。
                 ModelProviderCard(
                     group = group,
                     selectedId = selectedId,
-                    showTitle = providerFilter == null,
+                    collapsed = group.providerId in collapsedProviders,
+                    onToggleCollapsed = {
+                        collapsedProviders = if (group.providerId in collapsedProviders) {
+                            collapsedProviders - group.providerId
+                        } else {
+                            collapsedProviders + group.providerId
+                        }
+                    },
                     onSelect = { select(it) },
                 )
             }
@@ -618,46 +597,61 @@ private fun rememberConfirmedSelection(onConfirm: (String) -> Unit): ConfirmedSe
 }
 
 /**
- * 单个服务商的模型分组卡：标题放在卡片内部第一行，与设置页的卡外小标题不同。
- * 模型选择面板纵向空间有限，卡内标题只用一条分隔线与条目隔开，
- * 既省高度又能一眼看出模型归属。
+ * 单个服务商的模型分组卡：卡内首行是「服务商名 (数量) + 折叠箭头」，
+ * 收起后只剩这一行；展开时每行是「品牌图标 + 名称 + 能力标签 + 选中勾」。
  */
 @Composable
 private fun ModelProviderCard(
     group: AgentModelProviderGroupUi,
     selectedId: String?,
-    showTitle: Boolean,
+    collapsed: Boolean,
+    onToggleCollapsed: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
-    val countLabel = stringResource(R.string.model_card_count, group.models.size)
     when (LocalUiStyle.current) {
-        AppearanceUiStyle.COUI -> Group(title = null) {
-            if (showTitle) {
-                ModelCardTitleRow(name = group.providerName, count = countLabel)
-                CouiIconDivider()
-            }
-            group.models.forEachIndexed { index, model ->
-                ModelPickerRow(
-                    model = model,
-                    selected = model.id == selectedId,
-                    onClick = { onSelect(model.id) },
-                    horizontalPadding = CouiPageDefaults.rowPadding,
-                )
-                if (index < group.models.lastIndex) CouiIconDivider()
+        AppearanceUiStyle.COUI -> Column(modifier = Modifier.padding(bottom = 14.dp)) {
+            ModelGroupCaption(
+                name = group.providerName,
+                count = group.models.size,
+                collapsed = collapsed,
+                onToggle = onToggleCollapsed,
+            )
+            if (!collapsed) {
+                Group(title = null) {
+                    group.models.forEachIndexed { index, model ->
+                        ModelPickerRow(
+                            model = model,
+                            selected = model.id == selectedId,
+                            onClick = { onSelect(model.id) },
+                            horizontalPadding = 4.dp,
+                        )
+                        // 分隔线从模型名左缘开始，一直拉到卡片右边，右侧不留缺口。
+                        if (index < group.models.lastIndex) {
+                            Divider(startIndent = 44.dp, endIndent = 0.dp)
+                        }
+                    }
+                }
             }
         }
         AppearanceUiStyle.MIUIX -> Column(
-            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 14.dp),
         ) {
-            Card {
-                if (showTitle) ModelCardTitleRow(name = group.providerName, count = countLabel)
-                group.models.forEachIndexed { index, model ->
-                    ModelPickerRow(
-                        model = model,
-                        selected = model.id == selectedId,
-                        onClick = { onSelect(model.id) },
-                    )
-                    if (index < group.models.lastIndex) CouiIconDivider()
+            ModelGroupCaption(
+                name = group.providerName,
+                count = group.models.size,
+                collapsed = collapsed,
+                onToggle = onToggleCollapsed,
+            )
+            if (!collapsed) {
+                Card {
+                    group.models.forEachIndexed { index, model ->
+                        ModelPickerRow(
+                            model = model,
+                            selected = model.id == selectedId,
+                            onClick = { onSelect(model.id) },
+                        )
+                        if (index < group.models.lastIndex) CouiIconDivider()
+                    }
                 }
             }
         }
@@ -680,34 +674,49 @@ private fun ModelProviderLabel(name: String, horizontalPadding: Dp = 20.dp) {
     )
 }
 
-/** 卡内首行：服务商名 + 模型数量，小字弱化，只做分组标识不做点击。 */
+/** 卡内首行：服务商名 + 模型数量，最右侧折叠箭头，整行可点切换展开状态。 */
 @Composable
-private fun ModelCardTitleRow(name: String, count: String) {
+private fun ModelGroupCaption(
+    name: String,
+    count: Int,
+    collapsed: Boolean,
+    onToggle: () -> Unit,
+) {
+    val title = name.ifBlank { "未命名服务商" }
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val colors = CouiPageDefaults.themeColors(CouiTheme.isDark)
-    val nameColor = if (isCoui) colors.summary else MiuixTheme.colorScheme.onSurfaceVariantSummary
-    val horizontal = if (isCoui) CouiPageDefaults.rowPadding else 16.dp
+    val color = if (isCoui) colors.summary else MiuixTheme.colorScheme.onSurfaceVariantSummary
+    // 与服务商卡片内图标的左缘对齐，标题不会比图标更靠外。
+    val horizontal = if (isCoui) 24.dp else 16.dp
+    // 收起时箭头转成朝右（-90°），展开时朝下，转动过程有过渡。
+    val rotation by animateFloatAsState(
+        targetValue = if (collapsed) -90f else 0f,
+        label = "provider_chevron",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onToggle)
             .padding(horizontal = horizontal)
-            .padding(top = 14.dp, bottom = 10.dp),
+            .padding(top = 2.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = name,
-            style = MiuixTheme.textStyles.footnote2,
-            color = nameColor,
+            text = "$title ($count)",
+            style = MiuixTheme.textStyles.footnote1,
+            color = color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = count,
-            style = MiuixTheme.textStyles.footnote2,
-            color = nameColor.copy(alpha = 0.75f),
-            maxLines = 1,
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            imageVector = Icons.Rounded.KeyboardArrowDown,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier
+                .size(16.dp)
+                .rotate(rotation),
         )
     }
 }
@@ -719,17 +728,23 @@ private fun ModelPickerRow(
     onClick: () -> Unit,
     horizontalPadding: Dp = 8.dp,
 ) {
-    val containerColor = if (selected) MiuixTheme.colorScheme.tertiaryContainer else Color.Transparent
-    val contentColor = if (selected) MiuixTheme.colorScheme.onTertiaryContainer else MiuixTheme.colorScheme.onSurface
+    // 选中态只体现在右侧的对勾上，不铺底色：参考图里选中行与普通行背景一致。
+    val contentColor = MiuixTheme.colorScheme.onSurface
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = horizontalPadding, vertical = 2.dp)
-            .squircleSurface(color = containerColor, cornerRadius = 12.dp)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 11.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        ModelBrandMark(
+            modelId = model.modelId,
+            sourceType = model.providerSourceType,
+            size = 24.dp,
+        )
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = model.displayName,
             style = MiuixTheme.textStyles.body2,
@@ -744,7 +759,7 @@ private fun ModelPickerRow(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = stringResource(R.string.ui_current_model_a0af8f),
                 modifier = Modifier.size(18.dp),
-                tint = contentColor,
+                tint = MiuixTheme.colorScheme.primary,
             )
         }
     }

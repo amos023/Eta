@@ -32,6 +32,12 @@ internal data class AgentModelOptionUi(
     val modelId: String,
     val displayName: String,
     val contextWindow: Int?,
+    /** 是否支持工具调用，面板里显示为「工具」标签。 */
+    val toolCall: Boolean = false,
+    /** 是否能读图，面板里显示为「图像」标签。 */
+    val vision: Boolean = false,
+    /** 是否支持思考，面板里显示为「思考」标签。 */
+    val reasoning: Boolean = false,
 )
 
 @Immutable
@@ -131,6 +137,9 @@ internal object AgentModelPickerProjector {
             modelId = model.modelId,
             displayName = model.displayName.ifBlank { model.modelId },
             contextWindow = model.effectiveContextWindow,
+            toolCall = model.toolCall == true,
+            vision = model.supportsVision,
+            reasoning = model.effectiveReasoning == true,
         )
 }
 
