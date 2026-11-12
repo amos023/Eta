@@ -1104,20 +1104,16 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     private fun updateCapsuleWindowBounds(expanding: Boolean = capsuleExpanded.value) {
         val vdActive = virtualDisplayState.value.active
         val focusable = capsuleSupplementFocusable.value
-        val widthDp = if (vdActive && expanding && !focusable) {
-            CAPSULE_STAGE_WINDOW_WIDTH_DP
-        } else if (vdActive) {
-            CAPSULE_MICRO_WINDOW_WIDTH_DP
-        } else {
-            CAPSULE_WINDOW_WIDTH_DP
-        }
+        // 宽度固定为展开态的最大值：窗口靠 CENTER_HORIZONTAL 定位，宽度若随展开/收起切换，
+        // 左右边缘会同时移动（三档 272/290/324dp，最大差 52dp），看起来就是左右各跳一下。
+        // 胶囊自身的宽度动画由 Compose 负责，这里只调整高度。
         val heightDp = when {
             focusable -> CAPSULE_SUPPLEMENT_HEIGHT_DP
             expanding && vdActive -> CAPSULE_STAGE_HEIGHT_DP
             expanding -> CAPSULE_CONTROLS_HEIGHT_DP
             else -> CAPSULE_COLLAPSED_HEIGHT_DP
         }
-        setCapsuleWindowSize(widthDp, heightDp)
+        setCapsuleWindowSize(CAPSULE_STAGE_WINDOW_WIDTH_DP, heightDp)
     }
 
     private fun setCapsuleWindowSize(widthDp: Int, heightDp: Int) {
@@ -1284,7 +1280,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
      */
     private fun capsuleLayoutParams(): WindowManager.LayoutParams =
         WindowManager.LayoutParams(
-            dpToPx(if (virtualDisplayState.value.active) CAPSULE_MICRO_WINDOW_WIDTH_DP else CAPSULE_WINDOW_WIDTH_DP),
+            dpToPx(CAPSULE_STAGE_WINDOW_WIDTH_DP),
             dpToPx(CAPSULE_COLLAPSED_HEIGHT_DP),
             overlayType(),
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
@@ -1514,8 +1510,6 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         private const val RESULT_REVIEW_DELAY_MS = 120_000L
         private const val RESULT_CARD_HEIGHT_RATIO = 0.5f
         private const val RESULT_OPEN_REQUEST_CODE = 1108
-        private const val CAPSULE_WINDOW_WIDTH_DP = 272
-        private const val CAPSULE_MICRO_WINDOW_WIDTH_DP = 290
         private const val CAPSULE_STAGE_WINDOW_WIDTH_DP = 324
         private const val CAPSULE_COLLAPSED_HEIGHT_DP = 68
         private const val CAPSULE_CONTROLS_HEIGHT_DP = 124
