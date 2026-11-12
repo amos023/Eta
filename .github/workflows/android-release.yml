@@ -94,7 +94,9 @@ jobs:
           if [[ "$GITHUB_REF_TYPE" != "tag" ]]; then
             metadata_arg=("-Peta.buildMetadata=${GITHUB_SHA::7}")
           fi
+          # 正式版走独立 applicationId 后缀，产物与设备上的 .stable 包同名可覆盖
           ./gradlew --no-daemon --no-configuration-cache "${metadata_arg[@]}" \
+            -Peta.appIdSuffix=.stable \
             :app:assembleDebug :app:assembleRelease
 
       - name: 验证并整理 APK
@@ -170,15 +172,13 @@ jobs:
           name: Eta-${{ github.ref_name }}.apk
           path: ${{ runner.temp }}/release
 
-      # 只建草稿：草稿不会出现在 releases/latest，App 内更新检查要等维护者手动发布后才可见
-      - name: 创建 Release 草稿
+      - name: 创建 Release
         env:
           GH_TOKEN: ${{ github.token }}
           APK_PATH: ${{ runner.temp }}/release/Eta-${{ github.ref_name }}.apk
         run: >-
           gh release create "$GITHUB_REF_NAME" "$APK_PATH"
           --repo "$GITHUB_REPOSITORY"
-          --draft
           --verify-tag
           --title "$GITHUB_REF_NAME"
           --generate-notes
