@@ -149,12 +149,23 @@ internal object VirtualDisplayCommandMain {
 
         retainedVirtualDisplay = virtualDisplay
         retainedSurface = surface
-        if (!CanvasRoutingPolicy.hasRequiredDisplayFlags(virtualDisplay.display.flags) ||
-            !applyDisplayImePolicyHide(displayId)
-        ) {
+        val flagsOk = CanvasRoutingPolicy.hasRequiredDisplayFlags(virtualDisplay.display.flags)
+        if (!flagsOk) {
             releaseRetainedDisplay()
-            println(RESULT_PREFIX + JSONObject().put("ok", false).put("code", "DISPLAY_ISOLATION_UNAVAILABLE"))
+            println(
+                RESULT_PREFIX + JSONObject()
+                    .put("ok", false)
+                    .put("code", "DISPLAY_ISOLATION_UNAVAILABLE")
+                    .put("flags_ok", false)
+                    .put("flags", virtualDisplay.display.flags),
+            )
             exitProcess(1)
+        }
+        // 输入法策略只决定虚拟屏内是否弹键盘，不影响显示与焦点隔离。
+        // 部分 ROM（实测 ColorOS 16 / SDK 37）调用 setDisplayImePolicy 会抛 InvocationTargetException，
+        // 此前把它当成硬条件，导致整块屏刚建好就被销毁。这里降级为警告继续。
+        if (!applyDisplayImePolicyHide(displayId)) {
+            println("ETA_VD_DIAG:" + JSONObject().put("ime_policy", false))
         }
 
         println("$READY_PREFIX$displayId")
@@ -207,20 +218,48 @@ internal object VirtualDisplayCommandMain {
     }
 
     private fun applyDisplayImePolicyHide(displayId: Int): Boolean = runCatching {
-        if (!CanvasRoutingPolicy.isVirtualDisplay(displayId)) return@runCatching false
+        if (!CanvasRoutingPolicy.isVirtualDisplay(displayId)) {
+            noteImeFailure("NOT_VIRTUAL_DISPLAY", "")
+            return@runCatching false
+        }
         switchToSystemUidIfPossible()
         val wmgClass = Class.forName("android.view.WindowManagerGlobal")
-        val wms = wmgClass.getMethod("getWindowManagerService").invoke(null) ?: return@runCatching false
+        val wms = wmgClass.getMethod("getWindowManagerService").invoke(null)
+        if (wms == null) {
+            noteImeFailure("WMS_NULL", "")
+            return@runCatching false
+        }
         val setPolicy = wms.javaClass.methods.firstOrNull {
             it.name == "setDisplayImePolicy" && it.parameterCount == 2
-        } ?: return@runCatching false
+        }
+        if (setPolicy == null) {
+            noteImeFailure("NO_SETTER", "")
+            return@runCatching false
+        }
         setPolicy.invoke(wms, displayId, CanvasRoutingPolicy.DISPLAY_IME_POLICY_HIDE)
         val getPolicy = wms.javaClass.methods.firstOrNull {
             it.name == "getDisplayImePolicy" && it.parameterCount == 1
         }
         val actual = getPolicy?.invoke(wms, displayId) as? Int
-        actual == CanvasRoutingPolicy.DISPLAY_IME_POLICY_HIDE
-    }.getOrDefault(false)
+        if (actual != CanvasRoutingPolicy.DISPLAY_IME_POLICY_HIDE) {
+            noteImeFailure("POLICY_MISMATCH", "expected=${CanvasRoutingPolicy.DISPLAY_IME_POLICY_HIDE} actual=$actual")
+            return@runCatching false
+        }
+        true
+    }.getOrElse { t ->
+        val cause = (t as? java.lang.reflect.InvocationTargetException)?.targetException ?: t
+        noteImeFailure("EXCEPTION", "${cause.javaClass.name}: ${cause.message}")
+        false
+    }
+
+    /** 诊断用：用独立前缀输出，避免被当成握手结果导致提前结束等待。 */
+    private fun noteImeFailure(reason: String, detail: String) {
+        println(
+            "ETA_VD_DIAG:" + JSONObject()
+                .put("ime_policy", reason)
+                .put("detail", detail),
+        )
+    }
 
     private fun acquireSurfaceFromApp(userId: Int, surfaceToken: String): Surface? {
         val activityManager = Class.forName("android.app.ActivityManager")

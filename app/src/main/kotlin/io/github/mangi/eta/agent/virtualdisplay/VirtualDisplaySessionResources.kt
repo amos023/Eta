@@ -111,7 +111,13 @@ internal class RootVirtualDisplayBridge private constructor(
                                     resolvedDisplayId = line.removePrefix(VirtualDisplayCommandMain.READY_PREFIX)
                                         .trim().toIntOrNull()
                                     readyLatch.countDown()
+                                } else if (line.startsWith("ETA_VD_DIAG:")) {
+                                    android.util.Log.w("EtaVD", "diag: " + line.removePrefix("ETA_VD_DIAG:"))
                                 } else if (line.startsWith(VirtualDisplayCommandMain.RESULT_PREFIX)) {
+                                    android.util.Log.w(
+                                        "EtaVD",
+                                        "bridge: " + line.removePrefix(VirtualDisplayCommandMain.RESULT_PREFIX),
+                                    )
                                     readyLatch.countDown()
                                 }
                             }
