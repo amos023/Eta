@@ -506,6 +506,10 @@
   <string name="markdown_alert_caution">Caution</string>
   <string name="copy_copied">Copied</string>
   <string name="copy_answer">Copy answer</string>
+  <string name="selection_copy_title">Select text to copy</string>
+  <string name="selection_copy_all">Copy the whole answer</string>
+  <string name="selection_copy_segment">Copy this part</string>
+  <string name="selection_copy_hint">Drag to select any text, or copy a whole part on the right.</string>
   <string name="copy_code">Copy code</string>
   <string name="copy_command">Copy command</string>
   <string name="shell_command">Shell command</string>

@@ -69,6 +69,25 @@ internal object ChatActionIcons {
         }
     }
 
+    /** 分段选择复制：三条长短不一的文本行，与「整段复制」的方框图标区分。 */
+    val SelectCopy: ImageVector by lazy {
+        icon("ChatSelectCopy") {
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = STROKE,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(2.2f, 3.6f)
+                horizontalLineTo(10.4f)
+                moveTo(2.2f, 8.0f)
+                horizontalLineTo(13.8f)
+                moveTo(2.2f, 12.4f)
+                horizontalLineTo(7.6f)
+            }
+        }
+    }
+
     val Volume: ImageVector by lazy {
         icon("ChatVolume") {
             path(

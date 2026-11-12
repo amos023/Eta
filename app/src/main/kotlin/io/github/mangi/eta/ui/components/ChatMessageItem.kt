@@ -945,6 +945,7 @@ private fun AgentMessageBlock(
     val clipboardManager = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
     var copied by remember(message.id) { mutableStateOf(false) }
+    var selectionCopy by remember(message.id) { mutableStateOf<SelectionCopyTarget?>(null) }
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     DisposableEffect(retainedStreamingState) {
         retainedStreamingState?.attachContent()
@@ -1064,6 +1065,16 @@ private fun AgentMessageBlock(
                     },
                     tint = if (copied) MiuixTheme.colorScheme.primary else null,
                 )
+                // 长回答才提供分段选择，短回复整段复制就够，避免操作行堆满图标。
+                if (message.content.length > SelectionCopyMinLength) {
+                    AnswerActionButton(
+                        icon = ChatActionIcons.SelectCopy,
+                        contentDescription = stringResource(R.string.selection_copy_title),
+                        onClick = {
+                            selectionCopy = SelectionCopyTarget(message.id, message.content)
+                        },
+                    )
+                }
                 if (allowSpeech) SpeechReadAloudButton(message.id, message.content)
                 if (showMessageActions) {
                     if (message.characterEditable) {
@@ -1119,10 +1130,21 @@ private fun AgentMessageBlock(
             }
         }
     }
+    // 仅在有目标时挂载弹层：会话里每条回复各留一个空槽位，
+    // 长会话滑动时累计的组合开销会拖慢 UI 线程。
+    if (selectionCopy != null) {
+        SelectionCopySheet(
+            target = selectionCopy,
+            onDismissRequest = { selectionCopy = null },
+        )
+    }
 }
 
 /** 开场白消息由开始对话时写入，标识前缀与写入方保持一致。 */
 private const val GreetingMessagePrefix = "greeting-"
+
+/** 超过这个长度才提供分段选择复制；短回复整段复制即可。 */
+private const val SelectionCopyMinLength = 200
 
 /**
  * 角色回复的署名行：小头像加角色名，开场白额外标注“故事开始”。
