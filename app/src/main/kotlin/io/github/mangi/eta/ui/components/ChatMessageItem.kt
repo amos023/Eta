@@ -429,11 +429,11 @@ private fun UserMessageBubble(
                     )
                 }
             }
+            // 不在这里手动震动：COUI 菜单的 input 处理自带 LongPress 反馈，
+            // 再补一次会让同一次长按发出两条请求，跨帧时被系统当成两次执行，
+            // 表现为偶尔连震两下。
             val openCouiMenu: (() -> Unit)? = if (actionsEnabled) {
-                {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    couiAnchor.open { showCouiMenu = true }
-                }
+                { couiAnchor.open { showCouiMenu = true } }
             } else {
                 null
             }
