@@ -71,20 +71,25 @@ import com.itos.coui.menu.Menu
 import com.itos.coui.menu.couiMenuAnchor
 import com.itos.coui.menu.rememberCouiMenuAnchor
 import com.itos.coui.menu.rememberCouiWindowBackdrop
+import com.itos.coui.layout.CouiPageDefaults
+import com.itos.coui.layout.Group
 import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiChipTabs
+import io.github.mangi.eta.ui.components.coui.CouiIconDivider
 import io.github.mangi.eta.ui.components.coui.CouiSearchBarBox
 import io.github.mangi.eta.ui.components.coui.rememberCouiDialogMaterial
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
+import io.github.mangi.eta.ui.model.AgentModelProviderGroupUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.filterGroups
 import io.github.mangi.eta.ui.model.modelCount
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
@@ -463,17 +468,6 @@ private fun ModelQuickList(
     }
 }
 
-private sealed interface ModelSheetEntry {
-    val key: String
-
-    data class Header(val providerId: String, val name: String) : ModelSheetEntry {
-        override val key: String get() = "header:$providerId"
-    }
-
-    data class Option(val model: AgentModelOptionUi) : ModelSheetEntry {
-        override val key: String get() = "model:${model.providerId}:${model.id}"
-    }
-}
 
 @Composable
 private fun ModelSheetContent(
@@ -482,23 +476,12 @@ private fun ModelSheetContent(
 ) {
     var query by remember { mutableStateOf("") }
     var providerFilter by remember { mutableStateOf<String?>(null) }
-    val entries = remember(state.providerGroups, query, providerFilter) {
+    val groups = remember(state.providerGroups, query, providerFilter) {
         state.filterGroups(query)
             .filter { providerFilter == null || it.providerId == providerFilter }
-            .flatMap { group ->
-                // 只看一个服务商时，筛选标签已经说明了归属，分组标题只会重复。
-                val header = if (providerFilter == null) {
-                    listOf(ModelSheetEntry.Header(group.providerId, group.providerName))
-                } else {
-                    emptyList()
-                }
-                header + group.models.map(ModelSheetEntry::Option)
-            }
     }
-    val selectedIndex = entries.indexOfFirst {
-        it is ModelSheetEntry.Option && it.model.id == state.selectedModel?.id
-    }
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0))
+    val selectedIndex = groups.indexOfFirst { group -> group.models.any { it.id == state.selectedModel?.id } }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedIndex - 1).coerceAtLeast(0))
     LaunchedEffect(listState) {
         snapshotFlow { query to providerFilter }.drop(1).collect { listState.scrollToItem(0) }
     }
@@ -579,7 +562,7 @@ private fun ModelSheetContent(
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            if (entries.isEmpty()) {
+            if (groups.isEmpty()) {
                 item(key = "empty") {
                     Text(
                         text = stringResource(R.string.page_no_matching_model_found_ae7e96),
@@ -592,16 +575,15 @@ private fun ModelSheetContent(
                     )
                 }
             }
-            items(entries, key = ModelSheetEntry::key, contentType = { it::class }) { entry ->
-                when (entry) {
-                    is ModelSheetEntry.Header -> ModelProviderLabel(entry.name, horizontalPadding = 24.dp)
-                    is ModelSheetEntry.Option -> ModelPickerRow(
-                        model = entry.model,
-                        selected = entry.model.id == selectedId,
-                        onClick = { select(entry.model.id) },
-                        horizontalPadding = 12.dp,
-                    )
-                }
+            items(groups, key = { "provider:${it.providerId}" }) { group ->
+                // 每个服务商一张卡，卡内首行标注归属与数量；筛选到单个服务商时标题省掉，
+                // 上方选中的标签已经说明了归属。
+                ModelProviderCard(
+                    group = group,
+                    selectedId = selectedId,
+                    showTitle = providerFilter == null,
+                    onSelect = { select(it) },
+                )
             }
         }
     }
@@ -635,6 +617,54 @@ private fun rememberConfirmedSelection(onConfirm: (String) -> Unit): ConfirmedSe
     return remember { ConfirmedSelection({ currentOnConfirm(it) }) { block -> scope.launch { block() } } }
 }
 
+/**
+ * 单个服务商的模型分组卡：标题放在卡片内部第一行，与设置页的卡外小标题不同。
+ * 模型选择面板纵向空间有限，卡内标题只用一条分隔线与条目隔开，
+ * 既省高度又能一眼看出模型归属。
+ */
+@Composable
+private fun ModelProviderCard(
+    group: AgentModelProviderGroupUi,
+    selectedId: String?,
+    showTitle: Boolean,
+    onSelect: (String) -> Unit,
+) {
+    val countLabel = stringResource(R.string.model_card_count, group.models.size)
+    when (LocalUiStyle.current) {
+        AppearanceUiStyle.COUI -> Group(title = null) {
+            if (showTitle) {
+                ModelCardTitleRow(name = group.providerName, count = countLabel)
+                CouiIconDivider()
+            }
+            group.models.forEachIndexed { index, model ->
+                ModelPickerRow(
+                    model = model,
+                    selected = model.id == selectedId,
+                    onClick = { onSelect(model.id) },
+                    horizontalPadding = CouiPageDefaults.rowPadding,
+                )
+                if (index < group.models.lastIndex) CouiIconDivider()
+            }
+        }
+        AppearanceUiStyle.MIUIX -> Column(
+            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp),
+        ) {
+            Card {
+                if (showTitle) ModelCardTitleRow(name = group.providerName, count = countLabel)
+                group.models.forEachIndexed { index, model ->
+                    ModelPickerRow(
+                        model = model,
+                        selected = model.id == selectedId,
+                        onClick = { onSelect(model.id) },
+                    )
+                    if (index < group.models.lastIndex) CouiIconDivider()
+                }
+            }
+        }
+    }
+}
+
+/** 小弹窗（模型少时）里的服务商小标题。 */
 @Composable
 private fun ModelProviderLabel(name: String, horizontalPadding: Dp = 20.dp) {
     Text(
@@ -648,6 +678,38 @@ private fun ModelProviderLabel(name: String, horizontalPadding: Dp = 20.dp) {
             .padding(horizontal = horizontalPadding)
             .padding(top = 14.dp, bottom = 4.dp),
     )
+}
+
+/** 卡内首行：服务商名 + 模型数量，小字弱化，只做分组标识不做点击。 */
+@Composable
+private fun ModelCardTitleRow(name: String, count: String) {
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val colors = CouiPageDefaults.themeColors(CouiTheme.isDark)
+    val nameColor = if (isCoui) colors.summary else MiuixTheme.colorScheme.onSurfaceVariantSummary
+    val horizontal = if (isCoui) CouiPageDefaults.rowPadding else 16.dp
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = horizontal)
+            .padding(top = 14.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = name,
+            style = MiuixTheme.textStyles.footnote2,
+            color = nameColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = count,
+            style = MiuixTheme.textStyles.footnote2,
+            color = nameColor.copy(alpha = 0.75f),
+            maxLines = 1,
+        )
+    }
 }
 
 @Composable
