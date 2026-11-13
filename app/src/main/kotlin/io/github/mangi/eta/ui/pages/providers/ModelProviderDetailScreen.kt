@@ -117,6 +117,14 @@ internal fun ModelProviderDetailScreen(
                 id = "",
                 name = "",
             )
+            // 生图供应商：走 OpenAI 兼容的图像接口，标记 imageOnly 后拉取只保留生图模型。
+            NewProviderType.ImageOnly -> CustomProviderSetting(
+                id = "",
+                name = "",
+                baseUrl = "",
+                endpointMode = OpenAiEndpointMode.CHAT_COMPLETIONS,
+                imageOnly = true,
+            )
             null -> null
         }
     }

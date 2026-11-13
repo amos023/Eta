@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.typeLabel
+import io.github.mangi.eta.data.model.isImageOnlyProvider
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.app.LocalUiStyle
@@ -119,6 +121,14 @@ internal fun ModelProviderListScreen(
     val unconfiguredProviders = remember(filteredProviders) {
         filteredProviders.filter { it.models.isEmpty() || !it.hasUsableCredentials() }
     }
+    // 已配置的服务商里，把生图专用的单独拎出来：生图和对话混在一张卡里很难扫读。
+    // 判据是「启用的模型全是生图模型」，中转站同时给文字和图像时仍留在对话分组。
+    val configuredImageProviders = remember(configuredProviders) {
+        configuredProviders.filter { it.isImageOnlyProvider }
+    }
+    val configuredChatProviders = remember(configuredProviders) {
+        configuredProviders.filter { !it.isImageOnlyProvider }
+    }
 
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
@@ -174,6 +184,18 @@ internal fun ModelProviderListScreen(
                         icon = { ProviderBrandIcon(ProviderSourceTypes.GEMINI) },
                         onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Gemini)) },
                     )
+                    CouiIconDivider()
+                    CouiPreference(
+                        title = "新增生图模型",
+                        summary = "只拉取生图模型，聊天模型自动排除",
+                        icon = {
+                            CouiSettingsIcon(
+                                icon = Icons.Rounded.Image,
+                                tint = colors.accent,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.ImageOnly)) },
+                    )
                 }
 
                 if (filteredProviders.isEmpty()) {
@@ -202,16 +224,32 @@ internal fun ModelProviderListScreen(
                         }
                     }
                 } else {
-                    if (configuredProviders.isNotEmpty()) {
+                    if (configuredChatProviders.isNotEmpty()) {
                         ProviderSection(
                             title = pluralStringResource(
                                 R.plurals.provider_configured_count,
-                                configuredProviders.size,
-                                configuredProviders.size,
+                                configuredChatProviders.size,
+                                configuredChatProviders.size,
                             ),
                         ) {
                             ProviderGroupRows(
-                                providers = configuredProviders,
+                                providers = configuredChatProviders,
+                                selectedProviderId = selectedProviderId,
+                                onOpen = { onNavigate(AppRoute.ModelProviderDetail(it)) },
+                                onDelete = { providerToDelete = it },
+                                onSelect = selectProvider,
+                            )
+                        }
+                    }
+                    if (configuredImageProviders.isNotEmpty()) {
+                        ProviderSection(
+                            title = stringResource(
+                                R.string.provider_configured_image_count,
+                                configuredImageProviders.size,
+                            ),
+                        ) {
+                            ProviderGroupRows(
+                                providers = configuredImageProviders,
                                 selectedProviderId = selectedProviderId,
                                 onOpen = { onNavigate(AppRoute.ModelProviderDetail(it)) },
                                 onDelete = { providerToDelete = it },
@@ -310,6 +348,18 @@ internal fun ModelProviderListScreen(
                             startAction = { ProviderBrandIcon(ProviderSourceTypes.GEMINI) },
                             onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Gemini)) },
                         )
+                        ArrowPreference(
+                            title = "新增生图模型",
+                            summary = "只拉取生图模型，聊天模型自动排除",
+                            startAction = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Image,
+                                    contentDescription = null,
+                                    tint = MiuixTheme.colorScheme.primary,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.ImageOnly)) },
+                        )
                     }
                 }
 
@@ -338,16 +388,32 @@ internal fun ModelProviderListScreen(
                             }
                         }
                     } else {
-                        if (configuredProviders.isNotEmpty()) {
+                        if (configuredChatProviders.isNotEmpty()) {
                             ProviderSection(
                                 title = pluralStringResource(
                                     R.plurals.provider_configured_count,
-                                    configuredProviders.size,
-                                    configuredProviders.size,
+                                    configuredChatProviders.size,
+                                    configuredChatProviders.size,
                                 ),
                             ) {
                                 ProviderGroupRows(
-                                    providers = configuredProviders,
+                                    providers = configuredChatProviders,
+                                    selectedProviderId = selectedProviderId,
+                                    onOpen = { onNavigate(AppRoute.ModelProviderDetail(it)) },
+                                    onDelete = { providerToDelete = it },
+                                    onSelect = selectProvider,
+                                )
+                            }
+                        }
+                        if (configuredImageProviders.isNotEmpty()) {
+                            ProviderSection(
+                                title = stringResource(
+                                    R.string.provider_configured_image_count,
+                                    configuredImageProviders.size,
+                                ),
+                            ) {
+                                ProviderGroupRows(
+                                    providers = configuredImageProviders,
                                     selectedProviderId = selectedProviderId,
                                     onOpen = { onNavigate(AppRoute.ModelProviderDetail(it)) },
                                     onDelete = { providerToDelete = it },
