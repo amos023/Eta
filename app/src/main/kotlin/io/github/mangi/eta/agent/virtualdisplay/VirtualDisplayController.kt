@@ -113,9 +113,6 @@ internal object VirtualDisplayController {
             var inProcessDisplay: VirtualDisplay? = null
             var rootBridge: RootVirtualDisplayBridge? = null
             var listener: DisplayManager.DisplayListener? = null
-            // 显示器刚创建时状态回调还是 UNKNOWN，此刻判定不可用会把刚建好的屏当场释放
-            // （实测 4ms 就销毁）。只有它曾经可用过、之后又掉线，才算真的失效。
-            var becameUsable = false
             var accepted = false
             try {
                 val (width, height, densityDpi) = resolvePhysicalDisplayMetrics(appContext)
@@ -144,10 +141,7 @@ internal object VirtualDisplayController {
                 listener = object : DisplayManager.DisplayListener {
                     override fun onDisplayAdded(displayId: Int) = Unit
                     override fun onDisplayChanged(displayId: Int) {
-                        if (displayId != id) return
-                        if (isDisplayUsable(manager, id)) {
-                            becameUsable = true
-                        } else if (becameUsable) {
+                        if (displayId == id && !isDisplayUsable(manager, id)) {
                             releaseSession(appContext, rootAvailable, token)
                         }
                     }
@@ -156,10 +150,17 @@ internal object VirtualDisplayController {
                     }
                 }
                 manager.registerDisplayListener(listener, handler)
-                // 虚拟屏创建是异步的：刚注册完监听时 DisplayManager 的缓存里还是 UNKNOWN，
-                // 立刻校验会把刚建好的屏判成不可用并当场释放（实测 7ms 就销毁）。
-                // 给一个有界的等待窗口，通常一两帧内就绪。
-                if (!awaitDisplayUsable(manager, id)) return null
+                if (!isDisplayUsable(manager, id)) {
+                    val display = runCatching { manager.getDisplay(id) }.getOrNull()
+                    val flags = display?.flags ?: 0
+                    AndroidAgentLogger.warn(
+                        "Virtual display rejected: displayId=$id reason=DISPLAY_NOT_USABLE " +
+                            "present=${display != null} valid=${display?.isValid == true} " +
+                            "flags=0x${Integer.toHexString(flags)} " +
+                            "missing=${CanvasRoutingPolicy.missingDisplayFlagsDescription(flags)}",
+                    )
+                    return null
+                }
                 synchronized(lock) {
                     if (rootBridge?.isAlive == false || !sessionState.activate(token, id)) return null
                     displayResources = VirtualDisplaySessionResources(
@@ -197,26 +198,6 @@ internal object VirtualDisplayController {
             "Virtual display validation failed: type=${exception.safeLogType()}"
         }
         false
-    }
-
-    /**
-     * 等待虚拟屏进入可用状态。
-     *
-     * 创建调用返回时显示器的 state 往往还是 UNKNOWN，DisplayManager 的缓存也要等下一帧
-     * 才更新；此时一次性查询必然失败，会把刚建好的屏立刻释放。这里做有界轮询，
-     * 只等待到状态就绪为止，超时仍按失败处理。
-     */
-    private fun awaitDisplayUsable(
-        manager: DisplayManager,
-        displayId: Int,
-        timeoutMs: Long = 400L,
-    ): Boolean {
-        val deadline = SystemClock.uptimeMillis() + timeoutMs
-        while (SystemClock.uptimeMillis() < deadline) {
-            if (isDisplayUsable(manager, displayId)) return true
-            Thread.sleep(20L)
-        }
-        return isDisplayUsable(manager, displayId)
     }
 
     /**

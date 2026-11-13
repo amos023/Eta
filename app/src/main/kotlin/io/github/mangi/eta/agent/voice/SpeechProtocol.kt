@@ -32,16 +32,6 @@ internal fun validateSpeechSettings(settings: SpeechSettings, secrets: SpeechCre
     if (synthesis) {
         when (settings.tts) {
             TtsProvider.NONE -> throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先在设置中配置语音播报")
-            // 系统引擎由设备提供，没有凭据与地址；引擎可用性在实际合成时确认并给出明确提示。
-            TtsProvider.SYSTEM -> {
-                val config = settings.systemTts
-                if (config.rate !in 0.5f..2f) {
-                    throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "语速须在 0.5～2 倍之间")
-                }
-                if (config.pitch !in 0.5f..2f) {
-                    throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "音调须在 0.5～2 倍之间")
-                }
-            }
             TtsProvider.QWEN -> {
                 required(secrets.qwenTts, "千问播报 API Key")
                 required(settings.qwenVoice, "音色")
@@ -69,10 +59,20 @@ internal fun validateSpeechSettings(settings: SpeechSettings, secrets: SpeechCre
                     throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "MiniMax 语速须在 0.5～2 倍之间")
                 }
             }
+            TtsProvider.MIMO -> {
+                required(secrets.mimoTts, "MiMo 播报 API Key")
+                required(settings.mimoTts.voice, "音色")
+                speechBaseUrl(settings.mimoTts.baseUrl)
+                if (settings.mimoTts.style.length > 500) {
+                    throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "朗读风格请控制在 500 字以内")
+                }
+            }
         }
     } else when (settings.asr) {
-        // 内置离线模型没有服务地址与凭据；模型是否就绪由识别链路检查并提示。
-        AsrProvider.LOCAL -> Unit
+        AsrProvider.MIMO -> {
+            required(secrets.mimoAsr, "MiMo 识别 API Key")
+            speechBaseUrl(settings.mimoAsr.baseUrl)
+        }
         AsrProvider.DOUBAO -> {
             required(secrets.doubaoAsr, "豆包识别凭据")
             speechBaseUrl(settings.doubaoAsr.baseUrl)

@@ -159,11 +159,9 @@ internal abstract class EtaDatabase : RoomDatabase() {
             // 模型级输出上限：远端值 + 用户覆盖值，两条都允许为空。
             database.execSQL("ALTER TABLE provider_models ADD COLUMN max_output_tokens INTEGER")
             database.execSQL("ALTER TABLE provider_models ADD COLUMN max_output_tokens_override INTEGER")
-        }
-
-        internal val MIGRATION_28_29 = Migration(28, 29) { database ->
-            // 生图专用供应商标记：拉取模型时只保留生图模型。
-            database.execSQL("ALTER TABLE model_providers ADD COLUMN image_only INTEGER NOT NULL DEFAULT 0")
+            // 缓存用量与压缩归档标识：区分缓存写入与未命中，便于压缩回本诊断。
+            database.execSQL("ALTER TABLE conversation_messages ADD COLUMN cache_write_tokens INTEGER")
+            database.execSQL("ALTER TABLE conversation_messages ADD COLUMN compaction_archive_id TEXT")
         }
 
         internal val MIGRATION_27_28 = Migration(27, 28) { database ->
@@ -173,6 +171,11 @@ internal abstract class EtaDatabase : RoomDatabase() {
             database.execSQL("ALTER TABLE provider_models ADD COLUMN image_endpoint TEXT")
             database.execSQL("ALTER TABLE provider_models ADD COLUMN default_image_size TEXT")
             database.execSQL("ALTER TABLE provider_models ADD COLUMN default_image_format TEXT")
+        }
+
+        internal val MIGRATION_28_29 = Migration(28, 29) { database ->
+            // 生图专用供应商标记：拉取模型时只保留生图模型。
+            database.execSQL("ALTER TABLE model_providers ADD COLUMN image_only INTEGER NOT NULL DEFAULT 0")
         }
 
         private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {

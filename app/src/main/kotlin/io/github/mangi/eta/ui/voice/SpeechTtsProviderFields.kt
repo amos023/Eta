@@ -1,67 +1,17 @@
 package io.github.mangi.eta.ui.voice
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.voice.SystemTts
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.GeminiTtsModel
 import io.github.mangi.eta.data.model.MiniMaxTtsModel
 import io.github.mangi.eta.data.model.SpeechCredentialField
-import io.github.mangi.eta.data.model.SystemTtsConfig
 import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
-
-@Composable
-internal fun SystemTtsConnectionSection(store: SpeechSettingsStore) {
-    val context = LocalContext.current
-    val config = store.settings.systemTts
-    val engines = remember(context) { SystemTts.engines(context) }
-    val labels = listOf(stringResource(R.string.speech_tts_engine_default)) + engines.map { it.label }
-    val selected = engines.indexOfFirst { it.name == config.engine }.let { if (it >= 0) it + 1 else 0 }
-    val onSelect: (Int) -> Unit = { index ->
-        val name = engines.getOrNull(index - 1)?.name.orEmpty()
-        store.edit(store.settings.copy(systemTts = config.copy(engine = name)))
-    }
-    Column {
-        SpeechGroupCard(title = stringResource(R.string.speech_group_connection)) {
-            when (LocalUiStyle.current) {
-                AppearanceUiStyle.COUI -> {
-                    CouiDropdownPreference(
-                        title = stringResource(R.string.speech_tts_engine),
-                        items = labels,
-                        selectedIndex = selected,
-                        onSelectedIndexChange = onSelect,
-                    )
-                    Divider()
-                }
-                AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
-                    title = stringResource(R.string.speech_tts_engine),
-                    items = labels,
-                    selectedIndex = selected,
-                    onSelectedIndexChange = onSelect,
-                )
-            }
-            SpeechFieldColumn {
-                SpeechField(
-                    label = stringResource(R.string.speech_tts_language_hint),
-                    value = config.language,
-                    onChange = { store.edit(store.settings.copy(systemTts = config.copy(language = it.trim()))) },
-                )
-            }
-        }
-        SpeechNote(
-            if (engines.isEmpty()) stringResource(R.string.speech_tts_system_missing)
-            else stringResource(R.string.speech_tts_system_note),
-        )
-    }
-}
 
 @Composable
 internal fun GeminiConnectionSection(store: SpeechSettingsStore) {
@@ -152,37 +102,34 @@ internal fun MiniMaxConnectionSection(store: SpeechSettingsStore) {
 }
 
 @Composable
-private fun SpeechApiKeyConnectionSection(
-    baseUrl: String,
-    apiKey: String,
-    onBaseUrl: (String) -> Unit,
-    onApiKey: (String) -> Unit,
-    note: String,
-    model: @Composable () -> Unit,
-) {
-    Column {
-        SpeechGroupCard(title = stringResource(R.string.speech_group_connection)) {
-            model()
-            SpeechFieldColumn {
-                SpeechField("API Key", apiKey, secret = true, onChange = { onApiKey(it.trim()) })
-                SpeechField(stringResource(R.string.speech_base_url), baseUrl, onChange = { onBaseUrl(it.trim()) })
-            }
-        }
-        SpeechNote(note)
-    }
+internal fun MimoTtsConnectionSection(store: SpeechSettingsStore) {
+    val config = store.settings.mimoTts
+    SpeechApiKeyConnectionSection(
+        baseUrl = config.baseUrl,
+        apiKey = store.credentials.mimoTts,
+        onBaseUrl = { store.edit(store.settings.copy(mimoTts = config.copy(baseUrl = it))) },
+        onApiKey = { store.credential(SpeechCredentialField.MIMO_TTS, it) },
+        note = stringResource(R.string.speech_mimo_tts_connection_note),
+    )
 }
 
 @Composable
 internal fun SpeechDeliveryFields(store: SpeechSettingsStore) {
     when (store.settings.tts) {
-        TtsProvider.GEMINI -> {
-            val config = store.settings.geminiTts
+        TtsProvider.GEMINI, TtsProvider.MIMO -> {
+            val settings = store.settings
+            val mimo = settings.tts == TtsProvider.MIMO
             SpeechFieldColumn {
                 SpeechField(
-                    label = stringResource(R.string.speech_gemini_style),
-                    value = config.style,
+                    label = stringResource(R.string.speech_style),
+                    value = if (mimo) settings.mimoTts.style else settings.geminiTts.style,
                     singleLine = false,
-                    onChange = { store.edit(store.settings.copy(geminiTts = config.copy(style = it))) },
+                    onChange = {
+                        store.edit(
+                            if (mimo) settings.copy(mimoTts = settings.mimoTts.copy(style = it))
+                            else settings.copy(geminiTts = settings.geminiTts.copy(style = it)),
+                        )
+                    },
                 )
             }
         }
@@ -219,56 +166,6 @@ internal fun SpeechDeliveryFields(store: SpeechSettingsStore) {
                 }
             }
         }
-        TtsProvider.SYSTEM -> SystemTtsDeliveryFields(store)
         TtsProvider.NONE, TtsProvider.QWEN, TtsProvider.DOUBAO -> Unit
-    }
-}
-
-/** 系统引擎只暴露语速与音调；音色由引擎自身与系统设置决定。 */
-@Composable
-private fun SystemTtsDeliveryFields(store: SpeechSettingsStore) {
-    val config = store.settings.systemTts
-    val rateItems = SystemTtsConfig.RATE_OPTIONS.map { "${it}×" }
-    val pitchItems = SystemTtsConfig.PITCH_OPTIONS.map { "${it}×" }
-    val onRate: (Int) -> Unit = { index ->
-        SystemTtsConfig.RATE_OPTIONS.getOrNull(index)?.let {
-            store.edit(store.settings.copy(systemTts = config.copy(rate = it)))
-        }
-    }
-    val onPitch: (Int) -> Unit = { index ->
-        SystemTtsConfig.PITCH_OPTIONS.getOrNull(index)?.let {
-            store.edit(store.settings.copy(systemTts = config.copy(pitch = it)))
-        }
-    }
-    when (LocalUiStyle.current) {
-        AppearanceUiStyle.COUI -> {
-            CouiDropdownPreference(
-                title = stringResource(R.string.speech_speed),
-                items = rateItems,
-                selectedIndex = SystemTtsConfig.RATE_OPTIONS.indexOf(config.rate).coerceAtLeast(0),
-                onSelectedIndexChange = onRate,
-            )
-            Divider()
-            CouiDropdownPreference(
-                title = stringResource(R.string.speech_pitch),
-                items = pitchItems,
-                selectedIndex = SystemTtsConfig.PITCH_OPTIONS.indexOf(config.pitch).coerceAtLeast(0),
-                onSelectedIndexChange = onPitch,
-            )
-        }
-        AppearanceUiStyle.MIUIX -> {
-            OverlayDropdownPreference(
-                title = stringResource(R.string.speech_speed),
-                items = rateItems,
-                selectedIndex = SystemTtsConfig.RATE_OPTIONS.indexOf(config.rate).coerceAtLeast(0),
-                onSelectedIndexChange = onRate,
-            )
-            OverlayDropdownPreference(
-                title = stringResource(R.string.speech_pitch),
-                items = pitchItems,
-                selectedIndex = SystemTtsConfig.PITCH_OPTIONS.indexOf(config.pitch).coerceAtLeast(0),
-                onSelectedIndexChange = onPitch,
-            )
-        }
     }
 }

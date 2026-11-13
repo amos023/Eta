@@ -4,7 +4,6 @@ import android.content.Context
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.model.SpeechCredentials
 import io.github.mangi.eta.data.model.SpeechSettings
-import io.github.mangi.eta.data.model.TtsProvider
 import io.github.mangi.eta.data.repository.SpeechSettingsRepository
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
@@ -31,9 +30,6 @@ internal class SpeechPlaybackController(
     private val interruptOnScreenOff: Boolean = true,
     private val afterPlayback: () -> Unit = {},
     private val synthesize: suspend (SpeechSettings, SpeechCredentials, String, (ByteArray) -> Unit) -> Unit = ::synthesizeSpeech,
-    /** 系统引擎合成：需要 Context 与临时文件，与云端逐段合成并列。 */
-    private val synthesizeSystem: suspend (SpeechSettings, String, (ByteArray) -> Unit) -> Unit =
-        { settings, text, onAudio -> synthesizeSystemSpeech(context, settings, text, onAudio) },
     /** 整篇单会话流式合成；为 null 时只用逐段请求。 */
     private val streamSynthesize: (suspend (SpeechSettings, SpeechCredentials, List<String>, (ByteArray) -> Unit) -> Unit)? = ::streamSpeech,
     private val createOutput: () -> SpeechAudioOutput = ::SpeechPcmOutput,
@@ -124,12 +120,7 @@ internal class SpeechPlaybackController(
                 }
                 if (!streamed) for (chunk in chunks) {
                     ahead.acquire()
-                    // 系统引擎没有流式会话，按句逐段合成，段间由淡入淡出衔接。
-                    if (config.tts == TtsProvider.SYSTEM) {
-                        synthesizeSystem(config, chunk) { bytes -> queue.trySend(SpeechQueueItem.Audio(bytes)) }
-                    } else {
-                        synthesize(config, secrets, chunk) { bytes -> queue.trySend(SpeechQueueItem.Audio(bytes)) }
-                    }
+                    synthesize(config, secrets, chunk) { bytes -> queue.trySend(SpeechQueueItem.Audio(bytes)) }
                     queue.send(SpeechQueueItem.ChunkEnd)
                 }
                 queue.close()
