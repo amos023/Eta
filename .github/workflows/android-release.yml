@@ -172,14 +172,21 @@ jobs:
           name: Eta-${{ github.ref_name }}.apk
           path: ${{ runner.temp }}/release
 
-      # 产品名不变（Eta-v<versionName>.apk），直接 --clobber 覆盖正式版 Release 里的同名资产，
-      # 不再新建 Release，避免同一版本出现两份安装包。
-      - name: 覆盖正式版 APK
+      # 产品名固定为 Eta-v<versionName>.apk。目标 Release 已存在就 --clobber
+      # 原地覆盖同名资产，不存在则创建一个，避免升版本时 upload 因缺 Release 失败。
+      - name: 发布正式版 APK
         env:
           GH_TOKEN: ${{ github.token }}
           APK_PATH: ${{ runner.temp }}/release/Eta-${{ github.ref_name }}.apk
           TARGET_TAG: v3.4.3-stable
         run: |
-          gh release upload "$TARGET_TAG" "$APK_PATH" --clobber --repo "$GITHUB_REPOSITORY"
+          if gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "目标 Release 已存在，原地覆盖资产"
+            gh release upload "$TARGET_TAG" "$APK_PATH" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            echo "目标 Release 不存在，创建新的"
+            gh release create "$TARGET_TAG" "$APK_PATH" --repo "$GITHUB_REPOSITORY" \
+              --title "$TARGET_TAG" --generate-notes
+          fi
           gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" --json assets \
-            --jq '.assets[] | "\(.name) \(.size)"' 
+            --jq '.assets[] | "\(.name) \(.size)"'
