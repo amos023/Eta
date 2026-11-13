@@ -90,7 +90,8 @@ internal class SpeechSettingsStore(
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             val reason = (error as? SpeechFailure)?.userMessage
-                ?: context.getString(R.string.speech_save_retry)
+                ?: error.message?.takeIf { it.isNotBlank() }
+                ?: error.javaClass.simpleName
             message = context.getString(R.string.speech_save_failed, reason)
             messageIsError = true
             return
@@ -111,7 +112,8 @@ internal class SpeechSettingsStore(
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 val reason = (error as? SpeechFailure)?.userMessage
-                    ?: context.getString(R.string.speech_save_retry)
+                    ?: error.message?.takeIf { it.isNotBlank() }
+                    ?: error.javaClass.simpleName
                 message = context.getString(R.string.speech_save_failed, reason)
                 messageIsError = true
             } finally {

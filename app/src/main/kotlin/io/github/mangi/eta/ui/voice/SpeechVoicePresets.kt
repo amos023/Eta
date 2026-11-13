@@ -89,6 +89,7 @@ internal object SpeechVoicePresets {
         TtsProvider.GEMINI -> gemini
         TtsProvider.MINIMAX -> minimax
         TtsProvider.MIMO -> mimo
+        TtsProvider.SYSTEM -> emptyList()
         TtsProvider.NONE -> emptyList()
     }
 }

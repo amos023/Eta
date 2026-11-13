@@ -38,6 +38,7 @@ internal class SpeechInputController(
     private val refiner: SpeechTranscriptRefiner = SpeechTranscriptRefiner(),
     private val createRecorder: () -> SpeechAudioCapture = ::SpeechRecorder,
     private val recognizeStream: suspend (
+        Context,
         SpeechSettings,
         SpeechCredentials,
         ReceiveChannel<ByteArray>,
@@ -45,7 +46,9 @@ internal class SpeechInputController(
         (String) -> Unit,
         () -> Unit,
         Int,
-    ) -> String = ::recognizeSpeechStream,
+    ) -> String = { ctx, settings, creds, frames, ready, preview, endpoint, silence ->
+        recognizeSpeechStream(ctx, settings, creds, frames, ready, preview, endpoint, silence)
+    },
     private val recognizeFile: suspend (
         Context,
         SpeechSettings,
@@ -108,8 +111,12 @@ internal class SpeechInputController(
                         Unit
                     }
                     try {
-                        if (config.asr == AsrProvider.QWEN_REALTIME || config.asr == AsrProvider.DOUBAO) {
+                        if (config.asr == AsrProvider.QWEN_REALTIME ||
+                            config.asr == AsrProvider.DOUBAO ||
+                            config.asr == AsrProvider.LOCAL
+                        ) {
                             recognizeStream(
+                                context,
                                 config,
                                 secrets,
                                 audio.frames,

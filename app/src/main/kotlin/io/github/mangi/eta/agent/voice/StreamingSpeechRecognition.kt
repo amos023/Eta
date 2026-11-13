@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.voice
 
+import android.content.Context
 import io.github.mangi.eta.data.model.AsrProvider
 import io.github.mangi.eta.data.model.SpeechCredentials
 import io.github.mangi.eta.data.model.SpeechSettings
@@ -13,6 +14,7 @@ import okhttp3.Request
 import org.json.JSONObject
 
 internal suspend fun recognizeSpeechStream(
+    context: Context,
     settings: SpeechSettings,
     credentials: SpeechCredentials,
     frames: ReceiveChannel<ByteArray>,
@@ -25,9 +27,17 @@ internal suspend fun recognizeSpeechStream(
     // 不自动结束时沿用服务默认断句，只影响预览分段，不会提前结束录音。
     val automaticEndpoint = endpointSilenceMs > 0
     val sentenceSilenceMs = if (automaticEndpoint) endpointSilenceMs else DEFAULT_SENTENCE_SILENCE_MS
-    if (settings.asr == AsrProvider.DOUBAO) {
-        recognizeDoubao(settings, credentials, frames, onReady, onPreview, onEndpoint, automaticEndpoint, sentenceSilenceMs)
-    } else recognizeQwen(settings, credentials, frames, onReady, onPreview, onEndpoint, automaticEndpoint, sentenceSilenceMs)
+    when (settings.asr) {
+        AsrProvider.LOCAL -> recognizeSpeechLocal(
+            context, settings, frames, onReady, onPreview, onEndpoint, sentenceSilenceMs,
+        )
+        AsrProvider.DOUBAO -> recognizeDoubao(
+            settings, credentials, frames, onReady, onPreview, onEndpoint, automaticEndpoint, sentenceSilenceMs,
+        )
+        else -> recognizeQwen(
+            settings, credentials, frames, onReady, onPreview, onEndpoint, automaticEndpoint, sentenceSilenceMs,
+        )
+    }
 }
 
 private const val DEFAULT_SENTENCE_SILENCE_MS = 800

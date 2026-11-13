@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -17,6 +19,10 @@ import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.validateSpeechSettings
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.agent.voice.LocalSpeechModel
+import io.github.mangi.eta.agent.voice.LocalSpeechModelState
+import io.github.mangi.eta.agent.voice.LocalSpeechModelStatus
+import io.github.mangi.eta.agent.voice.LocalSpeechPack
 import io.github.mangi.eta.data.model.AsrProvider
 import io.github.mangi.eta.data.model.SpeechSettings
 import io.github.mangi.eta.ui.app.LocalUiStyle
@@ -49,10 +55,11 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
         AsrProvider.QWEN_FLASH -> R.string.speech_asr_note_flash
         AsrProvider.QWEN_FILE -> R.string.speech_asr_note_file
         AsrProvider.MIMO -> R.string.speech_asr_note_mimo
+        AsrProvider.LOCAL -> R.string.speech_asr_note_local
     }
     val showQwenLanguage = when (settings.asr) {
         AsrProvider.QWEN_REALTIME, AsrProvider.QWEN_FLASH, AsrProvider.QWEN_FILE -> true
-        AsrProvider.DOUBAO, AsrProvider.MIMO -> false
+        AsrProvider.DOUBAO, AsrProvider.MIMO, AsrProvider.LOCAL -> false
     }
 
     when (LocalUiStyle.current) {
@@ -84,6 +91,7 @@ internal fun SpeechRecognitionScreen(onBack: () -> Unit, onOpenOss: () -> Unit) 
                         )
                     }
                     SpeechNote(stringResource(asrNoteRes))
+                    if (settings.asr == AsrProvider.LOCAL) LocalAsrCard(store)
                     SpeechConnectionSection(store, synthesis = false)
                     if (showQwenLanguage) {
                         SpeechGroupCard {
@@ -257,6 +265,96 @@ private fun SpeechResultSection(store: SpeechSettingsStore) {
             }
         }
         if (streaming) SpeechNote(stringResource(R.string.speech_auto_send_note))
+    }
+}
+
+/** 本地模型按需下载：显示模型包状态与下载入口，再提供推理线程数。 */
+@Composable
+private fun LocalAsrCard(store: SpeechSettingsStore) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settings = store.settings
+    val config = settings.localAsr
+    val pack = LocalSpeechPack.STREAMING
+    val states by LocalSpeechModel.state.collectAsState()
+    val model = states[pack] ?: LocalSpeechModelState()
+    val size = stringResource(R.string.speech_local_size, (pack.totalBytes / 1024 / 1024).toInt())
+    LaunchedEffect(pack) { LocalSpeechModel.refresh(context, pack) }
+
+    val summary = when {
+        model.status == LocalSpeechModelStatus.DOWNLOADING ->
+            stringResource(R.string.speech_local_downloading, model.progress)
+        model.status == LocalSpeechModelStatus.READY ->
+            stringResource(R.string.speech_local_ready, size)
+        model.error != null -> model.error
+        else -> stringResource(R.string.speech_local_missing, size)
+    }
+    val actionTitle = stringResource(
+        when {
+            model.busy -> R.string.speech_local_cancel
+            model.status == LocalSpeechModelStatus.READY -> R.string.speech_local_delete
+            else -> R.string.speech_local_download
+        },
+    )
+    val onAction: () -> Unit = {
+        when {
+            model.busy -> LocalSpeechModel.cancel(context, pack)
+            model.status == LocalSpeechModelStatus.READY -> scope.launch {
+                LocalSpeechModel.delete(context, pack)
+            }
+            else -> LocalSpeechModel.start(context, pack, pack.sourceUrl)
+        }
+    }
+
+    Column {
+        SpeechGroupCard(title = stringResource(R.string.speech_group_local_model)) {
+            when (LocalUiStyle.current) {
+                AppearanceUiStyle.COUI -> CouiPreference(
+                    title = actionTitle,
+                    summary = summary,
+                    summaryColor = if (model.error != null) MiuixTheme.colorScheme.error else Color.Unspecified,
+                    enabled = true,
+                    showChevron = false,
+                    onClick = onAction,
+                )
+                AppearanceUiStyle.MIUIX -> BasicComponent(
+                    title = actionTitle,
+                    summary = summary,
+                    summaryColor = if (model.error != null) {
+                        BasicComponentDefaults.summaryColor(color = MiuixTheme.colorScheme.error)
+                    } else {
+                        BasicComponentDefaults.summaryColor()
+                    },
+                    enabled = true,
+                    onClick = onAction,
+                )
+            }
+        }
+        val threads = listOf(1, 2, 3, 4)
+        val items = threads.map { stringResource(R.string.speech_local_threads_value, it.toString()) }
+        val selected = threads.indexOf(config.threads).coerceAtLeast(0)
+        val onSelected: (Int) -> Unit = { index ->
+            threads.getOrNull(index)?.let { value ->
+                store.edit(settings.copy(localAsr = config.copy(threads = value)))
+            }
+        }
+        SpeechGroupCard(title = stringResource(R.string.speech_group_local)) {
+            when (LocalUiStyle.current) {
+                AppearanceUiStyle.COUI -> CouiDropdownPreference(
+                    title = stringResource(R.string.speech_local_threads),
+                    items = items,
+                    selectedIndex = selected,
+                    onSelectedIndexChange = onSelected,
+                )
+                AppearanceUiStyle.MIUIX -> OverlayDropdownPreference(
+                    title = stringResource(R.string.speech_local_threads),
+                    items = items,
+                    selectedIndex = selected,
+                    onSelectedIndexChange = onSelected,
+                )
+            }
+        }
+        SpeechNote(stringResource(R.string.speech_local_note, size))
     }
 }
 
