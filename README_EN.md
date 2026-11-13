@@ -21,14 +21,12 @@
 | This build | 3.4.4 (versionCode 2026111401) |
 | Package name | `io.github.mangi.eta.stable`, coexists with the original |
 
-After merging upstream 3.4.3, this branch only applies the additions below.
-**Nothing from upstream was removed or degraded.**
+56 commits accumulated since upstream 3.4.2. Everything below is layered on top of
+upstream code. **Nothing from upstream was removed or degraded.**
 
 ---
 
-## What this build adds
-
-### 1. AI image generation
+## 1. AI image generation
 
 Upstream is text-only; this build lets the Agent produce images directly.
 
@@ -37,40 +35,83 @@ Upstream is text-only; this build lets the Agent produce images directly.
 - **Relay compatibility**: when an endpoint rejects `response_format` / `n` / `size`, it retries other endpoints and degrades gracefully, surfacing the original error
 - **Dedicated icon**: the image button no longer shares the thinking icon
 
-### 2. Image-generation providers
+## 2. Image-generation providers
 
 - **Separate entry**: the new-provider menu gains "Add image model"; providers created there **only pull image models and exclude chat models**
 - **Separate group**: the provider list splits image providers into their own section
 - **Kept out of chat**: image models never appear in the chat model picker, whichever path fetched them
 - **Editor adaptation**: image models skip the context window requirement and hide reasoning settings, while keeping default size, format and endpoint
 
-### 3. Local offline speech recognition
+## 3. Local offline speech recognition
 
 Upstream speech recognition is entirely cloud-based; this build adds a fully offline path.
 
 - **On-device inference**: sherpa-onnx with a Chinese streaming zipformer2 model, transcribing as you speak
 - **No network, no API key**: audio never leaves the device
-- **Model on demand**: the engine (~24 MB) ships in the APK; the model (~167 MB) downloads when "Local offline" is selected, with progress, cancel, delete and per-file SHA-256 verification
+- **Model on demand**: the engine ships in the APK; the model downloads when "Local offline" is selected, with progress, cancel, delete and per-file SHA-256 verification
 - **Works in both entry points**: chat dictation and the assistant overlay share the same recognition pipeline
 
-### 4. System TTS playback
+## 4. System TTS playback
 
 - **Uses the device's built-in speech engine**: no network, no key, no cost
 - Voice and quality follow the system speech settings; available alongside upstream's cloud playback
 
----
+## 5. Message navigation
 
-## Issues fixed along the way
+- **Whole-conversation navigation**: open the navigator from the side pane to browse every turn and jump straight to it
+- **Paged loading**: page size raised to 256, so navigation no longer only covers the most recent stretch of a long conversation
+- Untitled turns get a recognisable placeholder label
 
-Compatibility problems exposed by combining upstream 3.4.3 with local changes.
+## 6. Conversation file management
 
-| Issue | Detail |
+- **Per-conversation file list**: every attachment sent in a conversation, browsable and retrievable
+- Empty conversations show a clear hint instead of a blank panel
+
+## 7. Segmented copy for long answers
+
+- **Long answers are no longer all-or-nothing**: select and copy individual paragraphs
+- Bypasses the system text selection overlay
+
+## 8. Manual conversation groups
+
+- **Custom groups**: create, rename and delete groups; move conversations in and out
+- Ungrouped conversations get their own section
+- Deleting a group keeps the conversations
+
+## 9. Provider list organisation
+
+- **Three sort modes**: a top-bar button sorts by name (Chinese pinyin collation), endpoint type, or configuration state
+- **Configured vs unconfigured**: the list is split into two groups with configured providers first
+- **Credential-based**: "configured" means it has models **and** usable credentials, so built-ins without a key no longer crowd the group
+- **Collapsible provider groups**: the model picker becomes a settings-style grouped card with collapsed groups, dropping redundant tags and filter rows
+
+## 10. Model capability presets
+
+- **Presets by model name**: opening the editor shows suggested context window and reasoning levels instead of empty fields
+- **Output limit reserved**: the model table gains an output token limit (remote value plus user override)
+
+## 11. Other refinements
+
+| Item | Detail |
 | --- | --- |
-| New conversations had no model | Top bar showed "Not selected"; now inherits the previous conversation's model |
-| Image models leaked into chat | Relays misreport image models' output modality as `text`; now judged by model id first |
-| Image models required a context window | Image calls exchange no tokens; that field is no longer validated |
-| Speech settings failed to save permanently | Keystore keys can be permanently invalidated while `getKey` still returns them; now probed for usability and rebuilt when dead |
-| Crash on database upgrade | Merging upstream misplaced the cache-column migration, so already-upgraded users never got the new columns; added an idempotent v29→v30 migration that works for both fresh and upgraded databases |
+| First-token placeholder | A placeholder animation covers the wait for the first token |
+| User bubble long-press | Vibrates once and no longer opens system text selection |
+| "Thinking" label | Trailing ellipsis removed |
+| Virtual display IME policy | Fixed the failure that destroyed a virtual display right after creation |
+| Virtual display capsule | Fixed width, no more horizontal jumping when expanding or collapsing |
+| Virtual display layout | Reworked the preview and action row arrangement |
+| First frame | No longer blocked by disk IO at startup |
+| Conversation loading | Legacy double-escaped checkpoints no longer break loading |
+| Auto-compaction threshold | Lowered from 85% to 70% |
+| Stats dialog | Fixed centring and the summary bar border gap |
+| Miuix chat list | Fixed one-way scrolling |
+
+## 12. Build and release
+
+- **Stable and debug coexist**: the release build derives a `.stable` package name with its own signature, so both can be installed at once
+- **Signing fallback**: environment variables take priority, falling back to `keystore.properties` in the repo root, so release builds work locally
+- **CI gate**: lint and unit tests only run on release tags, keeping routine pushes off the runner
+- **Release overwrite**: republishing the same version overwrites the asset in place instead of creating a duplicate install
 
 ---
 
@@ -92,5 +133,4 @@ Requires **Android 13+ on ARM64 devices**.
 - Feature docs and upstream usage: visit the repository above
 - This repository only carries the additions listed here and does not provide standalone documentation
 
-If you only need the original feature set, use upstream directly. This build targets
-users who want image generation, offline speech or system TTS.
+If you only need the original feature set, use upstream directly.
