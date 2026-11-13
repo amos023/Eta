@@ -6,10 +6,13 @@
 
 > **Original project: [Mangi-11/Eta](https://github.com/Mangi-11/Eta)**
 >
-> This repository is not the original. Eta's design, core implementation and all
-> base capabilities come from the upstream authors. Only the changes listed below
-> are added here. For feature documentation, usage guides and issue reports,
-> please refer to the upstream repository.
+> This repository is not the original, nor a GitHub fork — it is an independently
+> published repository built from the upstream source. Eta's design, core
+> implementation and all base capabilities come from the upstream authors. Only the
+> changes listed below are added here. For feature documentation, usage guides and
+> issue reports, please refer to the upstream repository.
+>
+> Both repositories are licensed under **GPL-3.0** and distributed under the same terms.
 
 ---
 
