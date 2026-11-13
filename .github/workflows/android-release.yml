@@ -178,7 +178,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           APK_PATH: ${{ runner.temp }}/release/Eta-${{ github.ref_name }}.apk
-          TARGET_TAG: v3.4.3-stable
+          TARGET_TAG: v3.4.4-stable
         run: |
           if gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "目标 Release 已存在，原地覆盖资产"
