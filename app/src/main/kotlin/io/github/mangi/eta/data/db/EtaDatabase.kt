@@ -27,7 +27,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 29,
+    version = 30,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -73,6 +73,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_26_27,
                         MIGRATION_27_28,
                         MIGRATION_28_29,
+                        MIGRATION_29_30,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -171,6 +172,16 @@ internal abstract class EtaDatabase : RoomDatabase() {
             database.execSQL("ALTER TABLE provider_models ADD COLUMN image_endpoint TEXT")
             database.execSQL("ALTER TABLE provider_models ADD COLUMN default_image_size TEXT")
             database.execSQL("ALTER TABLE provider_models ADD COLUMN default_image_format TEXT")
+        }
+
+        /**
+         * 合并上游 3.4.3 时，缓存用量与压缩归档两列被放进了 26_27，
+         * 但本分支的 25_26 走的是会话分组，因此已经升到 29 的设备从未拿到这两列，
+         * 查询 conversation_messages 会直接崩溃。这里补齐。
+         */
+        internal val MIGRATION_29_30 = Migration(29, 30) { database ->
+            database.execSQL("ALTER TABLE conversation_messages ADD COLUMN cache_write_tokens INTEGER")
+            database.execSQL("ALTER TABLE conversation_messages ADD COLUMN compaction_archive_id TEXT")
         }
 
         internal val MIGRATION_28_29 = Migration(28, 29) { database ->
