@@ -72,25 +72,19 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 - **Long answers are no longer all-or-nothing**: select and copy individual paragraphs
 - Bypasses the system text selection overlay
 
-## 8. Manual conversation groups
-
-- **Custom groups**: create, rename and delete groups; move conversations in and out
-- Ungrouped conversations get their own section
-- Deleting a group keeps the conversations
-
-## 9. Provider list organisation
+## 8. Provider list organisation
 
 - **Three sort modes**: a top-bar button sorts by name (Chinese pinyin collation), endpoint type, or configuration state
 - **Configured vs unconfigured**: the list is split into two groups with configured providers first
 - **Credential-based**: "configured" means it has models **and** usable credentials, so built-ins without a key no longer crowd the group
 - **Collapsible provider groups**: the model picker becomes a settings-style grouped card with collapsed groups, dropping redundant tags and filter rows
 
-## 10. Model capability presets
+## 9. Model capability presets
 
 - **Presets by model name**: opening the editor shows suggested context window and reasoning levels instead of empty fields
 - **Output limit reserved**: the model table gains an output token limit (remote value plus user override)
 
-## 11. Other refinements
+## 10. Other refinements
 
 | Item | Detail |
 | --- | --- |
@@ -106,7 +100,7 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 | Stats dialog | Fixed centring and the summary bar border gap |
 | Miuix chat list | Fixed one-way scrolling |
 
-## 12. Build and release
+## 11. Build and release
 
 - **Stable and debug coexist**: the release build derives a `.stable` package name with its own signature, so both can be installed at once
 - **Signing fallback**: environment variables take priority, falling back to `keystore.properties` in the repo root, so release builds work locally
