@@ -57,6 +57,13 @@ sealed interface ProviderSetting {
     val createdAt: Long
     val hostedWebSearchEnabled: Boolean
         get() = false
+
+    /**
+     * 生图专用供应商：拉取模型时只保留生图模型，聊天模型全部排除。
+     * 新建时选择「添加生图模型」入口即置为 true，之后重新拉取仍按此过滤。
+     */
+    val imageOnly: Boolean
+        get() = false
 }
 
 @Serializable
@@ -78,6 +85,7 @@ data class OpenAiCompatibleProviderSetting(
     val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
     override val hostedWebSearchEnabled: Boolean = false,
     override val authMode: String = ProviderAuthModes.API_KEY,
+    override val imageOnly: Boolean = false,
 ) : ProviderSetting
 
 @Serializable
@@ -148,6 +156,7 @@ data class CustomProviderSetting(
     val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
     override val hostedWebSearchEnabled: Boolean = false,
     override val authMode: String = ProviderAuthModes.API_KEY,
+    override val imageOnly: Boolean = false,
 ) : ProviderSetting
 
 internal val ProviderSetting.runtimeProviderType: String
@@ -220,3 +229,19 @@ internal fun List<ProviderSetting>.enabledModel(modelId: String?): ProviderModel
 internal fun ProviderSetting.selectedOrFirstModel(modelId: String?): Model? =
     models.firstOrNull { it.id == modelId && it.isEnabled }
         ?: models.filter { it.isEnabled }.minByOrNull { it.sortOrder }
+
+/**
+ * 生图专用提供商：列表页据此单独分组。
+ *
+ * 优先看显式标记 [imageOnly]（建供应商时选了「添加生图模型」入口），
+ * 没有标记的旧数据才回退到模型推断：启用的模型全是生图模型。
+ * 只要还有一个可用于对话的模型，就仍算对话服务商，
+ * 避免中转站同时提供文字与图像时被整体挪走。
+ */
+internal val ProviderSetting.isImageOnlyProvider: Boolean
+    get() {
+        if (imageOnly) return true
+        val chatModels = models.filter { it.isEnabled && !it.supportsImageGeneration }
+        val imageModels = models.filter { it.isEnabled && it.supportsImageGeneration }
+        return chatModels.isEmpty() && imageModels.isNotEmpty()
+    }

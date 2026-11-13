@@ -48,6 +48,9 @@ internal data class ProviderEntity(
     @ColumnInfo(name = "anthropic_version") val anthropicVersion: String,
     @ColumnInfo(name = "auth_mode", defaultValue = "'api_key'")
     val authMode: String = ProviderAuthModes.API_KEY,
+    /** 生图专用供应商：拉取模型时只保留生图模型，聊天模型全部丢弃。 */
+    @ColumnInfo(name = "image_only", defaultValue = "0")
+    val imageOnly: Boolean = false,
 )
 
 @Serializable
@@ -92,6 +95,11 @@ internal data class ProviderModelEntity(
     val reasoningCapabilitiesOverrideJson: String = "null",
     @ColumnInfo(name = "structured_output") val structuredOutput: Boolean?,
     @ColumnInfo(name = "supports_temperature") val supportsTemperature: Boolean?,
+    @ColumnInfo(name = "image_generation") val imageGeneration: Boolean? = null,
+    @ColumnInfo(name = "image_generation_override") val imageGenerationOverride: Boolean? = null,
+    @ColumnInfo(name = "image_endpoint") val imageEndpoint: String? = null,
+    @ColumnInfo(name = "default_image_size") val defaultImageSize: String? = null,
+    @ColumnInfo(name = "default_image_format") val defaultImageFormat: String? = null,
     @ColumnInfo(name = "custom_headers_json") val customHeadersJson: String,
     @ColumnInfo(name = "custom_body_json") val customBodyJson: String,
     val source: String,
@@ -133,6 +141,7 @@ internal fun ProviderSetting.toEntity(): ProviderEntity =
             is AnthropicProviderSetting -> anthropicVersion
             else -> AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION
         },
+        imageOnly = imageOnly,
     )
 
 internal fun ProviderSetting.toModelEntities(): List<ProviderModelEntity> =
@@ -202,6 +211,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             createdAt = provider.createdAt,
             endpointMode = provider.endpointMode.ifBlank { OpenAiEndpointMode.CHAT_COMPLETIONS },
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
+            imageOnly = provider.imageOnly,
         )
 
         else -> OpenAiCompatibleProviderSetting(
@@ -221,6 +231,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             createdAt = provider.createdAt,
             endpointMode = provider.endpointMode.ifBlank { OpenAiEndpointMode.CHAT_COMPLETIONS },
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
+            imageOnly = provider.imageOnly,
         )
     }
 }
@@ -257,6 +268,11 @@ private fun Model.toEntity(providerId: String): ProviderModelEntity =
         ),
         structuredOutput = structuredOutput,
         supportsTemperature = supportsTemperature,
+        imageGeneration = imageGeneration,
+        imageGenerationOverride = imageGenerationOverride,
+        imageEndpoint = imageEndpoint,
+        defaultImageSize = defaultImageSize,
+        defaultImageFormat = defaultImageFormat,
         customHeadersJson = ProviderJson.encodeHeaders(customHeaders),
         customBodyJson = ProviderJson.encodeBody(customBody),
         source = source.name.lowercase(),
@@ -290,6 +306,11 @@ private fun ProviderModelEntity.toDomain(): Model =
         ),
         structuredOutput = structuredOutput,
         supportsTemperature = supportsTemperature,
+        imageGeneration = imageGeneration,
+        imageGenerationOverride = imageGenerationOverride,
+        imageEndpoint = imageEndpoint,
+        defaultImageSize = defaultImageSize,
+        defaultImageFormat = defaultImageFormat,
         customHeaders = ProviderJson.decodeHeaders(customHeadersJson),
         customBody = ProviderJson.decodeBody(customBodyJson),
         source = runCatching { ModelSource.valueOf(source.uppercase()) }.getOrDefault(

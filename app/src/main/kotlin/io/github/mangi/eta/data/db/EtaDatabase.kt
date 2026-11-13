@@ -27,7 +27,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 27,
+    version = 29,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -71,6 +71,8 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_24_25,
                         MIGRATION_25_26,
                         MIGRATION_26_27,
+                        MIGRATION_27_28,
+                        MIGRATION_28_29,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -157,6 +159,20 @@ internal abstract class EtaDatabase : RoomDatabase() {
             // 模型级输出上限：远端值 + 用户覆盖值，两条都允许为空。
             database.execSQL("ALTER TABLE provider_models ADD COLUMN max_output_tokens INTEGER")
             database.execSQL("ALTER TABLE provider_models ADD COLUMN max_output_tokens_override INTEGER")
+        }
+
+        internal val MIGRATION_28_29 = Migration(28, 29) { database ->
+            // 生图专用供应商标记：拉取模型时只保留生图模型。
+            database.execSQL("ALTER TABLE model_providers ADD COLUMN image_only INTEGER NOT NULL DEFAULT 0")
+        }
+
+        internal val MIGRATION_27_28 = Migration(27, 28) { database ->
+            // 生图模型：能力位（远端值 + 用户覆盖）+ 接口地址覆盖 + 默认尺寸与格式。
+            database.execSQL("ALTER TABLE provider_models ADD COLUMN image_generation INTEGER")
+            database.execSQL("ALTER TABLE provider_models ADD COLUMN image_generation_override INTEGER")
+            database.execSQL("ALTER TABLE provider_models ADD COLUMN image_endpoint TEXT")
+            database.execSQL("ALTER TABLE provider_models ADD COLUMN default_image_size TEXT")
+            database.execSQL("ALTER TABLE provider_models ADD COLUMN default_image_format TEXT")
         }
 
         private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {
