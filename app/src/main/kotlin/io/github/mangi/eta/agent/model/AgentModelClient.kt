@@ -388,6 +388,13 @@ internal object AgentModelClient {
          */
         val sensitive: Boolean = false,
         val command: String? = null,
+        /**
+         * 该次工具调用产出的会话资产图片（本地文件路径）。
+         *
+         * 与 [images] 的区别：images 是给当前模型回合看的临时视觉输入，用完即弃；
+         * artifacts 是要长期留在会话里、用户能反复看的产物，例如生成的图片。
+         */
+        val artifacts: List<String> = emptyList(),
     )
 
     /** 图片引用：入口侧可为本地 URI/路径，进入模型协议前必须解析为远程 URL 或 data URL。 */

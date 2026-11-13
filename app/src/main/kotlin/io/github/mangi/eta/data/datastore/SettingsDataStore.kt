@@ -19,6 +19,7 @@ import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.SpeechSettings
 import io.github.mangi.eta.data.model.SubagentSettings
+import io.github.mangi.eta.data.model.ImageGenerationSettings
 import io.github.mangi.eta.data.model.WebToolsSettings
 import kotlinx.serialization.json.Json
 import io.github.mangi.eta.data.model.Settings
@@ -32,6 +33,7 @@ internal object SettingsDataStore {
     private val SPEECH_SETTINGS = stringPreferencesKey("speech_settings_v1")
     private val WEB_TOOLS_SETTINGS = stringPreferencesKey("web_tools_settings_v1")
     private val SUBAGENT_SETTINGS = stringPreferencesKey("subagent_settings_v1")
+    private val IMAGE_GENERATION_SETTINGS = stringPreferencesKey("image_generation_settings_v1")
     private val speechJson = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
@@ -91,6 +93,26 @@ internal object SettingsDataStore {
     suspend fun setSubagentSettings(settings: SubagentSettings) {
         ensureInitialized()
         dataStore.edit { it[SUBAGENT_SETTINGS] = speechJson.encodeToString(settings) }
+    }
+
+    fun imageGenerationSettingsFlow(): Flow<ImageGenerationSettings> {
+        ensureInitialized()
+        return dataStore.data
+            .catch { cause ->
+                if (cause is IOException) emit(emptyPreferences()) else throw cause
+            }
+            .map { prefs ->
+                prefs[IMAGE_GENERATION_SETTINGS]?.let { raw ->
+                    runCatching { speechJson.decodeFromString<ImageGenerationSettings>(raw) }.getOrNull()
+                } ?: ImageGenerationSettings()
+            }
+    }
+
+    suspend fun imageGenerationSettings(): ImageGenerationSettings = imageGenerationSettingsFlow().first()
+
+    suspend fun setImageGenerationSettings(settings: ImageGenerationSettings) {
+        ensureInitialized()
+        dataStore.edit { it[IMAGE_GENERATION_SETTINGS] = speechJson.encodeToString(settings) }
     }
 
     private const val STORE_NAME = "eta_settings"

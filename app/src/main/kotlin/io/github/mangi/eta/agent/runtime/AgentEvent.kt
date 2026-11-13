@@ -181,10 +181,13 @@ internal sealed interface AgentEvent {
         /** 可选：旧版本 Runtime 不发送，消费端缺省时回退到摘要文本判断。 */
         val success: Boolean? = null,
         val command: String? = null,
+        /** 该工具产出的会话资产图片（本地路径）；空表示这次没有留下可回看的图片。 */
+        val artifacts: List<String> = emptyList(),
     ) : AgentEvent {
         override fun toLogLine(): String =
             "tool_finished round=$round, name=${name.toSafeLogToken()}, " +
-                "${resultSummary.toSafeResultLogFields()}, images=$imageCount, image_bytes=$imageBytes"
+                "${resultSummary.toSafeResultLogFields()}, images=$imageCount, image_bytes=$imageBytes, " +
+                "artifacts=${artifacts.size}"
     }
 
     data class SubagentProgress(

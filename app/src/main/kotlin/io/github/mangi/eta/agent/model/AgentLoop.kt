@@ -515,6 +515,7 @@ internal class AgentLoop(
                 imageBytes = result.images.sumOf { it.bytes },
                 success = traceFormatter.isSuccessResult(result),
                 command = result.command,
+                artifacts = result.artifacts,
             )
         )
     }
