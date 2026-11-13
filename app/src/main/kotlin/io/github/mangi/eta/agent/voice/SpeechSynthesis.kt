@@ -18,6 +18,8 @@ internal suspend fun synthesizeSpeech(settings: SpeechSettings, credentials: Spe
         TtsProvider.MIMO -> return@withTimeout synthesizeMimo(settings.mimoTts, credentials.mimoTts, text, onAudio)
         TtsProvider.NONE -> throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先选择语音播报服务")
         TtsProvider.QWEN, TtsProvider.DOUBAO -> Unit
+        // 系统 TTS 由 SystemSpeechSynthesis 单独处理。
+        TtsProvider.SYSTEM -> return@withTimeout
     }
     val qwen = settings.tts == TtsProvider.QWEN
     val request = if (qwen) {

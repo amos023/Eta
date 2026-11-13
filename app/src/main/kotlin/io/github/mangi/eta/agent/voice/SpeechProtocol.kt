@@ -32,6 +32,7 @@ internal fun validateSpeechSettings(settings: SpeechSettings, secrets: SpeechCre
     if (synthesis) {
         when (settings.tts) {
             TtsProvider.NONE -> throw SpeechFailure(SpeechErrorCode.CONFIGURATION, "请先在设置中配置语音播报")
+            TtsProvider.SYSTEM -> Unit
             TtsProvider.QWEN -> {
                 required(secrets.qwenTts, "千问播报 API Key")
                 required(settings.qwenVoice, "音色")
@@ -69,6 +70,7 @@ internal fun validateSpeechSettings(settings: SpeechSettings, secrets: SpeechCre
             }
         }
     } else when (settings.asr) {
+        AsrProvider.LOCAL -> Unit
         AsrProvider.MIMO -> {
             required(secrets.mimoAsr, "MiMo 识别 API Key")
             speechBaseUrl(settings.mimoAsr.baseUrl)

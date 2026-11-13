@@ -5,10 +5,10 @@ import kotlinx.serialization.Serializable
 private const val MIMO_SPEECH_BASE_URL = "https://api.xiaomimimo.com/v1"
 
 @Serializable
-enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO }
+enum class AsrProvider { QWEN_REALTIME, QWEN_FLASH, QWEN_FILE, DOUBAO, MIMO, LOCAL }
 
 @Serializable
-enum class TtsProvider { NONE, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO }
+enum class TtsProvider { NONE, SYSTEM, QWEN, DOUBAO, GEMINI, MINIMAX, MIMO }
 
 @Serializable
 enum class SpeechRegion { BEIJING, SINGAPORE }
@@ -29,6 +29,25 @@ enum class MimoAsrLanguage(val apiId: String) {
     AUTO("auto"),
     CHINESE("zh"),
     ENGLISH("en"),
+}
+
+@Serializable
+data class LocalAsrConfig(
+    /** 1～4 个推理线程；越高越快，也越耗电。 */
+    val threads: Int = 2,
+)
+
+@Serializable
+data class SystemTtsConfig(
+    val engine: String = "",
+    val language: String = "",
+    val rate: Float = 1f,
+    val pitch: Float = 1f,
+) {
+    companion object {
+        val RATE_OPTIONS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+        val PITCH_OPTIONS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+    }
 }
 
 @Serializable
@@ -113,6 +132,10 @@ data class SpeechSettings(
     val recognitionEnabled: Boolean = true,
     val mimoAsr: MimoAsrConfig = MimoAsrConfig(),
     val mimoTts: MimoTtsConfig = MimoTtsConfig(),
+    /** 本地离线识别：sherpa-onnx 在本机推理，不联网。 */
+    val localAsr: LocalAsrConfig = LocalAsrConfig(),
+    /** 系统 TTS：调用手机自带语音引擎朗读。 */
+    val systemTts: SystemTtsConfig = SystemTtsConfig(),
 ) {
     companion object {
         const val DEFAULT_AUTO_SEND_SILENCE_MS = 2_000
@@ -139,6 +162,13 @@ class SpeechCredentials(
     val mimoAsr: String = "",
     val mimoTts: String = "",
 ) {
+    /** 所有凭据都为空：例如只用本地离线识别与系统播报时，无需写入加密存储。 */
+    internal fun isBlank(): Boolean = qwenAsr.isBlank() && qwenTts.isBlank() &&
+        doubaoAsr.isBlank() && doubaoTts.isBlank() &&
+        ossAccessKeyId.isBlank() && ossAccessKeySecret.isBlank() &&
+        geminiTts.isBlank() && minimaxTts.isBlank() &&
+        mimoAsr.isBlank() && mimoTts.isBlank()
+
     internal fun withValue(field: SpeechCredentialField, value: String): SpeechCredentials = SpeechCredentials(
         qwenAsr = if (field == SpeechCredentialField.QWEN_ASR) value else qwenAsr,
         qwenTts = if (field == SpeechCredentialField.QWEN_TTS) value else qwenTts,
