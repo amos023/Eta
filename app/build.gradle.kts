@@ -178,6 +178,8 @@ androidComponents {
 
 dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
+    // 内置离线语音识别：sherpa-onnx 官方 AAR 的 arm64-v8a 子集，推理全部在本机完成。
+    implementation(files("libs/sherpa-onnx-2.0.1-arm64.aar"))
     implementation(libs.jsoup)
     implementation(libs.commons.compress)
     implementation(libs.xz)
