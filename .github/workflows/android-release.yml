@@ -178,7 +178,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           APK_PATH: ${{ runner.temp }}/release/Eta-${{ github.ref_name }}.apk
-          TARGET_TAG: v3.4.2-stable
+          TARGET_TAG: v3.4.3-stable
         run: |
           gh release upload "$TARGET_TAG" "$APK_PATH" --clobber --repo "$GITHUB_REPOSITORY"
           gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" --json assets \
