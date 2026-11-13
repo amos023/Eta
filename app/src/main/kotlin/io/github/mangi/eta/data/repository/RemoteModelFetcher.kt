@@ -49,10 +49,12 @@ internal object RemoteModelFetcher {
     suspend fun fetchCatalog(provider: ProviderSetting): Result<RemoteModelCatalog> =
         fetchCatalog(provider, AgentHttpClient.client, StoredCredentials)
 
+    /** 生图供应商：只保留生图模型，聊天模型全部丢弃。 */
     internal suspend fun fetchCatalog(
         provider: ProviderSetting,
         client: OkHttpClient,
         credentials: Credentials,
+        imageOnly: Boolean = provider.imageOnly,
     ): Result<RemoteModelCatalog> = withContext(Dispatchers.IO) {
         suspendCancellableCoroutine { continuation ->
             val controller = AgentRunController()
@@ -70,7 +72,12 @@ internal object RemoteModelFetcher {
                     profile == null && provider is AnthropicProviderSetting -> fetchAnthropic(provider, controller, client, credentials)
                     else -> fetchOpenAiCompatible(provider, controller, client, credentials)
                 }
-                val models = (if (profile == ProviderConnectionProfile.OPENAI_CODEX) fetched else fetched.filter(::isChatCapableModel))
+                val models = when {
+                    profile == ProviderConnectionProfile.OPENAI_CODEX -> fetched
+                    // 生图供应商：只留生图模型，聊天模型一律排除。
+                    imageOnly -> fetched.mapNotNull(::classifyImageModel)
+                    else -> fetched.mapNotNull(::classifyModel)
+                }
                     // 中转站通常只给模型 id，按预设补齐上下文窗口与思考档位，编辑弹窗打开即可看到默认值。
                     .map { it.withPresetCapabilities() }
                 controller.throwIfCancelled()
@@ -219,21 +226,72 @@ internal object RemoteModelFetcher {
     }
 
     /**
-     * 判断远端目录中的模型是否可用于 Agent 对话。
+     * 把远端目录里的模型分类：对话模型、生图模型、以及要丢弃的模型。
      *
-     * OpenAI 兼容平台的 /models 会混入语音识别、语音合成、图像/视频生成、
-     * embedding、rerank 等非对话模型（例如阿里百炼一次返回数百个）。这些模型
-     * 无法参与 Agent 的文本工具调用循环，拉取时按 id 命名特征与输出模态过滤掉。
+     * OpenAI 兼容平台的 /models 会混入语音识别、语音合成、embedding、rerank、
+     * 视频生成等非对话模型（例如阿里百炼一次返回数百个）。这些无法参与 Agent 的
+     * 文本工具调用循环，直接丢掉；生图模型保留下来，标记 imageGeneration 后
+     * 不进聊天模型列表，只作为生图模型可选。
+     *
+     * 判断顺序：先看输出模态元数据（可信），再看 id 命名特征（推断）。
      */
-    internal fun isChatCapableModel(model: Model): Boolean {
-        if (model.outputModalities.isNotEmpty() &&
-            model.outputModalities.none { it.equals(Model.TEXT_MODALITY, ignoreCase = true) }
-        ) {
-            return false
-        }
+    internal fun classifyModel(model: Model): Model? {
         val id = model.modelId.lowercase()
-        return NON_CHAT_MODEL_ID_MARKERS.none { it in id }
+        val outputs = model.outputModalities
+        val outputsImage = outputs.any { it.equals(Model.IMAGE_MODALITY, ignoreCase = true) }
+        val outputsText = outputs.isEmpty() || outputs.any { it.equals(Model.TEXT_MODALITY, ignoreCase = true) }
+
+        // 生图特征优先判定：中转站常把生图模型的输出模态误报为 ["text"]，
+        // 若先看模态就会把它当成普通对话模型放行。只有从「新增生图模型」
+        // 入口建的供应商才拉取生图模型，其余供应商一律排除。
+        if (IMAGE_GENERATION_MODEL_ID_MARKERS.any { it in id }) return null
+
+        if (outputsImage && !outputs.isEmpty()) {
+            // 元数据声称输出图像：生图模型，普通供应商直接丢弃。
+            return null
+        }
+        if (!outputsText) return null
+        if (NON_CHAT_MODEL_ID_MARKERS.any { it in id }) return null
+        return model
     }
+
+    /**
+     * 生图供应商专用的分类：只保留生图模型，聊天模型一律丢弃。
+     *
+     * 与 [classifyModel] 的区别在于判定方向相反——[classifyModel] 从「能不能对话」
+     * 出发把生图模型挑出来，这里从「能不能出图」出发把对话模型扔掉。
+     * 输出模态元数据可信时优先用它；没有元数据才退回 id 特征。
+     */
+    internal fun classifyImageModel(model: Model): Model? {
+        val id = model.modelId.lowercase()
+        val outputs = model.outputModalities
+        val outputsImage = outputs.any { it.equals(Model.IMAGE_MODALITY, ignoreCase = true) }
+        val outputsText = outputs.isEmpty() || outputs.any { it.equals(Model.TEXT_MODALITY, ignoreCase = true) }
+
+        // 元数据明确只输出图像：确定为生图模型。
+        if (outputsImage && !outputsText) return model.copy(imageGeneration = true)
+        // id 上带生图特征：按生图模型收下。
+        if (IMAGE_GENERATION_MODEL_ID_MARKERS.any { it in id }) return model.copy(imageGeneration = true)
+        // 其余（对话模型、语音、向量等）在生图供应商下一律排除。
+        return null
+    }
+
+    /** 兼容旧调用点：只判断是否可用于对话。 */
+    internal fun isChatCapableModel(model: Model): Boolean =
+        classifyModel(model)?.let { !it.supportsImageGeneration } == true
+
+    /** 生图模型 id 特征；命中即按生图模型处理。 */
+    private val IMAGE_GENERATION_MODEL_ID_MARKERS = listOf(
+        "dall-e", "gpt-image", "flux", "stable-diffusion", "sdxl",
+        "wanx", "cogview", "kolors", "seedream", "hidream",
+        "image-generation", "text-to-image", "txt2img", "imagen",
+        "qwen-image", "doubao-seedream", "midjourney", "nijijourney",
+        // 通义万相 Z-Image 系列：Tongyi-MAI/Z-Image、Z-Image-Turbo、Z-Image-Edit
+        "z-image",
+        // 兜底：其余含 image 的模型统一按生图处理。
+        // 多模态对话模型（同时输出 text 与 image）在此前分支已提前返回，不会走到这里。
+        "image",
+    )
 
     private val NON_CHAT_MODEL_ID_MARKERS = listOf(
         // 语音识别
@@ -242,8 +300,6 @@ internal object RemoteModelFetcher {
         "tts", "speech", "voice", "cosyvoice", "sambert",
         // 向量与排序
         "embedding", "rerank",
-        // 图像生成与理解外的图像专用模型
-        "image", "dall-e", "flux", "stable-diffusion", "wanx", "hidream",
         // 视频生成
         "video", "veo-",
         // 其他非对话专用模型
