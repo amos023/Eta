@@ -1099,6 +1099,7 @@
     <item quantity="one">Configured providers (%d)</item>
     <item quantity="other">Configured providers (%d)</item>
   </plurals>
+  <string name="provider_configured_image_count">Image providers (%1$d)</string>
   <string name="provider_unconfigured_count">Not configured yet (%1$d)</string>
   <string name="provider_sort_title">Sort providers</string>
   <string name="provider_sort_by_name">By name</string>
@@ -1401,6 +1402,22 @@
   <string name="chat_next_candidate">Next candidate reply</string>
   <string name="chat_image_attachment">Image attachment</string>
   <string name="chat_view_image">View image</string>
+  <string name="model_image_generation">Image generation</string>
+  <string name="model_image_generation_summary">Turn this model into an image generation model; it leaves the chat model list.</string>
+  <string name="model_image_default_size">Default image size</string>
+  <string name="model_image_default_format">Default image format</string>
+  <string name="model_image_endpoint">Image endpoint override</string>
+  <string name="model_image_endpoint_hint">https://host/v1/images/generations</string>
+  <string name="model_image_endpoint_summary">Leave empty to use {baseUrl}/images/generations with /v1 fallback.</string>
+  <string name="image_size_label">Size</string>
+  <string name="image_count_label">Generate count</string>
+  <string name="image_save_to_gallery">Save to gallery</string>
+  <string name="image_saved_to_gallery">Saved to gallery</string>
+  <string name="image_auto_save_label">Auto save</string>
+  <string name="image_gallery_on">On</string>
+  <string name="image_gallery_off">Off</string>
+  <string name="image_model_chip_idle">Image</string>
+  <string name="image_model_chip_off">No image model</string>
   <string name="reasoning_chip_off">Think</string>
   <string name="reasoning_chip_default">Default</string>
   <string name="chat_edit_preserve_following">Saving updates this message in place and keeps the rest of the conversation</string>

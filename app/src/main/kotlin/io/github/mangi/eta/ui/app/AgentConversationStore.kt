@@ -501,6 +501,7 @@ internal object AgentConversationStore {
                 argumentsSummary = argumentsSummary,
                 resultSummary = resultSummary,
                 imageCount = imageCount,
+                imagesJson = images.toJsonArrayString(),
             )
 
             is ToolSummaryMessageUi -> ConversationMessageEntity(
@@ -570,6 +571,7 @@ internal object AgentConversationStore {
                 command = content.takeIf(String::isNotBlank),
                 resultSummary = resultSummary,
                 imageCount = imageCount,
+                images = imagesJson.toStringList(),
             )
 
             TYPE_TOOL_SUMMARY -> ToolSummaryMessageUi(

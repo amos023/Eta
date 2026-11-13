@@ -38,6 +38,8 @@ internal data class AgentModelOptionUi(
     val vision: Boolean = false,
     /** 是否支持思考，面板里显示为「思考」标签。 */
     val reasoning: Boolean = false,
+    /** 是否属于生图模型；生图模型不进聊天模型面板。 */
+    val imageGeneration: Boolean = false,
 )
 
 @Immutable
@@ -89,15 +91,25 @@ internal object AgentModelPickerProjector {
         val selectedProvider = enabledProviders.firstOrNull { it.id == selectedProviderId }
         val selectedModel = selectedProvider
             ?.models
-            ?.firstOrNull { it.id == selectedModelId && it.isEnabled }
+            ?.firstOrNull { it.id == selectedModelId && it.isEnabled && !it.supportsImageGeneration }
             ?.let { model -> selectedProvider.toOption(model) }
             ?: enabledProviders.asSequence()
                 .flatMap { provider ->
                     provider.models.asSequence()
-                        .filter { it.isEnabled }
+                        .filter { it.isEnabled && !it.supportsImageGeneration }
                         .map { model -> provider.toOption(model) }
                 }
                 .firstOrNull { it.id == selectedModelId }
+            // 选中 id 缺失或已失效时回落到第一个可用聊天模型：
+            // 新建会话尚未继承默认模型、或绑定模型被停用/删除时，胶囊不应空成「未选择」。
+            ?: enabledProviders.asSequence()
+                .flatMap { provider ->
+                    provider.models.asSequence()
+                        .filter { it.isEnabled && !it.supportsImageGeneration }
+                        .sortedBy { it.sortOrder }
+                        .map { model -> provider.toOption(model) }
+                }
+                .firstOrNull()
         val groups = enabledProviders
             .asSequence()
             .filter {
@@ -108,7 +120,7 @@ internal object AgentModelPickerProjector {
                 val sourceType = ProviderSourceRegistry.resolve(provider)
                 val models = provider.models
                     .asSequence()
-                    .filter { it.isEnabled }
+                    .filter { it.isEnabled && !it.supportsImageGeneration }
                     .sortedBy { it.sortOrder }
                     .map { model -> provider.toOption(model) }
                     .toList()
@@ -128,6 +140,38 @@ internal object AgentModelPickerProjector {
         )
     }
 
+    /**
+     * 生图模型列表：只含标记了生图能力的启用模型，按服务商分组。
+     * 与聊天模型面板共用同一套投影，避免两处能力判定不一致。
+     */
+    fun projectImageModels(providers: List<ProviderSetting>): List<AgentModelProviderGroupUi> =
+        providers
+            .asSequence()
+            .filter(ProviderSetting::isEnabled)
+            .filter { it.authMode == ProviderAuthModes.API_KEY || ProviderAuthModes.isOAuth(it.authMode) }
+            .filter {
+                ProviderAuthModes.isOAuth(it.authMode) ||
+                    (it.authMode == ProviderAuthModes.API_KEY && it.apiKey.isNotBlank())
+            }
+            .sortedBy(ProviderSetting::sortOrder)
+            .mapNotNull { provider ->
+                val models = provider.models
+                    .asSequence()
+                    .filter { it.isEnabled && it.supportsImageGeneration }
+                    .sortedBy { it.sortOrder }
+                    .map { model -> provider.toOption(model) }
+                    .toList()
+                models.takeIf(List<*>::isNotEmpty)?.let {
+                    AgentModelProviderGroupUi(
+                        providerId = provider.id,
+                        providerName = provider.name,
+                        providerSourceType = ProviderSourceRegistry.resolve(provider),
+                        models = models,
+                    )
+                }
+            }
+            .toList()
+
     private fun ProviderSetting.toOption(model: Model): AgentModelOptionUi =
         AgentModelOptionUi(
             id = model.id,
@@ -140,6 +184,7 @@ internal object AgentModelPickerProjector {
             toolCall = model.toolCall == true,
             vision = model.supportsVision,
             reasoning = model.effectiveReasoning == true,
+            imageGeneration = model.supportsImageGeneration,
         )
 }
 

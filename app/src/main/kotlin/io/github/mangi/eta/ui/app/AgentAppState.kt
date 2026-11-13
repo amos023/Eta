@@ -1082,7 +1082,7 @@ internal class AgentAppState(
         if (homeState.messageEdit != null) cancelMessageEdit()
         fileAttachmentOwnerVersion += 1
         selectedConversationId = null
-        homeState = emptyChatState(defaultThinkingEnabled)
+        homeState = emptyChatState(defaultThinkingEnabled).copy(modelId = defaultModelId)
         refreshConversationModel()
         conversationPaneState = conversationPaneState.copy(
             selectedConversationId = null,

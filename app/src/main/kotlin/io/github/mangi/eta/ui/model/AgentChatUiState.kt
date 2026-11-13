@@ -177,6 +177,8 @@ data class ToolActivityMessageUi(
     val command: String? = null,
     val resultSummary: String? = null,
     val imageCount: Int = 0,
+    /** 该次调用留下的会话资产图片（本地路径）；用于生成图在聊天里回看。 */
+    val images: List<String> = emptyList(),
 ) : AgentChatMessageUi
 
 enum class ToolActivityStatusUi {

@@ -62,6 +62,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -104,14 +105,19 @@ import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.model.ImageGenerationSettings
+import io.github.mangi.eta.data.repository.ImageGenerationRepository
+import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.SpeechSettingsRepository
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.markdown.EditorialLineHeightStyle
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
+import io.github.mangi.eta.ui.model.AgentModelPickerProjector
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
 import io.github.mangi.eta.ui.model.QueuedMessageUi
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -129,6 +135,23 @@ private val SendButtonVisualSize = ChatInputActionIconSize
 private val SendIconSize = 16.dp
 private val StopIconSize = 10.dp
 private val ThinkingIconSize = 21.dp
+private const val OFF_VALUE = "__off__"
+private const val ACTION_SIZE = "__size__"
+private const val ACTION_COUNT = "__count__"
+private const val ACTION_GALLERY = "__gallery__"
+
+/** 尺寸按预设顺序循环；模型给了自定义尺寸时从第一档重新开始。 */
+private fun ImageGenerationSettings.nextSize(): String {
+    val presets = ImageGenerationSettings.SIZE_PRESETS
+    val index = presets.indexOf(size.trim())
+    return presets[(index + 1) % presets.size]
+}
+
+private fun ImageGenerationSettings.nextCount(): Int {
+    val presets = ImageGenerationSettings.COUNT_PRESETS
+    val index = presets.indexOf(count)
+    return presets[(index + 1) % presets.size]
+}
 private val InputContainerShape = RoundedCornerShape(20.dp)
 
 /**
@@ -448,7 +471,14 @@ internal fun AgentChatInputBar(
                                     popupMaxHeight = thinkingPopupMaxHeight,
                                     onEffortChange = onReasoningEffortChange,
                                 )
+                                Spacer(modifier = Modifier.width(6.dp))
                             }
+
+                            ImageGenerationChip(
+                                enabled = !isStreaming,
+                                popupAnchorTopPx = inputContainerTopPx,
+                                popupMaxHeight = thinkingPopupMaxHeight,
+                            )
                         }
 
                         Spacer(modifier = Modifier.weight(1f))
@@ -876,3 +906,218 @@ private fun PendingImageStrip(
 }
 
 private const val PendingImagesGroupKey = "pending_images_strip"
+
+/**
+ * 生图模型 chip。
+ *
+ * 只在存在可用生图模型时出现；未选时点击菜单会列出全部可选生图模型，
+ * 选中后 chip 显示模型名，再点可切换或取消。尺寸与数量放在同一个菜单的
+ * 次级项里，不额外占输入栏空间。
+ */
+@Composable
+private fun ImageGenerationChip(
+    enabled: Boolean,
+    popupAnchorTopPx: Int,
+    popupMaxHeight: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val providers by remember { ProviderRepository.providersFlow() }
+        .collectAsState(initial = emptyList())
+    val settings by remember { ImageGenerationRepository.settingsFlow() }
+        .collectAsState(initial = ImageGenerationSettings())
+    val groups = remember(providers) { AgentModelPickerProjector.projectImageModels(providers) }
+    // 生图模型列表按名称字典序排，忽略大小写，便于按名字找模型。
+    val options = remember(groups) {
+        groups.flatMap { it.models }
+            .sortedWith(compareBy { it.displayName.lowercase() })
+    }
+    if (options.isEmpty()) return
+
+    val active = remember(settings.modelId, options) {
+        options.firstOrNull { it.id == settings.modelId }
+    }
+    var showPopup by remember { mutableStateOf(false) }
+    val anchor = rememberCouiMenuAnchor()
+    val popupPositionProvider = remember(popupAnchorTopPx) { InputPopupPositionProvider(popupAnchorTopPx) }
+    val haptic = LocalHapticFeedback.current
+
+    val colors = MiuixTheme.colorScheme
+    val isDark = colors.surface.luminance() < 0.5f
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val ink = colors.onSurface
+    val contentColor = if (active != null) colors.primary else ink.copy(alpha = if (isDark) 0.58f else 0.54f)
+    val bgColor = if (active != null) {
+        colors.primary.copy(alpha = if (isDark) 0.18f else 0.10f)
+    } else {
+        ink.copy(alpha = if (isDark) 0.06f else 0.038f)
+    }
+    val borderColor = if (active != null) {
+        colors.primary.copy(alpha = if (isDark) 0.30f else 0.22f)
+    } else {
+        ink.copy(alpha = if (isDark) 0.10f else 0.065f)
+    }
+    // 生图模型名可能很长（例如 GPT Image 2.6 Flare），输入栏一行放不下。
+    // chip 只保留能力名，具体模型放到菜单里显示。
+    val chipLabel = stringResource(R.string.image_model_chip_idle)
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Box(modifier = modifier) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .couiMenuAnchor(anchor)
+                .heightIn(min = 30.dp)
+                .clip(CircleShape)
+                .background(bgColor, CircleShape)
+                .border(0.5.dp, borderColor, CircleShape)
+                .then(
+                    if (isCoui) {
+                        Modifier.couiButtonFeedback(isDark, interactionSource, enabled = enabled)
+                    } else {
+                        Modifier
+                    },
+                )
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    enabled = enabled,
+                    role = Role.Button,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        anchor.open { showPopup = true }
+                    },
+                )
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+        ) {
+            Icon(
+                imageVector = ImageVector.vectorResource(R.drawable.ic_image_generate),
+                contentDescription = null,
+                modifier = Modifier.size(14.5.dp),
+                tint = contentColor,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = chipLabel,
+                style = MiuixTheme.textStyles.footnote1.copy(
+                    fontSize = 12.5.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+                color = contentColor,
+                maxLines = 1,
+            )
+        }
+        val offLabel = stringResource(R.string.image_model_chip_off)
+        val sizeLabel = stringResource(R.string.image_size_label)
+        val countLabel = stringResource(R.string.image_count_label)
+        val galleryLabel = stringResource(R.string.image_auto_save_label)
+        val galleryOn = stringResource(R.string.image_gallery_on)
+        val galleryOff = stringResource(R.string.image_gallery_off)
+        when (LocalUiStyle.current) {
+            AppearanceUiStyle.COUI -> {
+                val items = remember(options, settings.modelId, settings.size, settings.count, settings.autoSaveToGallery, offLabel, sizeLabel, countLabel) {
+                    buildList {
+                        // 生成参数在前，模型选择在后：尺寸/数量/自动存相册是每次出图都要看的档位，
+                        // 模型选好之后基本不动，放在底部避免遮挡。
+                        if (settings.modelId != null) {
+                            add(
+                                CouiMenuItem(
+                                    value = ACTION_SIZE,
+                                    text = "$sizeLabel · ${settings.size}",
+                                    selected = false,
+                                ),
+                            )
+                            add(
+                                CouiMenuItem(
+                                    value = ACTION_COUNT,
+                                    text = "$countLabel · ${settings.count}",
+                                    selected = false,
+                                ),
+                            )
+                            add(
+                                CouiMenuItem(
+                                    value = ACTION_GALLERY,
+                                    text = galleryLabel + " · " + if (settings.autoSaveToGallery) galleryOn else galleryOff,
+                                    selected = settings.autoSaveToGallery,
+                                ),
+                            )
+                        }
+                        // 「不使用生图」固定在模型列表前面，模型则按名称字典序。
+                        add(CouiMenuItem(value = OFF_VALUE, text = offLabel, selected = settings.modelId.isNullOrBlank()))
+                        options.forEach { option ->
+                            add(CouiMenuItem(value = option.id, text = option.displayName, selected = option.id == settings.modelId))
+                        }
+                    }
+                }
+                Menu(
+                    expanded = showPopup && enabled,
+                    onDismissRequest = { showPopup = false },
+                    items = items,
+                    onItemClick = { item ->
+                        showPopup = false
+                        scope.launch {
+                            when (item.value) {
+                                OFF_VALUE -> ImageGenerationRepository.selectModel(null)
+                                ACTION_SIZE -> ImageGenerationRepository.selectSize(settings.nextSize())
+                                ACTION_COUNT -> ImageGenerationRepository.selectCount(settings.nextCount())
+                                ACTION_GALLERY -> ImageGenerationRepository.setAutoSaveToGallery(
+                                    !settings.autoSaveToGallery,
+                                )
+                                else -> ImageGenerationRepository.selectModel(item.value)
+                            }
+                        }
+                    },
+                    anchor = anchor,
+                )
+            }
+            AppearanceUiStyle.MIUIX -> {
+                WindowListPopup(
+                    show = showPopup && enabled && popupAnchorTopPx > 0,
+                    popupPositionProvider = popupPositionProvider,
+                    alignment = PopupPositionProvider.Align.TopStart,
+                    onDismissRequest = { showPopup = false },
+                    maxHeight = popupMaxHeight,
+                ) {
+                    val dismiss = LocalDismissState.current
+                    ListPopupColumn {
+                        val all = buildList {
+                            add(OFF_VALUE to offLabel)
+                            options.forEach { add(it.id to it.displayName) }
+                            if (settings.modelId != null) {
+                                add(ACTION_SIZE to "$sizeLabel · ${settings.size}")
+                                add(ACTION_COUNT to "$countLabel · ${settings.count}")
+                                add(
+                                    ACTION_GALLERY to galleryLabel + " · " +
+                                        if (settings.autoSaveToGallery) galleryOn else galleryOff,
+                                )
+                            }
+                        }
+                        all.forEachIndexed { index, (id, label) ->
+                            DropdownImpl(
+                                text = label,
+                                optionSize = all.size,
+                                isSelected = id == settings.modelId || (id == OFF_VALUE && settings.modelId.isNullOrBlank()),
+                                index = index,
+                                onSelectedIndexChange = {
+                                    scope.launch {
+                                        when (id) {
+                                            OFF_VALUE -> ImageGenerationRepository.selectModel(null)
+                                            ACTION_SIZE -> ImageGenerationRepository.selectSize(settings.nextSize())
+                                            ACTION_COUNT -> ImageGenerationRepository.selectCount(settings.nextCount())
+                                            ACTION_GALLERY -> ImageGenerationRepository.setAutoSaveToGallery(
+                                                !settings.autoSaveToGallery,
+                                            )
+                                            else -> ImageGenerationRepository.selectModel(id)
+                                        }
+                                    }
+                                    dismiss?.invoke()
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

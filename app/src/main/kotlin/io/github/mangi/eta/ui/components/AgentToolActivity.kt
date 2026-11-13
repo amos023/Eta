@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -48,7 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.luminance
 import io.github.mangi.eta.R
+import android.widget.Toast
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
+import io.github.mangi.eta.agent.media.GeneratedImageExporter
 import io.github.mangi.eta.agent.overlay.toolDisplayName
 import io.github.mangi.eta.agent.subagent.AgentSubagentToolCatalog
 import io.github.mangi.eta.agent.subagent.SubagentActivitySnapshot
@@ -56,6 +61,7 @@ import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityStatusUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
@@ -216,6 +222,12 @@ internal fun ToolActivityRow(
             }
         }
 
+        GeneratedArtifactStrip(
+            images = message.images,
+            groupKey = message.id,
+            modifier = Modifier.padding(bottom = if (expanded) 2.dp else 6.dp),
+        )
+
         AnimatedVisibility(visible = expanded) {
             ToolActivityDetail(
                 message = message,
@@ -223,6 +235,79 @@ internal fun ToolActivityRow(
                 showBrowserShortcut = showBrowserShortcut,
                 onOpenBrowser = onOpenBrowser,
             )
+        }
+    }
+}
+
+/**
+ * 工具产出的会话资产图片。生成的图必须能直接在聊天里看见，而不是只留一行「图片 1 张」。
+ * 单图按原比例铺满可用宽度，多图横向排布；点击进全屏预览。
+ */
+@Composable
+private fun GeneratedArtifactStrip(
+    images: List<String>,
+    groupKey: String,
+    modifier: Modifier = Modifier,
+) {
+    if (images.isEmpty()) return
+    val previewer = LocalChatImagePreviewer.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val savedText = stringResource(R.string.image_saved_to_gallery)
+    var saving by remember { mutableStateOf(false) }
+    val single = images.size == 1
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(top = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        images.forEachIndexed { index, path ->
+            val bitmap = rememberDataUrlBitmap(path) ?: return@forEachIndexed
+            val ratio = (bitmap.width.toFloat() / bitmap.height.toFloat().coerceAtLeast(1f))
+                .coerceIn(0.55f, 1.85f)
+            val width = if (single) 232.dp else 132.dp
+            val height = width / ratio
+            Box(
+                modifier = Modifier
+                    .width(width)
+                    .height(height)
+                    .clip(RoundedCornerShape(12.dp))
+                    // 单击进全屏预览；长按直接存相册，省掉先进去再找按钮的两步。
+                    .combinedClickable(
+                        onClick = {
+                            previewer?.open(
+                                images = images,
+                                initialIndex = index,
+                                groupKey = groupKey,
+                            )
+                        },
+                        onLongClick = {
+                            if (saving) return@combinedClickable
+                            saving = true
+                            scope.launch {
+                                val result = GeneratedImageExporter.saveToGallery(context, path)
+                                saving = false
+                                Toast.makeText(
+                                    context,
+                                    when (result) {
+                                        is GeneratedImageExporter.Result.Saved -> savedText
+                                        is GeneratedImageExporter.Result.Failed -> result.reason
+                                    },
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                    ),
+            ) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().height(height),
+                )
+            }
         }
     }
 }

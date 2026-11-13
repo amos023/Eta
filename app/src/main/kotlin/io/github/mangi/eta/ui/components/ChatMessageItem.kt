@@ -152,10 +152,19 @@ internal fun rememberDataUrlBitmap(dataUrl: String): ImageBitmap? = remember(dat
 }
 
 internal fun decodeDataUrlBitmap(dataUrl: String): ImageBitmap? {
-    val base64 = dataUrl.substringAfter("base64,", "")
-    if (base64.isBlank()) return null
+    val bytes = when {
+        dataUrl.startsWith("data:", ignoreCase = true) -> {
+            val base64 = dataUrl.substringAfter("base64,", "")
+            base64.takeIf { it.isNotBlank() }?.let { runCatching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() }
+        }
+        // 生成的图片是会话资产，按路径引用，避免把 base64 灌进数据库。
+        dataUrl.startsWith("file://", ignoreCase = true) ->
+            runCatching { java.io.File(java.net.URI(dataUrl)).readBytes() }.getOrNull()
+        dataUrl.startsWith("/") ->
+            runCatching { java.io.File(dataUrl).readBytes() }.getOrNull()
+        else -> null
+    } ?: return null
     return runCatching {
-        val bytes = Base64.decode(base64, Base64.NO_WRAP)
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
     }.getOrNull()
 }

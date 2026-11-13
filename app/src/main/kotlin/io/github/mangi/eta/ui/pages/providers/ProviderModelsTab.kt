@@ -84,6 +84,7 @@ import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.auth.ProviderAuthException
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.data.model.ImageGenerationSettings
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.ProviderAuthModes
@@ -966,7 +967,18 @@ private fun ModelEditDialog(
                 .orEmpty() + ReasoningEffort.DEFAULT
         )
     }
+    // 生图模型由「新增生图模型」入口单独建供应商，不再提供单模型级开关；
+    // 但生图调用需要的默认尺寸 · 格式 · 接口地址仍需可编辑。
+    val imageGenerationEnabled = model.supportsImageGeneration
+    var imageSizeText by remember(model.id, isNew) { mutableStateOf(model.defaultImageSize.orEmpty()) }
+    var imageFormatText by remember(model.id, isNew) { mutableStateOf(model.defaultImageFormat.orEmpty()) }
+    var imageEndpointText by remember(model.id, isNew) { mutableStateOf(model.imageEndpoint.orEmpty()) }
     val contextError = contextWindowInputError(contextWindowOverrideText)
+    // 生图模型不参与对话，不需要上下文窗口：调用图像接口只用 model/prompt/size/n，
+    // 因此不校验窗口，保存按钮也不会因为窗口留空而禁用。
+    val isImageModel = imageGenerationEnabled
+    val contextRequired = !isImageModel
+    val effectiveContextError = contextError.takeIf { contextRequired }
 
     fun resetAutomaticReasoning() {
         reasoningOverrideActive = false
@@ -988,6 +1000,12 @@ private fun ModelEditDialog(
             .takeIf(String::isNotEmpty)
             ?.toInt(),
         reasoningOverride = reasoningEnabled.takeIf { reasoningOverrideActive },
+        // 识别标记不再由弹窗编辑；生图生成参数仍按输入写回。
+        imageGeneration = model.imageGeneration,
+        imageGenerationOverride = model.imageGenerationOverride,
+        imageEndpoint = imageEndpointText.trim().takeIf(String::isNotEmpty),
+        defaultImageSize = imageSizeText.trim().takeIf(String::isNotEmpty),
+        defaultImageFormat = imageFormatText.trim().takeIf(String::isNotEmpty),
         reasoningCapabilitiesOverride = if (reasoningOverrideActive && reasoningEnabled) {
             val canDisable = !nativeGemini && ReasoningEffort.OFF in selectedReasoningEfforts
             (model.effectiveReasoningCapabilities ?: ModelReasoningCapabilities()).copy(
@@ -1011,7 +1029,7 @@ private fun ModelEditDialog(
     val confirmEnabled = !isSaving &&
         displayName.isNotBlank() &&
         modelId.isNotBlank() &&
-        contextError == null
+        effectiveContextError == null
     val contextValue = contextWindowOverrideText.toIntOrNull()
     val thinkingTitle = if (nativeGemini) "配置思考档位" else stringResource(R.string.ui_support_thinking_5b9e4c)
     val thinkingSummary = if (nativeGemini) {
@@ -1029,7 +1047,7 @@ private fun ModelEditDialog(
             val colors = CouiPageDefaults.themeColors(dark)
             val contextRightLabel = when {
                 contextWindowOverrideText.isBlank() -> null
-                contextError != null -> stringResource(R.string.provider_context_window_invalid)
+                effectiveContextError != null -> stringResource(R.string.provider_context_window_invalid)
                 contextValue != null -> stringResource(R.string.provider_context_window_value, formatCompactTokenCount(contextValue))
                 else -> null
             }
@@ -1064,41 +1082,46 @@ private fun ModelEditDialog(
                             imeAction = ImeAction.Next,
                         ),
                     )
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        CouiTextField(
-                            value = contextWindowOverrideText,
-                            onValueChange = { value -> contextWindowOverrideText = value.filter(Char::isDigit) },
-                            label = stringResource(R.string.ui_context_length_tokens_227860),
-                            rightLabel = contextRightLabel,
-                            rightLabelColor = if (contextError != null && contextWindowOverrideText.isNotBlank()) {
-                                StatusError
-                            } else {
-                                colors.summary
-                            },
-                            placeholder = stringResource(R.string.provider_context_window_hint),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            contextWindowPresets.forEach { preset ->
-                                EtaChoiceChip(
-                                    text = formatCompactTokenCount(preset),
-                                    selected = contextValue == preset,
-                                    onClick = { contextWindowOverrideText = preset.toString() },
-                                    enabled = !isSaving,
-                                )
+                    // 生图模型不需要上下文窗口，整个区块收起，避免让人以为要填。
+                    if (contextRequired) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            CouiTextField(
+                                value = contextWindowOverrideText,
+                                onValueChange = { value -> contextWindowOverrideText = value.filter(Char::isDigit) },
+                                label = stringResource(R.string.ui_context_length_tokens_227860),
+                                rightLabel = contextRightLabel,
+                                rightLabelColor = if (effectiveContextError != null && contextWindowOverrideText.isNotBlank()) {
+                                    StatusError
+                                } else {
+                                    colors.summary
+                                },
+                                placeholder = stringResource(R.string.provider_context_window_hint),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                contextWindowPresets.forEach { preset ->
+                                    EtaChoiceChip(
+                                        text = formatCompactTokenCount(preset),
+                                        selected = contextValue == preset,
+                                        onClick = { contextWindowOverrideText = preset.toString() },
+                                        enabled = !isSaving,
+                                    )
+                                }
                             }
                         }
+
+                        Divider(startIndent = 0.dp, endIndent = 0.dp)
                     }
 
-                    Divider(startIndent = 0.dp, endIndent = 0.dp)
-
+                    // 生图模型不参与对话，没有推理档位，整块思考配置隐藏。
+                    if (!isImageModel) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(
                             modifier = Modifier
@@ -1164,6 +1187,66 @@ private fun ModelEditDialog(
                             CouiText(
                                 text = if (nativeGemini) "可手动选择档位，是否支持由服务端校验。Default 始终可用。"
                                 else stringResource(R.string.ui_only_check_the_ranges_actually_supported_by_the_mode_2c343d),
+                                kind = CouiTextKind.Description,
+                                color = colors.summary,
+                            )
+                        }
+                    }
+                    }
+
+                    // 生图模型不需要上下文窗口，但调用图像接口要用到尺寸与格式。
+                    if (isImageModel) {
+                        Divider(startIndent = 0.dp, endIndent = 0.dp)
+
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            CouiTextField(
+                                value = imageSizeText,
+                                onValueChange = { imageSizeText = it },
+                                label = stringResource(R.string.model_image_default_size),
+                                placeholder = "1024x1024",
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Ascii,
+                                    imeAction = ImeAction.Next,
+                                ),
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                ImageGenerationSettings.SIZE_PRESETS.forEach { preset ->
+                                    EtaChoiceChip(
+                                        text = preset,
+                                        selected = imageSizeText.trim() == preset,
+                                        onClick = { imageSizeText = preset },
+                                        enabled = !isSaving,
+                                    )
+                                }
+                            }
+                            CouiTextField(
+                                value = imageFormatText,
+                                onValueChange = { imageFormatText = it },
+                                label = stringResource(R.string.model_image_default_format),
+                                placeholder = "png",
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Ascii,
+                                    imeAction = ImeAction.Next,
+                                ),
+                            )
+                            CouiTextField(
+                                value = imageEndpointText,
+                                onValueChange = { imageEndpointText = it },
+                                label = stringResource(R.string.model_image_endpoint),
+                                placeholder = stringResource(R.string.model_image_endpoint_hint),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Uri,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            )
+                            CouiText(
+                                text = stringResource(R.string.model_image_endpoint_summary),
                                 kind = CouiTextKind.Description,
                                 color = colors.summary,
                             )
@@ -1246,49 +1329,52 @@ private fun ModelEditDialog(
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        TextField(
-                            value = contextWindowOverrideText,
-                            onValueChange = { value -> contextWindowOverrideText = value.filter(Char::isDigit) },
-                            label = stringResource(R.string.ui_context_length_tokens_227860),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(top = 10.dp),
-                        ) {
-                            contextWindowPresets.forEach { preset ->
-                                EtaChoiceChip(
-                                    text = formatCompactTokenCount(preset),
-                                    selected = contextValue == preset,
-                                    onClick = { contextWindowOverrideText = preset.toString() },
-                                    enabled = !isSaving,
-                                )
+                        // 生图模型同样收起窗口区块。
+                        if (contextRequired) {
+                            TextField(
+                                value = contextWindowOverrideText,
+                                onValueChange = { value -> contextWindowOverrideText = value.filter(Char::isDigit) },
+                                label = stringResource(R.string.ui_context_length_tokens_227860),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(top = 10.dp),
+                            ) {
+                                contextWindowPresets.forEach { preset ->
+                                    EtaChoiceChip(
+                                        text = formatCompactTokenCount(preset),
+                                        selected = contextValue == preset,
+                                        onClick = { contextWindowOverrideText = preset.toString() },
+                                        enabled = !isSaving,
+                                    )
+                                }
                             }
+                            Text(
+                                text = when {
+                                    contextWindowOverrideText.isBlank() ->
+                                        stringResource(R.string.provider_context_window_hint)
+                                    effectiveContextError != null ->
+                                        stringResource(R.string.provider_context_window_invalid)
+                                    contextValue != null && contextValue !in contextWindowPresets ->
+                                        stringResource(R.string.provider_context_window_value, formatCompactTokenCount(contextValue))
+                                    else -> stringResource(R.string.provider_context_window_usage)
+                                },
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = if (effectiveContextError != null && contextWindowOverrideText.isNotBlank()) {
+                                    StatusError
+                                } else {
+                                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                },
+                                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                            )
                         }
-                        Text(
-                            text = when {
-                                contextWindowOverrideText.isBlank() ->
-                                    stringResource(R.string.provider_context_window_hint)
-                                contextError != null ->
-                                    stringResource(R.string.provider_context_window_invalid)
-                                contextValue != null && contextValue !in contextWindowPresets ->
-                                    stringResource(R.string.provider_context_window_value, formatCompactTokenCount(contextValue))
-                                else -> stringResource(R.string.provider_context_window_usage)
-                            },
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = if (contextError != null && contextWindowOverrideText.isNotBlank()) {
-                                StatusError
-                            } else {
-                                MiuixTheme.colorScheme.onSurfaceVariantSummary
-                            },
-                            modifier = Modifier.padding(start = 4.dp, top = 8.dp),
-                        )
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(
                             modifier = Modifier
@@ -1355,6 +1441,65 @@ private fun ModelEditDialog(
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             modifier = Modifier.padding(start = 4.dp, top = 8.dp),
                         )
+                        // 生图模型需要的生成参数：尺寸 · 格式 · 接口地址。
+                        if (isImageModel) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextField(
+                                value = imageSizeText,
+                                onValueChange = { imageSizeText = it },
+                                label = stringResource(R.string.model_image_default_size),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Ascii,
+                                    imeAction = ImeAction.Next,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(top = 10.dp),
+                            ) {
+                                ImageGenerationSettings.SIZE_PRESETS.forEach { preset ->
+                                    EtaChoiceChip(
+                                        text = preset,
+                                        selected = imageSizeText.trim() == preset,
+                                        onClick = { imageSizeText = preset },
+                                        enabled = !isSaving,
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            TextField(
+                                value = imageFormatText,
+                                onValueChange = { imageFormatText = it },
+                                label = stringResource(R.string.model_image_default_format),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Ascii,
+                                    imeAction = ImeAction.Next,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            TextField(
+                                value = imageEndpointText,
+                                onValueChange = { imageEndpointText = it },
+                                label = stringResource(R.string.model_image_endpoint),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Uri,
+                                    imeAction = ImeAction.Done,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                text = stringResource(R.string.model_image_endpoint_summary),
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                            )
+                        }
                         error?.let { message ->
                             Text(
                                 text = message,

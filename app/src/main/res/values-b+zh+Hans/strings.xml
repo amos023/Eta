@@ -1082,6 +1082,7 @@
   <plurals name="provider_configured_count">
     <item quantity="other">已配置提供商（共 %d 个）</item>
   </plurals>
+  <string name="provider_configured_image_count">生图提供商（共 %1$d 个）</string>
   <string name="provider_unconfigured_count">未配置（%1$d 个）</string>
   <string name="provider_sort_title">整理顺序</string>
   <string name="provider_sort_by_name">按名称</string>
@@ -1382,6 +1383,22 @@
   <string name="chat_next_candidate">下一条候选回复</string>
   <string name="chat_image_attachment">图片附件</string>
   <string name="chat_view_image">查看图片</string>
+  <string name="model_image_generation">生图模型</string>
+  <string name="model_image_generation_summary">开启后该模型只用于生成图片，不再出现在聊天模型列表里。</string>
+  <string name="model_image_default_size">默认图片尺寸</string>
+  <string name="model_image_default_format">默认图片格式</string>
+  <string name="model_image_endpoint">生图接口地址</string>
+  <string name="model_image_endpoint_hint">https://host/v1/images/generations</string>
+  <string name="model_image_endpoint_summary">留空时用 {baseUrl}/images/generations，失败会自动尝试 /v1 路径。</string>
+  <string name="image_size_label">尺寸</string>
+  <string name="image_count_label">生成数量</string>
+  <string name="image_save_to_gallery">保存到相册</string>
+  <string name="image_saved_to_gallery">已保存到相册</string>
+  <string name="image_auto_save_label">自动存相册</string>
+  <string name="image_gallery_on">开</string>
+  <string name="image_gallery_off">关</string>
+  <string name="image_model_chip_idle">生图</string>
+  <string name="image_model_chip_off">不使用生图</string>
   <string name="reasoning_chip_off">思考</string>
   <string name="reasoning_chip_default">默认</string>
   <string name="chat_edit_preserve_following">保存后原位更新这条消息，并保留后续对话</string>
