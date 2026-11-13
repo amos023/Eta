@@ -176,12 +176,35 @@ internal abstract class EtaDatabase : RoomDatabase() {
 
         /**
          * 合并上游 3.4.3 时，缓存用量与压缩归档两列被放进了 26_27，
-         * 但本分支的 25_26 走的是会话分组，因此已经升到 29 的设备从未拿到这两列，
-         * 查询 conversation_messages 会直接崩溃。这里补齐。
+         * 但本分支的 25_26 走的是会话分组，因此从旧库升上来的设备从未拿到这两列。
+         *
+         * 但另一面，已实体类声明这两列后新建的库（比如清除数据后重开）
+         * 按实体 schema 建表，本就带着它们；再次 ALTER 会报
+         * duplicate column name 而崩溃。两种来源都要能过，因此逐列先检查。
          */
         internal val MIGRATION_29_30 = Migration(29, 30) { database ->
-            database.execSQL("ALTER TABLE conversation_messages ADD COLUMN cache_write_tokens INTEGER")
-            database.execSQL("ALTER TABLE conversation_messages ADD COLUMN compaction_archive_id TEXT")
+            database.addColumnIfMissing("conversation_messages", "cache_write_tokens", "INTEGER")
+            database.addColumnIfMissing("conversation_messages", "compaction_archive_id", "TEXT")
+        }
+
+        /** 列已存在时跳过，让迁移对新建库与旧库都幂等。 */
+        private fun androidx.sqlite.db.SupportSQLiteDatabase.addColumnIfMissing(
+            table: String,
+            column: String,
+            type: String,
+        ) {
+            val exists = query("PRAGMA table_info(`$table`)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                var found = false
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(nameIndex).equals(column, ignoreCase = true)) {
+                        found = true
+                        break
+                    }
+                }
+                found
+            }
+            if (!exists) execSQL("ALTER TABLE `$table` ADD COLUMN `$column` $type")
         }
 
         internal val MIGRATION_28_29 = Migration(28, 29) { database ->
