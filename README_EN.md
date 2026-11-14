@@ -21,10 +21,10 @@
 | Item | Value |
 | --- | --- |
 | Upstream baseline | **Eta 3.4.3** (tag `v3.4.3`, commit `32e147a`) |
-| This build | 3.4.4 (versionCode 2026111401) |
+| This build | 3.5.0 (versionCode 2026111403) |
 | Package name | `io.github.mangi.eta.stable`, coexists with the original |
 
-56 commits accumulated since upstream 3.4.2. Everything below is layered on top of
+71 commits accumulated since upstream 3.4.3. Everything below is layered on top of
 upstream code. **Nothing from upstream was removed or degraded.**
 
 ---
@@ -38,9 +38,15 @@ Upstream is text-only; this build lets the Agent produce images directly.
 - **Relay compatibility**: when an endpoint rejects `response_format` / `n` / `size`, it retries other endpoints and degrades gracefully, surfacing the original error
 - **Dedicated icon**: the image button no longer shares the thinking icon
 
-## 2. Image-generation providers
+## 2. Provider configuration
 
-- **Separate entry**: the new-provider menu gains "Add image model"; providers created there **only pull image models and exclude chat models**
+The new and edit screens share one set of connection fields; the upstream format is switched in place instead of picking a different entry from the list.
+
+- **In-page format switch**: OpenAI-compatible / Anthropic Messages / Gemini Interactions. New providers can switch at any time; existing ones keep their own type so a mistaken switch cannot drop model configuration
+- **Fields follow the type**: `anthropic-version`, hosted web search and similar fields appear or hide immediately, no longer depending on the initial instance
+- **Image-only switch**: a standalone switch right below the API key. Turning it on fetches image models only over the OpenAI-compatible protocol and excludes chat models. Anthropic and Gemini have no image endpoint, so the switch is hidden there
+- **Endpoint mode follows the protocol stack**: shown whenever OpenAI-compatible (image providers included) with API-key auth is used, fixing the Endpoint row disappearing after enabling image-only
+- **Merged entry point**: four "add provider" entries collapse into one, with the supported formats named in the summary
 - **Separate group**: the provider list splits image providers into their own section
 - **Kept out of chat**: image models never appear in the chat model picker, whichever path fetched them
 - **Editor adaptation**: image models skip the context window requirement and hide reasoning settings, while keeping default size, format and endpoint
@@ -82,9 +88,14 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 - **Credential-based**: "configured" means it has models **and** usable credentials, so built-ins without a key no longer crowd the group
 - **Collapsible provider groups**: the model picker becomes a settings-style grouped card with collapsed groups, dropping redundant tags and filter rows
 
-## 9. Model capability presets
+## 9. Model capability detection
 
 - **Presets by model name**: opening the editor shows suggested context window and reasoning levels instead of empty fields
+- **Fixed "unknown context"**: the effective window only read the user override, hiding the value the remote API returned; a fallback is now in place
+- **Cross-catalogue detection for relays**: when a custom provider's own catalogue misses, the model ID is looked up in the OpenAI / Anthropic / Gemini catalogues, so windows and reasoning levels resolve correctly
+- **Presets cover major families**: gpt-6.1, gpt-6, gpt-5.6, gpt-5, claude, gemini, glm, qwen, deepseek, kimi, minimax, step, longest prefix first
+- **Existing records backfilled**: models stored without window or level fields are filled in memory on read without writing back, so user overrides still win and no re-fetch is needed
+- **Instant prefill**: typing a model ID in the editor fills the window and levels from the preset immediately
 - **Output limit reserved**: the model table gains an output token limit (remote value plus user override)
 
 ## 10. Other refinements
@@ -99,7 +110,7 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 | Virtual display layout | Reworked the preview and action row arrangement |
 | First frame | No longer blocked by disk IO at startup |
 | Conversation loading | Legacy double-escaped checkpoints no longer break loading |
-| Auto-compaction threshold | Lowered from 85% to 70% |
+| Auto-compaction threshold | Triggers at 80% of the window (was 70%), cutting mid-task compactions |
 | Stats dialog | Fixed centring and the summary bar border gap |
 | Miuix chat list | Fixed one-way scrolling |
 
@@ -114,8 +125,9 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 
 ## Install
 
-The release build uses package name `io.github.mangi.eta.stable`. It has a different
-signature and package name from upstream, so both can be installed side by side.
+Current version **3.5.0** (versionCode 2026111403). The release build uses package name
+`io.github.mangi.eta.stable`. It has a different signature and package name from upstream,
+so both can be installed side by side.
 
 Download the APK from this repository's Releases. Upgrading from an older version
 migrates the database automatically; conversations, models and settings are kept.
@@ -128,6 +140,18 @@ Requires **Android 13+ on ARM64 devices**.
 
 - Original project: [Mangi-11/Eta](https://github.com/Mangi-11/Eta)
 - Feature docs and upstream usage: visit the repository above
+- Source of this build: [amos023/Eta](https://github.com/amos023/Eta) (this repository, matching the released APK)
 - This repository only carries the additions listed here and does not provide standalone documentation
 
 If you only need the original feature set, use upstream directly.
+
+---
+
+## License and modification notice
+
+This build is distributed under GPL-3.0. The full text is in [LICENSE](LICENSE) at the repository root
+and is bundled in the APK as `assets/licenses/GPL-3.0.txt`.
+
+Modifications relative to upstream `Mangi-11/Eta` have been made by amos023 since 2026-11-09;
+the scope is the sections above. The corresponding source is published in full in this repository
+with nothing removed.
