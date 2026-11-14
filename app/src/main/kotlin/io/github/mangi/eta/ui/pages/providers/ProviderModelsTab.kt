@@ -980,6 +980,24 @@ private fun ModelEditDialog(
     val contextRequired = !isImageModel
     val effectiveContextError = contextError.takeIf { contextRequired }
 
+    // 手填 Model ID 时按预设即时预填上下文窗口与思考档位：
+    // 用户手动改过的值不覆盖，只在“空着”或“仍是上一个建议值”时跟着换。
+    fun applyPresetForModelId(id: String) {
+        val preset = ModelCapabilityPresets.forModel(id) ?: return
+        val current = contextWindowOverrideText.trim().toIntOrNull()
+        val previousSuggestion = ModelCapabilityPresets.forModel(model.modelId)?.contextWindow
+        if (contextWindowOverrideText.isBlank() || (current != null && current == previousSuggestion)) {
+            preset.contextWindow?.let { contextWindowOverrideText = it.toString() }
+        }
+        if (!reasoningOverrideActive) {
+            val capabilities = preset.toCapabilities()
+            if (capabilities.supportedEfforts.isNotEmpty()) {
+                reasoningEnabled = true
+                selectedReasoningEfforts = capabilities.selectableEfforts.toSet() + ReasoningEffort.DEFAULT
+            }
+        }
+    }
+
     fun resetAutomaticReasoning() {
         reasoningOverrideActive = false
         val automaticCapabilities = if (nativeGemini) GeminiModelCapabilities.resolveReasoning(
@@ -1074,7 +1092,7 @@ private fun ModelEditDialog(
                     )
                     CouiTextField(
                         value = modelId,
-                        onValueChange = { modelId = it },
+                        onValueChange = { value -> modelId = value; applyPresetForModelId(value) },
                         label = "Model ID",
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
@@ -1319,7 +1337,7 @@ private fun ModelEditDialog(
                         Spacer(modifier = Modifier.height(12.dp))
                         TextField(
                             value = modelId,
-                            onValueChange = { modelId = it },
+                            onValueChange = { value -> modelId = value; applyPresetForModelId(value) },
                             label = "Model ID",
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(

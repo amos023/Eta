@@ -38,8 +38,9 @@ data class Model(
     val source: ModelSource = ModelSource.MANUAL,
     val createdAt: Long = System.currentTimeMillis()
 ) {
+    /** 生效的上下文窗口：手改值优先，否则用远端/预设填入的声明值。 */
     val effectiveContextWindow: Int?
-        get() = contextWindowOverride
+        get() = contextWindowOverride ?: contextWindow
 
     val effectiveReasoning: Boolean?
         get() = reasoningOverride ?: reasoning

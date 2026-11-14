@@ -30,6 +30,67 @@ internal object ModelCapabilityPresets {
     }
 
     private val entries: List<Pair<String, Preset>> = listOf(
+        // OpenAI / 中转站的 GPT 系列：上游没给能力字段时按家族兜底，
+        // gpt-6.1 / gpt-6 走 1M 档，gpt-5.x 走 400K 档，档位都是 low→max 可关。
+        "gpt-6.1" to Preset(
+            contextWindow = 1_050_000,
+            efforts = listOf(
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+                ReasoningEffort.XHIGH,
+                ReasoningEffort.MAX,
+            ),
+            defaultEffort = ReasoningEffort.MEDIUM,
+            canDisable = true,
+        ),
+        "gpt-6" to Preset(
+            contextWindow = 1_050_000,
+            efforts = listOf(
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+                ReasoningEffort.XHIGH,
+                ReasoningEffort.MAX,
+            ),
+            defaultEffort = ReasoningEffort.MEDIUM,
+            canDisable = true,
+        ),
+        "gpt-5.6" to Preset(
+            contextWindow = 400_000,
+            efforts = listOf(
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+                ReasoningEffort.XHIGH,
+                ReasoningEffort.MAX,
+            ),
+            defaultEffort = ReasoningEffort.MEDIUM,
+            canDisable = true,
+        ),
+        "gpt-5" to Preset(
+            contextWindow = 400_000,
+            efforts = listOf(
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+            ),
+            defaultEffort = ReasoningEffort.MEDIUM,
+            canDisable = true,
+        ),
+        // Claude / Gemini 经中转站转发时同样只有 id，没有窗口字段。
+        "claude" to Preset(
+            contextWindow = 200_000,
+            efforts = listOf(ReasoningEffort.LOW, ReasoningEffort.MEDIUM, ReasoningEffort.HIGH),
+            defaultEffort = ReasoningEffort.MEDIUM,
+            canDisable = true,
+        ),
+        "gemini" to Preset(
+            contextWindow = 1_048_576,
+            efforts = listOf(ReasoningEffort.LOW, ReasoningEffort.MEDIUM, ReasoningEffort.HIGH),
+            defaultEffort = ReasoningEffort.MEDIUM,
+            canDisable = true,
+        ),
         "glm-5.3" to Preset(
             contextWindow = 200_000,
             efforts = listOf(ReasoningEffort.LOW, ReasoningEffort.MEDIUM, ReasoningEffort.HIGH),

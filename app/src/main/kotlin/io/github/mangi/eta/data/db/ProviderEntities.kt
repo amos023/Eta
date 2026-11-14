@@ -22,6 +22,7 @@ import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderTypes
 import io.github.mangi.eta.data.provider.ProviderSourceRegistry
 import io.github.mangi.eta.data.provider.ProviderConnectionProfile
+import io.github.mangi.eta.data.provider.withPresetCapabilities
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -318,6 +319,9 @@ private fun ProviderModelEntity.toDomain(): Model =
         ),
         createdAt = createdAt,
     )
+        // 早先拉取入库的模型没写上下文窗口与思考档位，读出来时按模型名补一份预设，
+        // 只在内存里补齐、不回写数据库，用户手改的 override 依旧优先。
+        .withPresetCapabilities()
 
 private object ProviderJson {
     private val json = Json {

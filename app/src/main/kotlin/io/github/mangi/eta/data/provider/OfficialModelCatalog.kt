@@ -408,13 +408,19 @@ internal object OfficialModelCatalog {
         enrich(catalogId = catalogIdFor(provider), models = models)
 
     internal fun enrich(catalogId: String?, models: List<Model>): List<Model> {
-        if (catalogId == null) return models
-        val officialById = modelsByCatalogId[catalogId]
-            ?.associateBy { it.modelId.lowercase() }
-            .orEmpty()
-        if (officialById.isEmpty()) return models
+        val catalogIndex = modelsByCatalogId
+            .mapValues { (_, list) -> list.associateBy { it.modelId.lowercase() } }
+        val ownIndex = catalogId?.let { catalogIndex[it] }.orEmpty()
         return models.map { model ->
-            val official = officialById[model.modelId.lowercase()] ?: return@map model
+            // 优先按服务商自身目录查；中转站（CUSTOM）没有目录，则跨目录按 modelId 找：
+            // 中转站上游就是 OpenAI / Anthropic / Gemini，同 id 的窗口与思考档位是通用的。
+            val resolved = ownIndex[model.modelId.lowercase()]
+                ?.let { catalogId to it }
+                ?: catalogIndex.entries.firstNotNullOfOrNull { (id, index) ->
+                    index[model.modelId.lowercase()]?.let { id to it }
+                }
+                ?: return@map model
+            val (officialCatalogId, official) = resolved
             model.copy(
                 displayName = model.displayName
                     .takeUnless { it.isBlank() || it == model.modelId }
@@ -430,7 +436,7 @@ internal object OfficialModelCatalog {
                     null
                 } else {
                     model.reasoningCapabilities
-                        ?: official.withCatalogReasoningCapabilities(catalogId).reasoningCapabilities
+                        ?: official.withCatalogReasoningCapabilities(officialCatalogId).reasoningCapabilities
                 },
                 structuredOutput = model.structuredOutput ?: official.structuredOutput,
                 supportsTemperature = model.supportsTemperature ?: official.supportsTemperature,
@@ -440,6 +446,21 @@ internal object OfficialModelCatalog {
 
     private fun modelsForCatalogId(catalogId: String?): List<Model> =
         modelsByCatalogId[catalogId].orEmpty()
+
+    /**
+     * 按官方目录查一个模型声明的上下文窗口。
+     * 用于「新增模型」时输入 Model ID 后即时预填，不依赖远端是否返回窗口字段。
+     */
+    fun contextWindowFor(provider: ProviderSetting, modelId: String): Int? =
+        contextWindowFor(catalogId = catalogIdFor(provider), modelId = modelId)
+
+    internal fun contextWindowFor(catalogId: String?, modelId: String): Int? {
+        val normalized = modelId.trim().lowercase()
+        if (normalized.isEmpty()) return null
+        return modelsForCatalogId(catalogId)
+            .firstOrNull { it.modelId.lowercase() == normalized }
+            ?.let { it.contextWindow ?: it.contextWindowOverride }
+    }
 
     private fun Model.withCatalogReasoningCapabilities(catalogId: String?): Model =
         copy(
