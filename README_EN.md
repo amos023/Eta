@@ -2,17 +2,19 @@
 
 <p align="center"><a href="README.md">简体中文</a> | <strong>English</strong></p>
 
-<p align="center"><strong>A third-party build based on upstream Eta</strong></p>
+<p align="center"><strong>A third-party build based on upstream Eta 3.4.3 · current version 3.5.0</strong></p>
 
 > **Original project: [Mangi-11/Eta](https://github.com/Mangi-11/Eta)**
 >
-> This repository is not the original, nor a GitHub fork — it is an independently
-> published repository built from the upstream source. Eta's design, core
-> implementation and all base capabilities come from the upstream authors. Only the
-> changes listed below are added here. For feature documentation, usage guides and
-> issue reports, please refer to the upstream repository.
+> This repository is published independently from a modified upstream source tree.
+> It is not the original, nor a GitHub fork. Eta's design, core implementation and all
+> base capabilities come from the upstream authors; everything here is additive —
+> **nothing from upstream is removed, downgraded or changed**, only the capabilities
+> listed below are added.
 >
-> Both repositories are licensed under **GPL-3.0** and distributed under the same terms.
+> Licensed the same way as upstream, under **GPL-3.0**; the source matches the released
+> APK one to one. For feature documentation, usage guides and issue reports, please
+> refer to the upstream repository.
 
 ---
 
@@ -26,6 +28,24 @@
 
 71 commits accumulated since upstream 3.4.3. Everything below is layered on top of
 upstream code. **Nothing from upstream was removed or degraded.**
+
+---
+
+## Screenshots
+
+Actual UI of this build (3.5.0).
+
+| Provider configuration | Image model picker |
+| --- | --- |
+| ![New provider](docs/Screenshots/provider_config.jpg) | ![Image model dropdown](docs/Screenshots/image_model_picker.jpg) |
+
+Left: the upstream format switches in place; the image-only switch sits below the API key
+and the Endpoint mode row remains. Right: image models are listed separately, chat models
+are not mixed in.
+
+| Sidebar |
+| --- |
+| ![Sidebar menu](docs/Screenshots/sidebar_menu.jpg) |
 
 ---
 

@@ -2,13 +2,14 @@
 
 <p align="center"><strong>简体中文</strong> | <a href="README_EN.md">English</a></p>
 
-<p align="center"><strong>基于上游 Eta 修改的第三方构建</strong></p>
+<p align="center"><strong>基于上游 Eta 3.4.3 修改的第三方构建 · 当前版本 3.5.0</strong></p>
 
 > **原版项目：[Mangi-11/Eta](https://github.com/Mangi-11/Eta)**
 >
 > 本仓库不是原版，下述功能全部是在上游代码上叠加或增强。
 >
-> 本仓库与原版同为 **GPL-3.0** 授权，遵循同一许可证分发。
+> 授权与原版一致，同为 **GPL-3.0**；源码与发布的 APK 一一对应。
+> 功能说明、使用文档与问题反馈请以上游仓库为准。
 
 ---
 
@@ -21,6 +22,23 @@
 
 从上游 3.4.3 起累积 71 个提交，下述功能全部是在上游代码上叠加或增强，
 **没有删改上游任何既有能力**。
+
+---
+
+## 界面预览
+
+下面是本构建的实际界面（3.5.0）。
+
+| 提供商配置 | 生图模型选择 |
+| --- | --- |
+| ![新建提供商](docs/Screenshots/provider_config.jpg) | ![生图模型下拉](docs/Screenshots/image_model_picker.jpg) |
+
+左图：配置页内直接切换上游格式，生图开关位于 API Key 下方，Endpoint 模式行保留。
+右图：生图模型单独列出，聊天模型不混入。
+
+| 侧边栏 |
+| --- |
+| ![侧边栏菜单](docs/Screenshots/sidebar_menu.jpg) |
 
 ---
 
