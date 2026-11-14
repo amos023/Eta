@@ -361,11 +361,11 @@
   <string name="ui_search_provider_74e049">搜尋供應商</string>
   <string name="ui_search_model_df5586">搜尋模型</string>
   <string name="ui_support_anthropic_claude_official_or_compatible_api_de3f80">支援 Anthropic Claude 官方或相容 API</string>
-  <string name="ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02">支援 ChatGPT、DeepSeek、Kimi、GLM、Qwen 等服務</string>
+  <string name="ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02">支援 OpenAI、Anthropic、Gemini 格式</string>
   <string name="ui_supports_files_and_folders_under_internal_storage_or_520786">支援任意本機絕對路徑下的檔案和資料夾</string>
   <string name="ui_support_thinking_5b9e4c">支援思考</string>
   <string name="ui_new_anthropic_db6098">新增 Anthropic</string>
-  <string name="ui_added_openai_compatible_6bd471">新增 OpenAI-compatible</string>
+  <string name="ui_added_openai_compatible_6bd471">新增模型提供商</string>
   <string name="ui_add_new_provider_74df54">新增供應商</string>
   <string name="ui_accessibility_enhancement_tools_8fd257">無障礙增強工具</string>
   <string name="ui_no_skills_installed_yet_4e960f">尚未安裝任何 Skill</string>
@@ -1465,4 +1465,10 @@
   <string name="assistant_overlay_settings_follow_primary_hint">預設繼承主對話目前使用的模型</string>
   <string name="assistant_overlay_settings_reasoning_follow_default">跟隨預設</string>
   <string name="assistant_overlay_settings_note">單獨設定電源鍵或系統助手喚起的全域對話浮窗所使用的模型與思考等級；日常輕量指令可選用回應更快的輕量模型並降低或關閉思考，主對話仍保留主力模型。</string>
+  <string name="provider_image_only">生圖模型</string>
+  <string name="provider_image_only_summary">僅拉取生圖模型，顯示在生圖分組</string>
+  <string name="provider_type_label">上游格式</string>
+  <string name="provider_type_openai">OpenAI 相容</string>
+  <string name="provider_type_anthropic">Anthropic</string>
+  <string name="provider_type_gemini">Gemini</string>
 </resources>

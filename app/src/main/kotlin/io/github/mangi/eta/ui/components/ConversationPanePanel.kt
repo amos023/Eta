@@ -36,7 +36,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -659,7 +658,7 @@ private fun ConversationHistoryRow(
                 )
                 .padding(
                     start = ConversationPanelMetrics.RowHorizontalPadding,
-                    end = if (selected) 8.dp else ConversationPanelMetrics.RowHorizontalPadding,
+                    end = ConversationPanelMetrics.RowHorizontalPadding,
                     top = ConversationPanelMetrics.RowVerticalPadding,
                     bottom = ConversationPanelMetrics.RowVerticalPadding,
                 ),
@@ -732,29 +731,7 @@ private fun ConversationHistoryRow(
                 )
             }
 
-            if (selected) {
-                val moreLabel = stringResource(R.string.action_more)
-                Box(
-                    modifier = Modifier
-                        .padding(start = 4.dp)
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            role = Role.Button,
-                            onClickLabel = moreLabel,
-                        ) {
-                            anchor.open { showActionMenu = true }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreHoriz,
-                        contentDescription = moreLabel,
-                        modifier = Modifier.size(17.dp),
-                        tint = summaryColor,
-                    )
-                }
-            }
+            // 选中行不再显示「更多」省略号；长按整行仍是打开操作菜单的入口。
         }
 
         // 将选中指示条放在左内边距留白区，保证选中行与普通行标题严格处于同一条左对齐基线。

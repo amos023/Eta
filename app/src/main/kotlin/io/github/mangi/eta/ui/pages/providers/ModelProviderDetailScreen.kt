@@ -416,6 +416,8 @@ private fun ProviderConfigTab(
                     provider = provider,
                     draft = draft,
                     onDraftChange = onDraftChange,
+                    // 只在新建时允许选类型；已有提供商改类型会丢模型配置。
+                    showTypeSelector = isNew,
                     loginState = loginState,
                     enabled = !isWorking && !loginState.isBusy,
                     browserError = browserError,

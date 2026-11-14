@@ -15,6 +15,7 @@ import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.provider.BuiltinProviders
 import io.github.mangi.eta.data.provider.ProviderConnectionProfile
 import io.github.mangi.eta.data.provider.ProviderSourceRegistry
+import io.github.mangi.eta.ui.navigation.NewProviderType
 import java.util.UUID
 
 internal data class ProviderHeaderDraft(
@@ -33,6 +34,10 @@ internal data class ProviderConfigDraft(
     val anthropicVersion: String,
     val headers: List<ProviderHeaderDraft> = emptyList(),
     val authMode: String = ProviderAuthModes.API_KEY,
+    /** 生图专用提供商：拉取模型时只保留生图模型，列表页归入生图分组。 */
+    val imageOnly: Boolean = false,
+    /** 当前选中的提供商类型；新建时可在页内切换，已存在的提供商固定为自身类型。 */
+    val providerType: NewProviderType = NewProviderType.OpenAiCompatible,
 ) {
     companion object {
         fun from(provider: ProviderSetting): ProviderConfigDraft {
@@ -53,6 +58,8 @@ internal data class ProviderConfigDraft(
                 hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
                 anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
                     ?: AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
+                imageOnly = provider.imageOnly,
+                providerType = provider.toNewProviderType(),
             )
         }
     }
@@ -71,6 +78,8 @@ internal val ProviderConfigDraftSaver = mapSaver(
             "endpointMode" to draft.endpointMode,
             "hostedWebSearchEnabled" to draft.hostedWebSearchEnabled,
             "anthropicVersion" to draft.anthropicVersion,
+            "imageOnly" to draft.imageOnly,
+            "providerType" to draft.providerType.name,
         )
     },
     restore = { state ->
@@ -87,6 +96,10 @@ internal val ProviderConfigDraftSaver = mapSaver(
             endpointMode = state.getValue("endpointMode") as String,
             hostedWebSearchEnabled = state.getValue("hostedWebSearchEnabled") as Boolean,
             anthropicVersion = state.getValue("anthropicVersion") as String,
+            imageOnly = state["imageOnly"] as? Boolean ?: false,
+            providerType = (state["providerType"] as? String)
+                ?.let { name -> runCatching { NewProviderType.valueOf(name) }.getOrNull() }
+                ?: NewProviderType.OpenAiCompatible,
         )
     },
 )
@@ -103,6 +116,7 @@ internal fun buildUpdatedProvider(
     anthropicVersion: String,
     customHeaders: List<CustomHeader>,
     authMode: String = source.authMode,
+    imageOnly: Boolean = source.imageOnly,
 ): ProviderSetting {
     val prompt = systemPrompt.trim().takeIf { it.isNotBlank() }
     val profile = ProviderConnectionProfile.forAuthMode(authMode)
@@ -117,6 +131,7 @@ internal fun buildUpdatedProvider(
             isEnabled = isEnabled,
             endpointMode = profile?.endpointMode ?: endpointMode,
             hostedWebSearchEnabled = hostedWebSearchEnabled,
+            imageOnly = imageOnly,
         )
         is CustomProviderSetting -> source.copy(
             customHeaders = customHeaders.map { it.copy(name = it.name.trim()) },
@@ -128,6 +143,7 @@ internal fun buildUpdatedProvider(
             isEnabled = isEnabled,
             endpointMode = profile?.endpointMode ?: endpointMode,
             hostedWebSearchEnabled = hostedWebSearchEnabled,
+            imageOnly = imageOnly,
         )
         is GeminiProviderSetting -> source.copy(
             customHeaders = customHeaders.map { it.copy(name = it.name.trim()) },
@@ -150,19 +166,125 @@ internal fun buildUpdatedProvider(
     }
 }
 
-internal fun ProviderConfigDraft.toProvider(source: ProviderSetting): ProviderSetting = buildUpdatedProvider(
-    source = source,
-    name = name,
-    baseUrl = baseUrl,
-    apiKey = apiKey,
-    systemPrompt = systemPrompt,
-    isEnabled = isEnabled,
-    endpointMode = endpointMode,
-    hostedWebSearchEnabled = hostedWebSearchEnabled,
-    anthropicVersion = anthropicVersion,
-    customHeaders = headers.map { it.header },
-    authMode = authMode,
-)
+/** 提供商实际类型，用于回填草稿里的类型选择与判断页内字段显隐。 */
+internal fun ProviderSetting.toNewProviderType(): NewProviderType = when (this) {
+    is AnthropicProviderSetting -> NewProviderType.Anthropic
+    is GeminiProviderSetting -> NewProviderType.Gemini
+    is OpenAiCompatibleProviderSetting, is CustomProviderSetting ->
+        if (imageOnly) NewProviderType.ImageOnly else NewProviderType.OpenAiCompatible
+}
+
+/** 切换类型：保留已填的名称、API Key 与自定义 Base URL，类型专属默认值跟着换。 */
+internal fun ProviderConfigDraft.withProviderType(target: NewProviderType): ProviderConfigDraft {
+    if (target == providerType) return this
+    fun defaultBaseUrl(type: NewProviderType): String = when (type) {
+        NewProviderType.Anthropic -> ANTHROPIC_DEFAULT_BASE_URL
+        NewProviderType.Gemini -> GeminiProviderSetting.DEFAULT_BASE_URL
+        NewProviderType.OpenAiCompatible, NewProviderType.ImageOnly -> ""
+    }
+    val previousDefault = defaultBaseUrl(providerType)
+    val customUrl = baseUrl.trim().takeIf { it.isNotBlank() && it != previousDefault }
+    val geminiOrAnthropic = target == NewProviderType.Anthropic || target == NewProviderType.Gemini
+    return copy(
+        providerType = target,
+        baseUrl = customUrl ?: defaultBaseUrl(target),
+        imageOnly = target == NewProviderType.ImageOnly,
+        authMode = if (geminiOrAnthropic || target == NewProviderType.ImageOnly) {
+            ProviderAuthModes.API_KEY
+        } else {
+            authMode
+        },
+        endpointMode = if (geminiOrAnthropic) "" else OpenAiEndpointMode.CHAT_COMPLETIONS,
+        hostedWebSearchEnabled = if (target == NewProviderType.Gemini) hostedWebSearchEnabled else false,
+    )
+}
+
+internal const val ANTHROPIC_DEFAULT_BASE_URL = "https://api.anthropic.com"
+
+/**
+ * 按草稿当前选中的类型产出提供商设置。
+ *
+ * 类型与 [source] 一致时沿用 copy 路径，保留模型列表、内置标记等字段；
+ * 类型被切换时按目标类型重建实例，名称、API Key 等通用字段继续带过去。
+ */
+internal fun ProviderConfigDraft.toProvider(source: ProviderSetting): ProviderSetting =
+    if (providerType == source.toNewProviderType()) {
+        buildUpdatedProvider(
+            source = source,
+            name = name,
+            baseUrl = baseUrl,
+            apiKey = apiKey,
+            systemPrompt = systemPrompt,
+            isEnabled = isEnabled,
+            endpointMode = endpointMode,
+            hostedWebSearchEnabled = hostedWebSearchEnabled,
+            anthropicVersion = anthropicVersion,
+            customHeaders = headers.map { it.header },
+            authMode = authMode,
+            imageOnly = imageOnly,
+        )
+    } else {
+        buildSwitchedProvider(source)
+    }
+
+private fun ProviderConfigDraft.buildSwitchedProvider(source: ProviderSetting): ProviderSetting {
+    val prompt = systemPrompt.trim().takeIf { it.isNotBlank() }
+    val trimmedHeaders = headers.map { it.header.copy(name = it.header.name.trim()) }
+    val profile = ProviderConnectionProfile.forAuthMode(authMode)
+    val resolvedBaseUrl = profile?.baseUrl ?: baseUrl.trim()
+    return when (providerType) {
+        NewProviderType.Anthropic -> AnthropicProviderSetting(
+            id = source.id,
+            name = name.trim(),
+            baseUrl = resolvedBaseUrl.ifBlank { ANTHROPIC_DEFAULT_BASE_URL },
+            apiKey = apiKey.trim(),
+            isEnabled = isEnabled,
+            isBuiltIn = source.isBuiltIn,
+            sortOrder = source.sortOrder,
+            systemPrompt = prompt,
+            models = source.models,
+            customHeaders = trimmedHeaders,
+            customBody = source.customBody,
+            createdAt = source.createdAt,
+            anthropicVersion = anthropicVersion.trim()
+                .ifBlank { AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION },
+            authMode = authMode,
+        )
+        NewProviderType.Gemini -> GeminiProviderSetting(
+            id = source.id,
+            name = name.trim(),
+            baseUrl = resolvedBaseUrl.ifBlank { GeminiProviderSetting.DEFAULT_BASE_URL },
+            apiKey = apiKey.trim(),
+            isEnabled = isEnabled,
+            isBuiltIn = source.isBuiltIn,
+            sortOrder = source.sortOrder,
+            systemPrompt = prompt,
+            models = source.models,
+            customHeaders = trimmedHeaders,
+            customBody = source.customBody,
+            createdAt = source.createdAt,
+            hostedWebSearchEnabled = hostedWebSearchEnabled,
+        )
+        NewProviderType.OpenAiCompatible, NewProviderType.ImageOnly -> CustomProviderSetting(
+            id = source.id,
+            name = name.trim(),
+            baseUrl = resolvedBaseUrl,
+            apiKey = apiKey.trim(),
+            isEnabled = isEnabled,
+            isBuiltIn = source.isBuiltIn,
+            sortOrder = source.sortOrder,
+            systemPrompt = prompt,
+            models = source.models,
+            customHeaders = trimmedHeaders,
+            customBody = source.customBody,
+            createdAt = source.createdAt,
+            endpointMode = profile?.endpointMode ?: endpointMode,
+            hostedWebSearchEnabled = hostedWebSearchEnabled,
+            authMode = authMode,
+            imageOnly = providerType == NewProviderType.ImageOnly,
+        )
+    }
+}
 
 internal fun providerAccountAuthMode(provider: ProviderSetting): String? {
     if (provider is AnthropicProviderSetting || provider is GeminiProviderSetting) return null

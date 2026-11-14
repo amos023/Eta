@@ -378,11 +378,11 @@
   <string name="ui_search_provider_74e049">Search provider</string>
   <string name="ui_search_model_df5586">Search model</string>
   <string name="ui_support_anthropic_claude_official_or_compatible_api_de3f80">Support Anthropic Claude official or compatible API</string>
-  <string name="ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02">Support ChatGPT, DeepSeek, Kimi, GLM, Qwen, etc.</string>
+  <string name="ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02">Supports OpenAI, Anthropic and Gemini formats</string>
   <string name="ui_supports_files_and_folders_under_internal_storage_or_520786">Supports files and folders at any local absolute path</string>
   <string name="ui_support_thinking_5b9e4c">Supports reasoning</string>
   <string name="ui_new_anthropic_db6098">Add Anthropic provider</string>
-  <string name="ui_added_openai_compatible_6bd471">Add OpenAI-compatible provider</string>
+  <string name="ui_added_openai_compatible_6bd471">Add model provider</string>
   <string name="ui_add_new_provider_74df54">Add new provider</string>
   <string name="ui_accessibility_enhancement_tools_8fd257">Accessibility enhancement tools</string>
   <string name="ui_no_skills_installed_yet_4e960f">No Skills installed yet</string>
@@ -1577,4 +1577,10 @@
   <string name="assistant_overlay_settings_follow_primary_hint">Uses the default main conversation model</string>
   <string name="assistant_overlay_settings_reasoning_follow_default">Follow default</string>
   <string name="assistant_overlay_settings_note">Independently configure the model and reasoning level for the floating assistant triggered by the power key or system assistant. For quick everyday tasks, choosing a fast lightweight model with lower or disabled reasoning helps reduce latency and token usage.</string>
+  <string name="provider_image_only">Image-only provider</string>
+  <string name="provider_image_only_summary">Fetch image models only and show them in the image group</string>
+  <string name="provider_type_label">上游格式</string>
+  <string name="provider_type_openai">OpenAI-compatible</string>
+  <string name="provider_type_anthropic">Anthropic</string>
+  <string name="provider_type_gemini">Gemini</string>
 </resources>

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.runtime.Composable
@@ -167,34 +168,13 @@ internal fun ModelProviderListScreen(
                     CouiPreference(
                         title = stringResource(R.string.ui_added_openai_compatible_6bd471),
                         summary = stringResource(R.string.ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02),
-                        icon = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
-                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.OpenAiCompatible)) },
-                    )
-                    CouiIconDivider()
-                    CouiPreference(
-                        title = stringResource(R.string.ui_new_anthropic_db6098),
-                        summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
-                        icon = { ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC) },
-                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Anthropic)) },
-                    )
-                    CouiIconDivider()
-                    CouiPreference(
-                        title = "新增 Gemini",
-                        summary = "使用 API Key 连接原生 Interactions API",
-                        icon = { ProviderBrandIcon(ProviderSourceTypes.GEMINI) },
-                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Gemini)) },
-                    )
-                    CouiIconDivider()
-                    CouiPreference(
-                        title = "新增生图模型",
-                        summary = "只拉取生图模型，聊天模型自动排除",
                         icon = {
                             CouiSettingsIcon(
-                                icon = Icons.Rounded.Image,
+                                icon = Icons.Rounded.SmartToy,
                                 tint = colors.accent,
                             )
                         },
-                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.ImageOnly)) },
+                        onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.OpenAiCompatible)) },
                     )
                 }
 
@@ -333,32 +313,6 @@ internal fun ModelProviderListScreen(
                                 ProviderBrandIcon(ProviderSourceTypes.OPENAI)
                             },
                             onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.OpenAiCompatible)) },
-                        )
-                        ArrowPreference(
-                            title = stringResource(R.string.ui_new_anthropic_db6098),
-                            summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
-                            startAction = {
-                                ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC)
-                            },
-                            onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Anthropic)) },
-                        )
-                        ArrowPreference(
-                            title = "新增 Gemini",
-                            summary = "使用 API Key 连接原生 Interactions API",
-                            startAction = { ProviderBrandIcon(ProviderSourceTypes.GEMINI) },
-                            onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Gemini)) },
-                        )
-                        ArrowPreference(
-                            title = "新增生图模型",
-                            summary = "只拉取生图模型，聊天模型自动排除",
-                            startAction = {
-                                Icon(
-                                    imageVector = Icons.Rounded.Image,
-                                    contentDescription = null,
-                                    tint = MiuixTheme.colorScheme.primary,
-                                )
-                            },
-                            onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.ImageOnly)) },
                         )
                     }
                 }

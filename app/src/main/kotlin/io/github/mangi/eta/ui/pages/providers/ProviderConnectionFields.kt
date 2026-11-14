@@ -29,13 +29,12 @@ import androidx.compose.ui.unit.dp
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Divider
 import io.github.mangi.eta.R
-import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.AppearanceUiStyle
-import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.navigation.NewProviderType
 import io.github.mangi.eta.ui.components.coui.CouiDropdownPreference
 import io.github.mangi.eta.ui.components.coui.CouiIcon
 import io.github.mangi.eta.ui.components.coui.CouiSwitchPreference
@@ -60,18 +59,67 @@ internal fun ProviderConnectionFields(
     onLogin: () -> Unit,
     onDisconnect: () -> Unit,
     onCancel: () -> Unit,
+    showTypeSelector: Boolean = false,
 ) {
     val context = LocalContext.current
     var apiKeyVisible by remember { mutableStateOf(false) }
-    val oauth = ProviderAuthModes.isOAuth(draft.authMode)
-    val accountMode = providerAccountAuthMode(provider)
+    // 字段显隐一律看草稿里选中的类型，而不是初始 provider 实例：
+    // 新建流程里切换类型后 provider 实例不变，只有草稿会变。
+    val type = draft.providerType
+    val isAnthropic = type == NewProviderType.Anthropic
+    val isGemini = type == NewProviderType.Gemini
+    val isImageOnly = type == NewProviderType.ImageOnly
+    // 生图、Anthropic、Gemini 都只认 API Key，这些类型下不出现账号登录入口。
+    val oauth = ProviderAuthModes.isOAuth(draft.authMode) && !isImageOnly && !isAnthropic && !isGemini
+    val accountMode = if (isImageOnly || isAnthropic || isGemini) null else providerAccountAuthMode(provider)
+    // Endpoint 模式跟随协议栈：凡是走 OpenAI 兼容协议（含生图提供商）且用 API Key 登录都显示，
+    // 只有 Anthropic / Gemini / 账号登录不显示——它们本身没有 chat completions / responses 之分。
+    val showEndpointMode = !oauth && !isAnthropic && !isGemini
     val showWebSearchSwitch =
-        provider is GeminiProviderSetting ||
-            (draft.endpointMode == OpenAiEndpointMode.RESPONSES && provider !is AnthropicProviderSetting)
+        isGemini || (draft.endpointMode == OpenAiEndpointMode.RESPONSES && showEndpointMode)
+    // 「生图模型」开关只在 OpenAI 兼容协议下出现：Anthropic / Gemini 没有生图接口，
+    // 在它们的页面里给这个开关等于承诺做不到的事。
+    val showImageOnlySwitch = !isAnthropic && !isGemini
+    // 类型下拉用上游的协议命名；生图模型不在这里，单独一个开关。
+    val typeLabels = listOf(
+        "OpenAI-compatible",
+        "Anthropic Messages",
+        "Gemini Interactions",
+    )
+    val typeIndex = when (type) {
+        NewProviderType.Anthropic -> 1
+        NewProviderType.Gemini -> 2
+        else -> 0
+    }
+    val onTypeSelected: (Int) -> Unit = { index ->
+        onDraftChange(
+            draft.withProviderType(
+                when (index) {
+                    1 -> NewProviderType.Anthropic
+                    2 -> NewProviderType.Gemini
+                    else -> NewProviderType.OpenAiCompatible
+                },
+            ),
+        )
+    }
 
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             val colors = CouiPageDefaults.themeColors()
+            // 顺序：认证方式 → 名称 → Base URL → API Key → 上游格式 → Endpoint 模式 →
+            // 生图模型 → 联网搜索。「上游格式」与「Endpoint 模式」紧挨着，统一放在 API Key 之后。
+            if (accountMode != null) {
+                CouiDropdownPreference(
+                    title = "认证方式",
+                    items = listOf("API Key", "账号登录"),
+                    selectedIndex = if (oauth) 1 else 0,
+                    enabled = enabled,
+                    onSelectedIndexChange = { index ->
+                        onDraftChange(draft.withAuthMode(if (index == 0) ProviderAuthModes.API_KEY else accountMode, provider))
+                    },
+                )
+                Divider()
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -83,18 +131,6 @@ internal fun ProviderConnectionFields(
                     label = stringResource(R.string.ui_name_1be7ae),
                     singleLine = true,
                     enabled = enabled,
-                )
-            }
-            if (accountMode != null) {
-                Divider()
-                CouiDropdownPreference(
-                    title = "认证方式",
-                    items = listOf("API Key", "账号登录"),
-                    selectedIndex = if (oauth) 1 else 0,
-                    enabled = enabled,
-                    onSelectedIndexChange = { index ->
-                        onDraftChange(draft.withAuthMode(if (index == 0) ProviderAuthModes.API_KEY else accountMode, provider))
-                    },
                 )
             }
             if (oauth) {
@@ -151,7 +187,7 @@ internal fun ProviderConnectionFields(
                             }
                         },
                     )
-                    if (provider is AnthropicProviderSetting) {
+                    if (isAnthropic) {
                         Spacer(modifier = Modifier.height(12.dp))
                         CouiTextField(
                             value = draft.anthropicVersion,
@@ -162,8 +198,39 @@ internal fun ProviderConnectionFields(
                         )
                     }
                 }
-                if (provider !is AnthropicProviderSetting && provider !is GeminiProviderSetting) {
-                    Divider()
+            }
+            // 「生图模型」开关紧跟在 API Key 输入区下方，先确定是不是生图提供商，再看协议相关选项。
+            if (showImageOnlySwitch) {
+                Divider()
+                CouiSwitchPreference(
+                    title = stringResource(R.string.provider_image_only),
+                    summary = stringResource(R.string.provider_image_only_summary),
+                    checked = isImageOnly,
+                    enabled = enabled,
+                    onCheckedChange = { imageOnly ->
+                        onDraftChange(
+                            draft.withProviderType(
+                                if (imageOnly) NewProviderType.ImageOnly else NewProviderType.OpenAiCompatible,
+                            ),
+                        )
+                    },
+                )
+            }
+            if (showTypeSelector || showEndpointMode) {
+                Divider()
+                if (showTypeSelector) {
+                    CouiDropdownPreference(
+                        title = stringResource(R.string.provider_type_label),
+                        items = typeLabels,
+                        selectedIndex = typeIndex,
+                        enabled = enabled,
+                        onSelectedIndexChange = onTypeSelected,
+                    )
+                }
+                if (showEndpointMode) {
+                    if (showTypeSelector) {
+                        Divider()
+                    }
                     CouiDropdownPreference(
                         title = stringResource(R.string.ui_endpoint_mode_3c8546),
                         items = listOf("Chat Completions API", "Responses API"),
@@ -189,8 +256,8 @@ internal fun ProviderConnectionFields(
             if (showWebSearchSwitch) {
                 Divider()
                 CouiSwitchPreference(
-                    title = if (provider is GeminiProviderSetting) "Google Search" else stringResource(R.string.ui_server_side_web_search_ddb8e0),
-                    summary = if (provider is GeminiProviderSetting) {
+                    title = if (isGemini) "Google Search" else stringResource(R.string.ui_server_side_web_search_ddb8e0),
+                    summary = if (isGemini) {
                         null
                     } else {
                         stringResource(R.string.ui_allows_the_model_to_call_web_searches_provided_by_th_2f752f)
@@ -203,14 +270,30 @@ internal fun ProviderConnectionFields(
         }
 
         AppearanceUiStyle.MIUIX -> {
-            Column(modifier = Modifier.padding(16.dp)) {
-                TextField(
-                    value = draft.name,
-                    onValueChange = { onDraftChange(draft.copy(name = it)) },
-                    label = stringResource(R.string.ui_name_1be7ae),
-                    singleLine = true,
+            // 与 COUI 一致：上游格式 → Endpoint 模式 → 认证方式 依次排列，
+            // 名称 / Base URL / API Key 在同一输入区连续显示。
+            if (showTypeSelector) {
+                WindowSpinnerPreference(
+                    title = stringResource(R.string.provider_type_label),
+                    items = typeLabels.map { DropdownItem(text = it) },
+                    selectedIndex = typeIndex,
                     enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
+                    onSelectedIndexChange = onTypeSelected,
+                )
+            }
+            if (showEndpointMode) {
+                WindowSpinnerPreference(
+                    title = stringResource(R.string.ui_endpoint_mode_3c8546),
+                    items = listOf(DropdownItem(text = "Chat Completions API"), DropdownItem(text = "Responses API")),
+                    selectedIndex = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) 1 else 0,
+                    enabled = enabled,
+                    summary = context.getString(
+                        if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) R.string.page_using_typed_items_with_semantic_streaming_events_f9c906
+                        else R.string.page_use_standard_chat_completions_ee4b1a,
+                    ),
+                    onSelectedIndexChange = { index ->
+                        onDraftChange(draft.copy(endpointMode = if (index == 1) OpenAiEndpointMode.RESPONSES else OpenAiEndpointMode.CHAT_COMPLETIONS))
+                    },
                 )
             }
             if (accountMode != null) {
@@ -222,6 +305,16 @@ internal fun ProviderConnectionFields(
                     onSelectedIndexChange = { index ->
                         onDraftChange(draft.withAuthMode(if (index == 0) ProviderAuthModes.API_KEY else accountMode, provider))
                     },
+                )
+            }
+            Column(modifier = Modifier.padding(16.dp)) {
+                TextField(
+                    value = draft.name,
+                    onValueChange = { onDraftChange(draft.copy(name = it)) },
+                    label = stringResource(R.string.ui_name_1be7ae),
+                    singleLine = true,
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (oauth) {
@@ -264,7 +357,7 @@ internal fun ProviderConnectionFields(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    if (provider is AnthropicProviderSetting) {
+                    if (isAnthropic) {
                         Spacer(modifier = Modifier.height(12.dp))
                         TextField(
                             value = draft.anthropicVersion,
@@ -276,26 +369,26 @@ internal fun ProviderConnectionFields(
                         )
                     }
                 }
-                if (provider !is AnthropicProviderSetting && provider !is GeminiProviderSetting) {
-                    WindowSpinnerPreference(
-                        title = stringResource(R.string.ui_endpoint_mode_3c8546),
-                        items = listOf(DropdownItem(text = "Chat Completions API"), DropdownItem(text = "Responses API")),
-                        selectedIndex = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) 1 else 0,
-                        enabled = enabled,
-                        summary = context.getString(
-                            if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) R.string.page_using_typed_items_with_semantic_streaming_events_f9c906
-                            else R.string.page_use_standard_chat_completions_ee4b1a,
-                        ),
-                        onSelectedIndexChange = { index ->
-                            onDraftChange(draft.copy(endpointMode = if (index == 1) OpenAiEndpointMode.RESPONSES else OpenAiEndpointMode.CHAT_COMPLETIONS))
-                        },
-                    )
-                }
+            }
+            if (showImageOnlySwitch) {
+                SwitchPreference(
+                    title = stringResource(R.string.provider_image_only),
+                    summary = stringResource(R.string.provider_image_only_summary),
+                    checked = isImageOnly,
+                    enabled = enabled,
+                    onCheckedChange = { imageOnly ->
+                        onDraftChange(
+                            draft.withProviderType(
+                                if (imageOnly) NewProviderType.ImageOnly else NewProviderType.OpenAiCompatible,
+                            ),
+                        )
+                    },
+                )
             }
             if (showWebSearchSwitch) {
                 SwitchPreference(
-                    title = if (provider is GeminiProviderSetting) "Google Search" else stringResource(R.string.ui_server_side_web_search_ddb8e0),
-                    summary = if (provider is GeminiProviderSetting) null
+                    title = if (isGemini) "Google Search" else stringResource(R.string.ui_server_side_web_search_ddb8e0),
+                    summary = if (isGemini) null
                     else stringResource(R.string.ui_allows_the_model_to_call_web_searches_provided_by_th_2f752f),
                     checked = draft.hostedWebSearchEnabled,
                     enabled = enabled,
