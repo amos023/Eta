@@ -1,9 +1,9 @@
 name: Eta Build
 
 on:
+  # 只在发版标签与手动触发时构建：日常提交由本地构建验证，
+  # 推 main 触发一次 Debug+Release 打包却不上传产物，纯属浪费 runner 时间。
   push:
-    branches:
-      - main
     tags:
       - "v*"
   workflow_dispatch:
