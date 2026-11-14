@@ -4,8 +4,6 @@ import android.graphics.BlendMode as AndroidBlendMode
 import android.graphics.LinearGradient
 import android.graphics.RenderEffect as AndroidRenderEffect
 import android.graphics.Shader
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -79,7 +77,6 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
@@ -100,16 +97,12 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.itos.coui.backdrop.CouiBackdrop
-import com.itos.coui.backdrop.ProvideCouiBackdrop
 import com.itos.coui.backdrop.drawCouiBackdrop
-import com.itos.coui.effect.CouiFloatingRenderer
 import com.itos.coui.effect.CouiFloatingSurface
 import com.itos.coui.effect.LocalCouiContourGlowEnabled
-import com.itos.coui.effect.SpotlightPreset
 import com.itos.coui.effect.couiButtonFeedback
 import com.itos.coui.effect.couiFloatingSurface
 import com.itos.coui.effect.couiToolbarFeedback
-import com.itos.coui.effect.rememberCouiSpotlight
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.motion.couiPressMotion
 import com.itos.coui.motion.couiTouchMotion
@@ -845,223 +838,53 @@ private fun CouiPaneFloatingSurface(
     content: @Composable () -> Unit,
 ) {
     val dark = CouiTheme.isDark
-    val view = LocalView.current
-    val renderer = remember {
-        if (Build.VERSION.SDK_INT >= 34) {
-            runCatching { CouiFloatingRenderer.standalone() }.getOrNull()
-        } else {
-            null
-        }
+    // 侧边栏底栏位于自定义 Layout 的测量环境里，COUI 的 couiFloatingSurface
+    // 在这层拿到的 backdrop 采样坐标不对，自绘只会渲染成灰块，与顶栏的
+    // TopAppBarButton 表现不一致。这里直接采用 COUI 的实色卡片规范：
+    // 白/深灰底 + 细描边 + 柔和投影，不再走玻璃分支。
+    val fallbackBg = conversationPaneCardColor()
+    val borderColor = when {
+        focused -> accentColor.copy(alpha = 0.65f)
+        else -> conversationPaneEdgeBorderColor()
     }
-    if (Build.VERSION.SDK_INT >= 34 &&
-        couiBackdrop != null &&
-        renderer != null &&
-        view.display != null
-    ) {
-        ProvideCouiBackdrop(couiBackdrop) {
-            CouiApi34FloatingSurface(
-                modifier = modifier,
-                shape = shape,
-                capsule = capsule,
-                backdrop = couiBackdrop,
-                renderer = renderer,
-                dark = dark,
-                focused = focused,
-                accentColor = accentColor,
-                contentDescription = contentDescription,
-                onClick = onClick,
-                content = content,
-            )
-        }
-    } else {
-        val fallbackBg = if (dark) Color(0xFF252830) else Color.White
-        val borderColor = when {
-            focused -> accentColor.copy(alpha = 0.65f)
-            dark -> Color(0x1EFFFFFF)
-            else -> Color(0x12000000)
-        }
-        val interactionSource = remember { MutableInteractionSource() }
-        Box(
-            modifier = modifier
-                .dropShadow(
-                    shape = shape,
-                    shadow = Shadow(
-                        radius = 12.dp,
-                        color = Color.Black,
-                        alpha = if (dark) 0.24f else 0.06f,
-                    ),
-                )
-                .clip(shape)
-                .background(fallbackBg, shape)
-                .border(if (focused) 1.dp else 0.5.dp, borderColor, shape)
-                .then(
-                    if (onClick != null) {
-                        Modifier
-                            .couiButtonFeedback(dark, interactionSource, enabled = true)
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = null,
-                                role = Role.Button,
-                                onClick = onClick,
-                            )
-                    } else {
-                        Modifier
-                    },
-                )
-                .then(
-                    if (contentDescription != null) {
-                        Modifier.semantics { this.contentDescription = contentDescription }
-                    } else {
-                        Modifier
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            content()
-        }
-    }
-}
-
-@RequiresApi(34)
-@Composable
-private fun CouiApi34FloatingSurface(
-    modifier: Modifier,
-    shape: Shape,
-    capsule: Boolean,
-    backdrop: CouiBackdrop,
-    renderer: CouiFloatingRenderer,
-    dark: Boolean,
-    focused: Boolean,
-    accentColor: Color,
-    contentDescription: String?,
-    onClick: (() -> Unit)?,
-    content: @Composable () -> Unit,
-) {
-    val density = LocalDensity.current.density
-    val contour = LocalCouiContourGlowEnabled.current
-    val material = remember(dark, capsule) {
-        CouiTopAppBarButtonDefaults.material(dark = dark, capsule = capsule, search = capsule)
-    }
-    val shadow = remember(dark, capsule, density, contour) {
-        CouiTopAppBarButtonDefaults.shadow(
-            dark = dark,
-            capsule = capsule,
-            density = density,
-            contour = contour,
-            search = capsule,
-        )
-    }
-    var boundsSize by remember { mutableStateOf(IntSize.Zero) }
-    val contentLayer = rememberGraphicsLayer()
-    val interactive = onClick != null
-    val motion = rememberCouiTouchMotion(interactive)
-    val press = rememberCouiPressMotion()
     val interactionSource = remember { MutableInteractionSource() }
-    val (lightInput, drawLight) = rememberCouiSpotlight(
-        interactive = interactive,
-        preset = if (capsule) SpotlightPreset.OpaqueMedium2 else SpotlightPreset.OpaqueSmall2,
-        dark = dark,
-    )
-
     Box(
         modifier = modifier
-            .onSizeChanged { boundsSize = it }
-            .drawWithCache {
-                val lightClip = Path().apply {
-                    addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache))
-                }
-                onDrawWithContent {
-                    drawContent()
-                    if (drawLight != null) {
-                        withTransform({
-                            translate(motion.translationX.value, motion.translationY.value)
-                            scale(
-                                motion.scaleX.value + press.scale.value - 1f,
-                                motion.scaleY.value + press.scale.value - 1f,
-                                center,
-                            )
-                        }) {
-                            clipPath(lightClip) { drawLight.invoke(this) }
-                        }
-                    }
-                }
-            }
-            .couiFloatingSurface(
-                backdrop = backdrop,
-                renderer = renderer,
-                material = material,
-                shadow = shadow,
+            .dropShadow(
                 shape = shape,
-                contentLayer = contentLayer,
-                contourGlowEnabled = contour,
-                foregroundComposition = true,
-            ) {
-                CouiFloatingSurface(
-                    bounds = Rect(
-                        Offset(motion.translationX.value, motion.translationY.value),
-                        Size(boundsSize.width.toFloat(), boundsSize.height.toFloat()),
-                    ),
-                    scaleX = motion.scaleX.value + press.scale.value - 1f,
-                    scaleY = motion.scaleY.value + press.scale.value - 1f,
-                    cornerWeight = if (capsule) 1f else 2f,
-                )
-            }
+                shadow = Shadow(
+                    radius = 12.dp,
+                    color = Color.Black,
+                    alpha = if (dark) 0.24f else 0.06f,
+                ),
+            )
+            .clip(shape)
+            .background(fallbackBg, shape)
+            .border(if (focused) 1.dp else 0.5.dp, borderColor, shape)
             .then(
-                if (focused) {
-                    Modifier.border(1.dp, accentColor.copy(alpha = 0.55f), shape)
+                if (onClick != null) {
+                    Modifier
+                        .couiButtonFeedback(dark, interactionSource, enabled = true)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            role = Role.Button,
+                            onClick = onClick,
+                        )
+                } else {
+                    Modifier
+                },
+            )
+            .then(
+                if (contentDescription != null) {
+                    Modifier.semantics { this.contentDescription = contentDescription }
                 } else {
                     Modifier
                 },
             ),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    translationX = motion.translationX.value
-                    translationY = motion.translationY.value
-                    scaleX = motion.scaleX.value + press.scale.value - 1f
-                    scaleY = motion.scaleY.value + press.scale.value - 1f
-                }
-                .then(
-                    if (interactive) {
-                        Modifier
-                            .couiTouchMotion(motion, true)
-                            .couiPressMotion(press, enabled = true)
-                            .then(lightInput)
-                    } else {
-                        Modifier
-                    },
-                )
-                .drawWithContent {
-                    contentLayer.record { this@drawWithContent.drawContent() }
-                }
-                .clip(shape)
-                .then(
-                    if (onClick != null) {
-                        Modifier
-                            .couiToolbarFeedback(dark, interactionSource, enabled = true)
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = null,
-                                role = Role.Button,
-                                onClick = onClick,
-                            )
-                    } else {
-                        Modifier
-                    },
-                )
-                .then(
-                    if (contentDescription != null) {
-                        Modifier.semantics { this.contentDescription = contentDescription }
-                    } else {
-                        Modifier
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            content()
-        }
+        content()
     }
 }
 
