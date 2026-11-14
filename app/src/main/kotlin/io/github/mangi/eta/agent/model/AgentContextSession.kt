@@ -142,7 +142,7 @@ internal class AgentContextSession(
     }
 
     private companion object {
-        /** 上下文占用达到这个比例就自动压缩；0.70 给摘要与后续几轮留出余量。 */
-        const val TRIGGER_RATIO = 0.70
+        /** 上下文占用达到这个比例就自动压缩；0.80 给摘要与后续几轮留出余量。 */
+        const val TRIGGER_RATIO = 0.80
     }
 }
