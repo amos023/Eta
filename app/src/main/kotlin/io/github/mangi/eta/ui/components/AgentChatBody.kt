@@ -544,6 +544,8 @@ internal fun AgentConversationMessages(
         when (entry) {
             is AgentTimelineEntry.Message -> entry.message.id == messageId
             is AgentTimelineEntry.WorkProcess -> entry.messages.any { it.id == messageId }
+            // 图片条目由工具消息派生，定位工具消息时也要命中它所在的图片槽位。
+            is AgentTimelineEntry.GeneratedImages -> entry.key == "$messageId-artifacts"
         }
     }
     var showMessageNavigator by remember { mutableStateOf(false) }
@@ -884,6 +886,19 @@ internal fun AgentConversationMessages(
                             modifier = itemModifier,
                         )
                     }
+
+                    is AgentTimelineEntry.GeneratedImages -> {
+                        GeneratedArtifactStrip(
+                            images = entry.images,
+                            groupKey = entry.key,
+                            modifier = itemModifier.padding(
+                                start = 12.dp,
+                                end = 12.dp,
+                                top = 2.dp,
+                                bottom = 6.dp,
+                            ),
+                        )
+                    }
                 }
             }
             item(key = ChatBottomSentinelKey) {
@@ -1062,6 +1077,15 @@ internal sealed interface AgentTimelineEntry {
         override val key: String,
         val messages: List<AgentChatMessageUi>,
     ) : AgentTimelineEntry
+
+    /**
+     * 工具在会话里留下的产出图片（生图、截图等）。单独成条出现在聊天流里，
+     * 位于对应工具分组之后、该轮正文之前，展开工具卡不再需要才能看到图。
+     */
+    data class GeneratedImages(
+        override val key: String,
+        val images: List<String>,
+    ) : AgentTimelineEntry
 }
 
 /**
@@ -1089,6 +1113,18 @@ internal fun List<AgentChatMessageUi>.toTimelineEntries(
                 entry.messages.indices.all { index -> entry.messages[index] === workMessages[index] }
         }
         add(reusable ?: AgentTimelineEntry.WorkProcess(key = key, messages = workMessages.toList()))
+        // 工具产出的图片脱离折叠区，作为独立条目排在分组之后、该轮正文之前。
+        // 分组内消息顺序即执行顺序，多张图按调用先后依次成条。
+        workMessages.forEach { message ->
+            if (message is ToolActivityMessageUi && message.images.isNotEmpty()) {
+                add(
+                    AgentTimelineEntry.GeneratedImages(
+                        key = "${message.id}-artifacts",
+                        images = message.images,
+                    ),
+                )
+            }
+        }
         workMessages.clear()
     }
 
@@ -1105,6 +1141,7 @@ internal fun List<AgentChatMessageUi>.toTimelineEntries(
 
 private fun AgentTimelineEntry.contentType(): Any = when (this) {
     is AgentTimelineEntry.WorkProcess -> AgentTimelineEntry.WorkProcess::class
+    is AgentTimelineEntry.GeneratedImages -> AgentTimelineEntry.GeneratedImages::class
     is AgentTimelineEntry.Message -> message::class
 }
 

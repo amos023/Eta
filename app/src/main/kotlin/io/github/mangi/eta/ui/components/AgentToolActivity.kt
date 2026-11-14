@@ -222,12 +222,6 @@ internal fun ToolActivityRow(
             }
         }
 
-        GeneratedArtifactStrip(
-            images = message.images,
-            groupKey = message.id,
-            modifier = Modifier.padding(bottom = if (expanded) 2.dp else 6.dp),
-        )
-
         AnimatedVisibility(visible = expanded) {
             ToolActivityDetail(
                 message = message,
@@ -242,9 +236,12 @@ internal fun ToolActivityRow(
 /**
  * 工具产出的会话资产图片。生成的图必须能直接在聊天里看见，而不是只留一行「图片 1 张」。
  * 单图按原比例铺满可用宽度，多图横向排布；点击进全屏预览。
+ *
+ * 由 AgentChatBody 的时间线投影调用，作为独立的聊天流条目出现在工具分组之后、
+ * 该轮正文之前，而不是塞进可折叠的工具活动卡内部。
  */
 @Composable
-private fun GeneratedArtifactStrip(
+internal fun GeneratedArtifactStrip(
     images: List<String>,
     groupKey: String,
     modifier: Modifier = Modifier,
