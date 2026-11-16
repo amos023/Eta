@@ -173,7 +173,6 @@ internal fun AgentChatInputBar(
     inputSyncVersion: Int = 0,
     focusInputOnSync: Boolean = true,
     isEditingMessage: Boolean,
-    editHasLaterTurns: Boolean,
     preserveFollowingMessages: Boolean,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onCompactContext: () -> Unit,
@@ -308,26 +307,6 @@ internal fun AgentChatInputBar(
             )
         }
 
-        AnimatedVisibility(
-            visible = isEditingMessage,
-            enter = fadeIn(tween(160)),
-            exit = fadeOut(tween(100)) + shrinkVertically(tween(140)),
-        ) {
-            Text(
-                text = if (preserveFollowingMessages) {
-                    stringResource(R.string.chat_edit_preserve_following)
-                } else if (editHasLaterTurns) {
-                    stringResource(R.string.chat_edit_replace_later)
-                } else {
-                    stringResource(R.string.chat_edit_replace_message)
-                },
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                // 与输入框内正文同一起点（容器 10dp + 文本 8dp）。
-                modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 8.dp),
-            )
-        }
-
         val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
         val couiDark = CouiTheme.isDark
         val couiInputShape = remember { CouiShape(24.dp, 2.3f) }
@@ -391,6 +370,16 @@ internal fun AgentChatInputBar(
                     )
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             ) {
+                // 编辑态提示放在输入框内部顶部：背后就是输入框自己的底色，
+                // 不会和对话正文叠在一起，也不需要模糊或遮罩。
+                if (isEditingMessage) {
+                    Text(
+                        text = stringResource(R.string.chat_edit_replace_message),
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(start = 6.dp, bottom = 4.dp),
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -1246,7 +1246,6 @@ private fun AgentChatBottomBar(
                 inputSyncVersion = inputSyncVersion,
                 focusInputOnSync = focusInputOnSync,
                 isEditingMessage = messageEdit != null,
-                editHasLaterTurns = messageEdit?.hasLaterTurns == true,
                 preserveFollowingMessages = messageEdit?.preserveFollowingMessages == true,
                 onSubmit = onSubmit,
                 onInterruptAndSubmit = onInterruptAndSubmit,
