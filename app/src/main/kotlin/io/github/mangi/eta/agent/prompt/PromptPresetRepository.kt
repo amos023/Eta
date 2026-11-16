@@ -16,14 +16,9 @@ internal object PromptPresetRepository {
     private const val KEY_SAVED = "agent_prompt_presets_json"
     private const val MAX_SAVED = 20
 
-    /** 内置清单固定：顺序就是界面顺序，按强度从高到低。 */
+    /** 内置清单：只保留默认预设。 */
     private val BUILTIN_FILES = listOf(
         "moren.json",
-        "pozhijei.json",
-        "pozhunhe.json",
-        "pozhuancheg.json",
-        "pozhiqyue.json",
-        "pozhixiezuo.json",
     )
 
     fun builtins(context: Context): List<PromptPreset> =

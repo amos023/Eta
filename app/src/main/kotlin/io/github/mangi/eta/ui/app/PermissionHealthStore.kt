@@ -83,6 +83,27 @@ private fun buildPermissionHealthState(context: Context): PermissionHealthUiStat
                 primaryActionLabel = if (appListEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
             ),
             localNetworkPermissionHealthItem(context),
+            // 公共目录访问（所有文件访问权限）：PRoot 下要让 Linux 看到
+            // /storage/emulated/0 必须先有它，放在这里免得每次跑深层页面。
+            PermissionHealthItemUi(
+                id = "all_files",
+                title = "公共目录访问",
+                summary = if (android.os.Environment.isExternalStorageManager()) {
+                    "已授权，终端可访问 \"/storage/emulated/0\" 及所有共享目录。"
+                } else {
+                    "未授权；授权后终端可直接读写 /storage/emulated/0。"
+                },
+                status = if (android.os.Environment.isExternalStorageManager()) {
+                    PermissionStatusUi.Available
+                } else {
+                    PermissionStatusUi.Missing
+                },
+                primaryActionLabel = if (android.os.Environment.isExternalStorageManager()) {
+                    null
+                } else {
+                    "授权"
+                },
+            ),
             PermissionHealthItemUi(
                 id = "calendar", title = "日历访问", summary = "读取日程并创建、修改事件与提醒；未授权时只在已有 Root 授权下使用增强通道。",
                 status = if (io.github.mangi.eta.agent.device.CalendarPermissions.granted(context, true)) PermissionStatusUi.Available else PermissionStatusUi.Missing,
