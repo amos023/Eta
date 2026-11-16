@@ -110,6 +110,23 @@ sealed interface AppRoute : NavKey {
 
     @Serializable
     data class ModelProviderNew(val providerType: NewProviderType) : AppRoute
+
+    /** 提示词编辑页。 */
+    @Serializable
+    data object PromptEditor : AppRoute
+
+    @Serializable
+    data object PromptPresets : AppRoute
+
+    @Serializable
+    data object PromptVersions : AppRoute
+
+    @Serializable
+    data object PromptEffective : AppRoute
+
+    /** 预设编辑器；name 为空表示新建。 */
+    @Serializable
+    data class PromptPresetEditor(val name: String = "") : AppRoute
 }
 
 @Serializable

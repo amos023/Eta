@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.prompt.PromptPresetRepository
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.device.DeviceLocationProvider
 import io.github.mangi.eta.agent.device.RootAccess
@@ -71,6 +72,11 @@ import io.github.mangi.eta.ui.model.PermissionStatusUi
 import io.github.mangi.eta.ui.model.roleplayChatUi
 import io.github.mangi.eta.ui.navigation.AgentNavigator
 import io.github.mangi.eta.ui.navigation.AppRoute
+import io.github.mangi.eta.ui.pages.prompts.PromptEditorPage
+import io.github.mangi.eta.ui.pages.prompts.PromptEffectivePage
+import io.github.mangi.eta.ui.pages.prompts.PromptPresetEditorPage
+import io.github.mangi.eta.ui.pages.prompts.PromptPresetsPage
+import io.github.mangi.eta.ui.pages.prompts.PromptVersionsPage
 import io.github.mangi.eta.ui.pages.providers.CommunityCatalogProviderScreen
 import io.github.mangi.eta.ui.pages.providers.CommunityCatalogScreen
 import io.github.mangi.eta.ui.pages.providers.ModelProviderDetailScreen
@@ -795,6 +801,43 @@ fun AgentAppRoot(
                     distribution = route.distribution,
                     onBack = ::popRoute,
                 )
+            }
+            entry<AppRoute.PromptEditor>(swipeDismiss = swipeDismiss) {
+                PromptEditorPage(
+                    onBack = ::popRoute,
+                    onOpenPresets = { pushRoute(AppRoute.PromptPresets) },
+                    onOpenVersions = { pushRoute(AppRoute.PromptVersions) },
+                    onOpenEffective = { pushRoute(AppRoute.PromptEffective) },
+                )
+            }
+            entry<AppRoute.PromptPresets>(swipeDismiss = swipeDismiss) {
+                PromptPresetsPage(
+                    onBack = ::popRoute,
+                    onApplied = ::popRoute,
+                    onEditPreset = { name -> pushRoute(AppRoute.PromptPresetEditor(name)) },
+                )
+            }
+            entry<AppRoute.PromptVersions>(swipeDismiss = swipeDismiss) {
+                PromptVersionsPage(onBack = ::popRoute, onRestored = ::popRoute)
+            }
+            entry<AppRoute.PromptPresetEditor>(swipeDismiss = swipeDismiss) { route ->
+                val context = LocalContext.current
+                val preset = remember(route.name) {
+                    PromptPresetRepository.builtins(context).firstOrNull { it.name == route.name }
+                        ?: PromptPresetRepository.imported().firstOrNull { it.name == route.name }
+                }
+                if (preset == null) {
+                    LaunchedEffect(Unit) { popRoute() }
+                } else {
+                    PromptPresetEditorPage(
+                        preset = preset,
+                        onBack = ::popRoute,
+                        onSaved = { popRoute() },
+                    )
+                }
+            }
+            entry<AppRoute.PromptEffective>(swipeDismiss = swipeDismiss) {
+                PromptEffectivePage(onBack = ::popRoute)
             }
             entry<AppRoute.ModelProviders>(swipeDismiss = swipeDismiss) {
                 ModelProviderListScreen(

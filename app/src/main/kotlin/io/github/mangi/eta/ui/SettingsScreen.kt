@@ -399,6 +399,15 @@ private fun SettingsPageContent(
                     )
                     CouiIconDivider()
                     CouiPreference(
+                        title = stringResource(R.string.prompt_page_title),
+                        summary = stringResource(R.string.prompt_settings_summary),
+                        icon = {
+                            CouiSettingsIcon(Icons.Rounded.Description, SettingsIconColors.Blue)
+                        },
+                        onClick = { onNavigate(AppRoute.PromptEditor) },
+                    )
+                    CouiIconDivider()
+                    CouiPreference(
                         title = stringResource(R.string.conversation_title_settings_title),
                         icon = { CouiSettingsIcon(Icons.Rounded.AutoAwesome, SettingsIconColors.Blue) },
                         onClick = { onNavigate(AppRoute.ConversationTitleSettings) },

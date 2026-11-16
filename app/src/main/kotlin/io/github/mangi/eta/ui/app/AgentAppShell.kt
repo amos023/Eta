@@ -743,5 +743,10 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.McpServerDetail -> stringResource(R.string.route_mcp_server_detail)
     is AppRoute.ModelProviderDetail -> stringResource(R.string.route_provider_details)
     is AppRoute.ModelProviderNew -> stringResource(R.string.route_new_provider)
+    is AppRoute.PromptEditor -> stringResource(R.string.prompt_page_title)
+    is AppRoute.PromptPresets -> stringResource(R.string.prompt_presets_title)
+    is AppRoute.PromptVersions -> stringResource(R.string.prompt_versions_title)
+    is AppRoute.PromptEffective -> stringResource(R.string.prompt_effective_title)
+    is AppRoute.PromptPresetEditor -> stringResource(R.string.prompt_preset_editor_title)
     null -> stringResource(R.string.app_name)
 }
