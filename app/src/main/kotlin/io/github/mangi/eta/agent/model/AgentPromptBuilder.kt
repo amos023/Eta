@@ -1,6 +1,9 @@
 package io.github.mangi.eta.agent.model
 
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
+import io.github.mangi.eta.agent.prompt.PromptCustomization
+import io.github.mangi.eta.agent.prompt.PromptCustomizationMode
+import io.github.mangi.eta.agent.prompt.PromptCustomizationStore
 import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
 import io.github.mangi.eta.agent.terminal.TerminalExecutionContext
@@ -42,9 +45,49 @@ internal object AgentPromptBuilder {
         executionContext: TerminalExecutionContext? = null,
     ): JSONArray {
         val messages = JSONArray()
-        if (roleplayContext == null && config.systemPrompt.isNotBlank()) {
-            messages.put(systemMessage(config.systemPrompt))
+        // 自定义提示词：角色会话里不注入，避免覆盖人物设定。
+        val customization = if (roleplayContext == null) {
+            PromptCustomizationStore.load().takeIf { it.active }
+        } else {
+            null
         }
+        // REPLACE：顶替 Provider 提示词并声明优先级；APPEND：Provider 提示词保持原样。
+        val replaceIdentity = customization
+            ?.takeIf { it.mode == PromptCustomizationMode.REPLACE }
+            ?.baseSystemPrompt
+            ?.takeIf { it.isNotBlank() }
+        val providerPrompt = replaceIdentity ?: config.systemPrompt
+        if (providerPrompt.isNotBlank()) {
+            if (replaceIdentity != null) {
+                messages.put(
+                    systemMessage(
+                        buildString {
+                            appendLine("<custom_identity version=\"${customization?.version}\" revision=\"${customization?.revision}\">")
+                            appendLine(replaceIdentity.trim())
+                            appendLine("</custom_identity>")
+                            append("以上为用户自定义的身份设定，优先级高于后文的内置身份描述；工具、设备与屏幕规则仍然有效，按其执行。")
+                        },
+                    ),
+                )
+            } else {
+                messages.put(systemMessage(providerPrompt))
+            }
+        }
+        // APPEND：在内置身份之前单独插一段，作为附加约束。
+        customization
+            ?.takeIf { it.mode == PromptCustomizationMode.APPEND && it.baseSystemPrompt.isNotBlank() }
+            ?.let { value ->
+                messages.put(
+                    systemMessage(
+                        buildString {
+                            appendLine("<custom_identity version=\"${value.version}\" revision=\"${value.revision}\">")
+                            appendLine(value.baseSystemPrompt.trim())
+                            appendLine("</custom_identity>")
+                            append("以上为用户附加的身份设定，作为附加约束叠加在内置身份之上；工具、设备与屏幕规则仍然有效。")
+                        },
+                    ),
+                )
+            }
         messages.put(
             systemMessage(
                 (if (roleplayContext == null) {
@@ -170,6 +213,34 @@ internal object AgentPromptBuilder {
                         "子智能体没有当前会话上下文，也不执行屏幕 GUI 手势；派发时提供完整目标与已知线索，收到汇总结果后由你向用户统一作答。"
                 )
             )
+        }
+        // 自定义人格与追加指令：两种模式都注入。
+        customization?.let { value ->
+            val name = value.personaName.trim()
+            val style = value.personaStyle.trim()
+            if (name.isNotEmpty() || style.isNotEmpty()) {
+                messages.put(
+                    systemMessage(
+                        buildString {
+                            appendLine("<custom_persona version=\"${value.version}\">")
+                            if (name.isNotEmpty()) appendLine("名称：$name")
+                            if (style.isNotEmpty()) appendLine(style)
+                            appendLine("</custom_persona>")
+                            append("用户已设定人格：按上面的名称与风格交流；事实、证据与工具结果的表述不因人格改写。")
+                        },
+                    ),
+                )
+            }
+            val instruction = value.appendInstructions.trim()
+            if (instruction.isNotEmpty()) {
+                messages.put(
+                    systemMessage(
+                        "<custom_instructions version=\"${value.version}\" revision=\"${value.revision}\">\n" +
+                            instruction +
+                            "\n</custom_instructions>",
+                    ),
+                )
+            }
         }
         roleplayContext?.personaMessage()?.let(messages::put)
         buildMemorySystemMessage(memoryContext, writable = roleplayContext == null)?.let(messages::put)
