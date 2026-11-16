@@ -2,7 +2,7 @@
 
 <p align="center"><a href="README.md">简体中文</a> | <strong>English</strong></p>
 
-<p align="center"><strong>A third-party build based on upstream Eta 3.4.3 · current version 3.5.0</strong></p>
+<p align="center"><strong>A third-party build based on upstream Eta 3.4.3 · current version 3.6.0</strong></p>
 
 > **Original project: [Mangi-11/Eta](https://github.com/Mangi-11/Eta)**
 >
@@ -23,17 +23,17 @@
 | Item | Value |
 | --- | --- |
 | Upstream baseline | **Eta 3.4.3** (tag `v3.4.3`, commit `32e147a`) |
-| This build | 3.5.0 (versionCode 2026111403) |
+| This build | **3.6.0** (versionCode 2026111601) |
 | Package name | `io.github.mangi.eta.stable`, coexists with the original |
 
-71 commits accumulated since upstream 3.4.3. Everything below is layered on top of
+81 commits accumulated since upstream 3.4.3. Everything below is layered on top of
 upstream code. **Nothing from upstream was removed or degraded.**
 
 ---
 
 ## Screenshots
 
-Actual UI of this build (3.5.0).
+Actual UI of this build.
 
 | Provider configuration | Image model picker |
 | --- | --- |
@@ -49,7 +49,39 @@ are not mixed in.
 
 ---
 
-## 1. AI image generation
+## 1. Custom system prompts
+
+Upstream only allows a few tweaks here and there; this build makes the whole system prompt
+writable, savable, rollable-back and shareable.
+
+- **Four-part structure**: main identity, persona name, tone/style, additional instructions — each maps to a different slot in the system prompt, and any part may be left empty
+- **Two injection modes**
+  - **Replace**: takes over the provider's own system prompt, highest priority
+  - **Append**: the original prompt is fully kept and your content is layered on as extra constraints
+- **Saved, not auto-applied**: the editor is a draft. Leaving without tapping Save in the top bar changes nothing
+- **Versions and rollback**: a version only increments when the content really changes; the last 5 versions are kept and any of them can be restored. Re-saving identical content does not pile up empty versions
+- **Roleplay isolation**: inside a roleplay session the custom prompt is not injected at all, so the character persona is never overridden
+- **Effective-content view**: shows the three actual blocks sent out, their wrapper tags and the current version number — no guessing whether it took effect
+
+## 2. Prompt presets
+
+- **One built-in "Default preset"**: usable right after install, tap to load it into the draft and edit freely
+- **Editable presets**: not just applicable — every field of a preset can be changed, saved and deleted
+- **Save as preset**: the bookmark icon in the editor top bar stores the current draft as a preset
+- **Export and share**: presets pack into a zip you can hand to someone else
+- **Import**: zip, JSON, md and txt are all accepted, no pre-formatting required
+
+**Import recognises common field names automatically:**
+
+| Kind | Accepted keys |
+| --- | --- |
+| Name | `name`, `title`, `preset_name` |
+| Prompt content | `system_prompt`, `systemPrompt`, `system`, `prompt`, `content`, `instruction`, `instructions`, `text` |
+| Description | `description`, `desc`, `summary`, `note` |
+
+It also understands `messages[role=system].content`, `system_instruction.parts[0].text`, and a top-level array (first item taken). Inside a zip it prefers `preset.json`, otherwise any `.json`. Limits: 256 KB per archive, 20 000 characters per field, with the same bound enforced on the unzip side.
+
+## 3. AI image generation
 
 Upstream is text-only; this build lets the Agent produce images directly.
 
@@ -58,7 +90,7 @@ Upstream is text-only; this build lets the Agent produce images directly.
 - **Relay compatibility**: when an endpoint rejects `response_format` / `n` / `size`, it retries other endpoints and degrades gracefully, surfacing the original error
 - **Dedicated icon**: the image button no longer shares the thinking icon
 
-## 2. Provider configuration
+## 4. Provider configuration
 
 The new and edit screens share one set of connection fields; the upstream format is switched in place instead of picking a different entry from the list.
 
@@ -71,7 +103,7 @@ The new and edit screens share one set of connection fields; the upstream format
 - **Kept out of chat**: image models never appear in the chat model picker, whichever path fetched them
 - **Editor adaptation**: image models skip the context window requirement and hide reasoning settings, while keeping default size, format and endpoint
 
-## 3. Local offline speech recognition
+## 5. Local offline speech recognition
 
 Upstream speech recognition is entirely cloud-based; this build adds a fully offline path.
 
@@ -80,35 +112,35 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 - **Model on demand**: the engine ships in the APK; the model downloads when "Local offline" is selected, with progress, cancel, delete and per-file SHA-256 verification
 - **Works in both entry points**: chat dictation and the assistant overlay share the same recognition pipeline
 
-## 4. System TTS playback
+## 6. System TTS playback
 
 - **Uses the device's built-in speech engine**: no network, no key, no cost
 - Voice and quality follow the system speech settings; available alongside upstream's cloud playback
 
-## 5. Message navigation
+## 7. Message navigation
 
 - **Whole-conversation navigation**: open the navigator from the side pane to browse every turn and jump straight to it
 - **Paged loading**: page size raised to 256, so navigation no longer only covers the most recent stretch of a long conversation
 - Untitled turns get a recognisable placeholder label
 
-## 6. Conversation file management
+## 8. Conversation file management
 
 - **Per-conversation file list**: every attachment sent in a conversation, browsable and retrievable
 - Empty conversations show a clear hint instead of a blank panel
 
-## 7. Segmented copy for long answers
+## 9. Segmented copy for long answers
 
 - **Long answers are no longer all-or-nothing**: select and copy individual paragraphs
 - Bypasses the system text selection overlay
 
-## 8. Provider list organisation
+## 10. Provider list organisation
 
 - **Three sort modes**: a top-bar button sorts by name (Chinese pinyin collation), endpoint type, or configuration state
 - **Configured vs unconfigured**: the list is split into two groups with configured providers first
 - **Credential-based**: "configured" means it has models **and** usable credentials, so built-ins without a key no longer crowd the group
 - **Collapsible provider groups**: the model picker becomes a settings-style grouped card with collapsed groups, dropping redundant tags and filter rows
 
-## 9. Model capability detection
+## 11. Model capability detection
 
 - **Presets by model name**: opening the editor shows suggested context window and reasoning levels instead of empty fields
 - **Fixed "unknown context"**: the effective window only read the user override, hiding the value the remote API returned; a fallback is now in place
@@ -118,7 +150,24 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 - **Instant prefill**: typing a model ID in the editor fills the window and levels from the preset immediately
 - **Output limit reserved**: the model table gains an output token limit (remote value plus user override)
 
-## 10. Other refinements
+## 12. Permission health: all-files access
+
+- A new **Settings → Permission health** entry, "All files access"
+- It checks whether `MANAGE_EXTERNAL_STORAGE` is actually granted; when it is not, the row shows an Authorise action
+- One tap **jumps straight to the system authorisation page**, so you no longer have to dig through the workspace and files screens
+- Once granted, the terminal and file tools can read and write `/storage/emulated/0` and every shared directory directly
+- Returning from the system page refreshes the row automatically, no need to back out and re-enter
+
+## 13. Unified input fields
+
+- **Fixed labels**: field labels stay pinned to the top-left inside the box and no longer jump with content
+- **Auto height**: one line by default, growing with content up to 6 lines
+- **Counts**: each field shows "N chars · ~N tokens" underneath, useful when writing long prompts
+- **Full-screen editing**: long text opens a full-screen editor so it is not cramped
+- **Paste / clear**: shortcut actions under every field
+- **Edit notice**: "Sending will replace this message" moved inside the field and no longer overlaps the conversation body
+
+## 14. Other refinements
 
 | Item | Detail |
 | --- | --- |
@@ -134,18 +183,18 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 | Stats dialog | Fixed centring and the summary bar border gap |
 | Miuix chat list | Fixed one-way scrolling |
 
-## 11. Build and release
+## 15. Build and release
 
 - **Stable and debug coexist**: the release build derives a `.stable` package name with its own signature, so both can be installed at once
 - **Signing fallback**: environment variables take priority, falling back to `keystore.properties` in the repo root, so release builds work locally
-- **CI gate**: lint and unit tests only run on release tags, keeping routine pushes off the runner
+- **CI gate**: lint and unit tests only run on release tags and manual dispatch, keeping routine pushes off the runner
 - **Release overwrite**: republishing the same version overwrites the asset in place instead of creating a duplicate install
 
 ---
 
 ## Install
 
-Current version **3.5.0** (versionCode 2026111403). The release build uses package name
+Current version **3.6.0** (versionCode 2026111601). The release build uses package name
 `io.github.mangi.eta.stable`. It has a different signature and package name from upstream,
 so both can be installed side by side.
 
@@ -153,6 +202,20 @@ Download the APK from this repository's Releases. Upgrading from an older versio
 migrates the database automatically; conversations, models and settings are kept.
 
 Requires **Android 13+ on ARM64 devices**.
+
+---
+
+## Upgrading 3.5.0 → 3.6.0
+
+- **New**: custom system prompts (four-part structure, replace/append injection, version rollback, roleplay isolation)
+- **New**: prompt presets (built-in default preset, editable presets, import and export, effective-content view)
+- **New**: unified input fields (fixed labels, auto height, char/token counts, full-screen editing, paste and clear)
+- **New**: "All files access" entry on the permission health screen
+- **Changed**: built-in presets reduced to a single "Default preset"; the previous jailbreak-style presets were removed
+- **Fixed**: the "Sending will replace this message" notice moved inside the input field instead of overlapping the conversation body
+
+The database migrates automatically; conversations and settings are preserved, so an
+install-over is enough.
 
 ---
 
