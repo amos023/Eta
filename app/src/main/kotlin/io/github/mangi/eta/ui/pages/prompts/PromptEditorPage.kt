@@ -10,7 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
@@ -48,7 +48,7 @@ internal fun PromptEditorPage(
     onOpenVersions: () -> Unit,
     onOpenEffective: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val resources = LocalResources.current
     var stored by remember { mutableStateOf(PromptCustomizationStore.load()) }
     var enabled by remember { mutableStateOf(stored.enabled) }
     var mode by remember { mutableStateOf(stored.mode) }
@@ -86,7 +86,7 @@ internal fun PromptEditorPage(
                     personaName = preset.personaName
                     personaStyle = preset.personaStyle
                     append = preset.appendInstructions
-                    statusText = context.getString(R.string.prompt_preset_loaded, preset.name)
+                    statusText = resources.getString(R.string.prompt_preset_loaded, preset.name)
                     return@LifecycleEventObserver
                 }
                 // 从子页面回来时拉一次最新值，但不要覆盖用户正在编辑的草稿：
@@ -132,9 +132,9 @@ internal fun PromptEditorPage(
         )
         if (PromptCustomizationStore.save(next)) {
             stored = next
-            statusText = context.getString(R.string.prompt_saved, next.version)
+            statusText = resources.getString(R.string.prompt_saved, next.version)
         } else {
-            statusText = context.getString(R.string.prompt_save_failed)
+            statusText = resources.getString(R.string.prompt_save_failed)
         }
     }
 
@@ -260,7 +260,7 @@ internal fun PromptEditorPage(
                     val cleared = stored.resetToDefault()
                     PromptCustomizationStore.save(cleared)
                     reload()
-                    statusText = context.getString(R.string.prompt_reset_done)
+                    statusText = resources.getString(R.string.prompt_reset_done)
                 },
             )
         }
@@ -288,7 +288,7 @@ internal fun PromptEditorPage(
                             appendInstructions = append,
                         ),
                     )
-                    statusText = context.getString(R.string.prompt_preset_saved_as, name)
+                    statusText = resources.getString(R.string.prompt_preset_saved_as, name)
                 }
                 showSaveAsPreset = false
             },

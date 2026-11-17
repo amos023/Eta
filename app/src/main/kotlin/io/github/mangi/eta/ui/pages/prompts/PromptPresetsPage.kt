@@ -16,6 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.itos.coui.layout.CouiPageDefaults
@@ -59,6 +60,7 @@ internal fun PromptPresetsPage(
     onEditPreset: (String) -> Unit,
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     var builtins by remember { mutableStateOf(PromptPresetRepository.builtins(context)) }
     var imported by remember { mutableStateOf(PromptPresetRepository.imported()) }
@@ -75,10 +77,10 @@ internal fun PromptPresetsPage(
             when (result) {
                 is PromptPresetCodec.Result.Ok -> {
                     imported = PromptPresetRepository.addImported(result.value)
-                    statusText = context.getString(R.string.prompt_presets_imported, result.value.name)
+                    statusText = resources.getString(R.string.prompt_presets_imported, result.value.name)
                 }
                 is PromptPresetCodec.Result.Failure -> {
-                    statusText = context.getString(R.string.prompt_presets_import_failed, result.reason)
+                    statusText = resources.getString(R.string.prompt_presets_import_failed, result.reason)
                 }
             }
         }
@@ -96,9 +98,9 @@ internal fun PromptPresetsPage(
             }
             statusText = when (result) {
                 is PromptPresetCodec.Result.Ok ->
-                    context.getString(R.string.prompt_presets_exported_named, target.name)
+                    resources.getString(R.string.prompt_presets_exported_named, target.name)
                 is PromptPresetCodec.Result.Failure ->
-                    context.getString(R.string.prompt_presets_export_failed, result.reason)
+                    resources.getString(R.string.prompt_presets_export_failed, result.reason)
             }
         }
     }
