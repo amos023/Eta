@@ -283,12 +283,20 @@ internal class McpToolExecutor(
 internal class RoutingToolExecutor(
     private val local: AgentModelClient.ToolExecutor,
     private val mcp: McpToolExecutor,
+    /** 连接器工具；与 MCP 一样在 run 内冻结，命中优先级高于本地工具。 */
+    private val connector: AgentModelClient.ToolExecutor? = null,
 ) : AgentModelClient.ToolExecutor, AutoCloseable {
-    override fun execute(toolCall: AgentModelClient.ToolCall): AgentModelClient.ToolResult =
-        if (mcp.contains(toolCall.name)) mcp.execute(toolCall) else local.execute(toolCall)
+    override fun execute(toolCall: AgentModelClient.ToolCall): AgentModelClient.ToolResult = when {
+        connector != null &&
+            toolCall.name in io.github.mangi.eta.agent.connector.ConnectorRegistry.allToolNames() ->
+            connector.execute(toolCall)
+        mcp.contains(toolCall.name) -> mcp.execute(toolCall)
+        else -> local.execute(toolCall)
+    }
 
     override fun close() {
         runCatching { mcp.close() }
+        (connector as? AutoCloseable)?.let { runCatching { it.close() } }
         (local as? AutoCloseable)?.let { runCatching { it.close() } }
     }
 }

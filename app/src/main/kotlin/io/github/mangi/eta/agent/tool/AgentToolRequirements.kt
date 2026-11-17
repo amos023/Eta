@@ -44,6 +44,8 @@ internal object AgentToolRequirements {
             "skills_list", "skills_read", "skills_read_resource", "skills_list_curated",
             "skills_inspect_github", "skills_install_from_github",
             "generate_image",
+            "github_list_my_repositories", "github_get_repository", "github_list_issues",
+            "github_read_file",
         )
         register(
             RootRequirement.PARTIAL,

@@ -18,6 +18,9 @@ import io.github.mangi.eta.agent.roleplay.CharacterMemoryTools
 import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
 import io.github.mangi.eta.agent.subagent.AgentSubagentToolCatalog
 import io.github.mangi.eta.agent.subagent.SubagentExecutor
+import io.github.mangi.eta.agent.connector.ConnectorStore
+import io.github.mangi.eta.agent.connector.ConnectorToolExecutor
+import io.github.mangi.eta.agent.connector.GitHubConnector
 import io.github.mangi.eta.agent.mcp.McpRunSnapshot
 import io.github.mangi.eta.agent.mcp.McpToolExecutor
 import io.github.mangi.eta.agent.mcp.RoutingToolExecutor
@@ -163,6 +166,14 @@ internal class AgentRuntimeRunExecutor(
                 }
             }
             val mcpTools = JSONArray().also(mcpSnapshot::appendModelTools)
+            // 连接器工具在 run 开始时按本地连接状态冻结：停用的连接器不发布工具，
+            // 未连接的仍然发布，让模型调用后拿到结构化错误并引导用户去授权页。
+            val connectorStore = ConnectorStore(appContext)
+            val connectorTools = JSONArray().also { tools ->
+                val github = connectorStore.connection(GitHubConnector.ID)
+                if (github.enabled) GitHubConnector.appendToolSchemas(tools)
+            }
+            val connectorExecutor = ConnectorToolExecutor(connectorStore)
             val browserKey = AgentConversationIdentity.fromHandoff(request.handoff, request.runId)
             browserBinding = BrowserSessionRegistry.acquireRun(browserKey, request.runId)
             guiRun = guiControl.openRun(request.runId, runController) { status ->
@@ -242,6 +253,7 @@ internal class AgentRuntimeRunExecutor(
             val routingExecutor = RoutingToolExecutor(
                 local = executor,
                 mcp = McpToolExecutor(mcpSnapshot),
+                connector = connectorExecutor,
             )
             toolExecutor = routingExecutor
             toolsBinding = runController.register(routingExecutor::close)
@@ -294,6 +306,9 @@ internal class AgentRuntimeRunExecutor(
                 },
             )
             val runTools = JSONArray(mcpTools.toString()).also { tools ->
+                for (index in 0 until connectorTools.length()) {
+                    tools.put(connectorTools.getJSONObject(index))
+                }
                 if (subagentAllowed()) AgentSubagentToolCatalog.appendSchemas(tools)
                 if (historyTool != null) tools.put(AgentConversationToolCatalog.schema())
                 if (characterMemoryTools != null && memoryEnabled) {

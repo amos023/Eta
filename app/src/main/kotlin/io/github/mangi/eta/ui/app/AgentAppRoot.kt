@@ -92,6 +92,8 @@ import io.github.mangi.eta.ui.screens.characters.CharacterPersonaScreen
 import io.github.mangi.eta.ui.screens.enhance.SystemEnhanceScreen
 import io.github.mangi.eta.ui.screens.home.AgentHomeScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServerDetailScreen
+import io.github.mangi.eta.ui.screens.connector.ConnectorDetailScreen
+import io.github.mangi.eta.ui.screens.connector.ConnectorsScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServersScreen
 import io.github.mangi.eta.ui.screens.memory.AgentMemoryScreen
 import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
@@ -878,6 +880,18 @@ fun AgentAppRoot(
                     catalogId = route.catalogId,
                     store = communityCatalogStore,
                     onImported = { providerId -> navigator.replace(AppRoute.ModelProviderDetail(providerId)) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.Connectors>(swipeDismiss = swipeDismiss) {
+                ConnectorsScreen(
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.ConnectorDetail>(swipeDismiss = swipeDismiss) { route ->
+                ConnectorDetailScreen(
+                    connectorId = route.connectorId,
                     onBack = ::popRoute,
                 )
             }

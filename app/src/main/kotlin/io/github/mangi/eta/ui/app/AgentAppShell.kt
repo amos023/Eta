@@ -739,6 +739,8 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.ModelProviders -> stringResource(R.string.route_model_providers)
     is AppRoute.CommunityCatalog -> "从 models.dev 添加"
     is AppRoute.CommunityCatalogProvider -> "选择模型"
+    is AppRoute.Connectors -> stringResource(R.string.route_connectors)
+    is AppRoute.ConnectorDetail -> stringResource(R.string.route_connector_detail)
     is AppRoute.McpServers -> stringResource(R.string.route_mcp_servers)
     is AppRoute.McpServerDetail -> stringResource(R.string.route_mcp_server_detail)
     is AppRoute.ModelProviderDetail -> stringResource(R.string.route_provider_details)

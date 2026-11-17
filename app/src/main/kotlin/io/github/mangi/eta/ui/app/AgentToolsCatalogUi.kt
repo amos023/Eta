@@ -125,6 +125,13 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                 ),
             ),
             ToolGroupUi(
+                id = "connector",
+                title = "连接器",
+                tools = io.github.mangi.eta.agent.connector.ConnectorRegistry.definitions.flatMap { definition ->
+                    definition.tools.map { tool -> ToolItemUi(tool.name, tool.name, tool.description) }
+                },
+            ),
+            ToolGroupUi(
                 id = "memory",
                 title = context.getString(R.string.state_memory_b55ff5),
                 tools = listOf(

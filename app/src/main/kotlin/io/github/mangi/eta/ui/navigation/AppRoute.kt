@@ -99,6 +99,14 @@ sealed interface AppRoute : NavKey {
     @Serializable
     data class CommunityCatalogProvider(val catalogId: String) : AppRoute
 
+    /** 连接器管理页：GitHub 等外部服务授权入口。 */
+    @Serializable
+    data object Connectors : AppRoute
+
+    /** 单个连接器的授权与状态详情。 */
+    @Serializable
+    data class ConnectorDetail(val connectorId: String) : AppRoute
+
     @Serializable
     data object McpServers : AppRoute
 

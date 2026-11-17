@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Power
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
@@ -121,6 +122,7 @@ private object SettingsIconColors {
     val Green = StatusSuccess
     val Orange = Color(0xFFFA7B17)
     val Yellow = StatusWarning
+    val Purple = Color(0xFF9B51E0)
 }
 
 @Composable
@@ -439,6 +441,18 @@ private fun SettingsPageContent(
                             )
                         },
                         onClick = { onNavigate(AppRoute.Skills) },
+                    )
+                    CouiIconDivider()
+                    CouiPreference(
+                        title = stringResource(R.string.route_connectors),
+                        summary = stringResource(R.string.connector_settings_summary),
+                        icon = {
+                            CouiSettingsIcon(
+                                Icons.Rounded.Power,
+                                SettingsIconColors.Purple,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.Connectors) },
                     )
                     CouiIconDivider()
                     CouiPreference(
@@ -883,6 +897,17 @@ private fun SettingsPageContent(
                                 )
                             },
                             onClick = { onNavigate(AppRoute.Skills) },
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.route_connectors),
+                            summary = stringResource(R.string.connector_settings_summary),
+                            startAction = {
+                                SettingsIcon(
+                                    icon = Icons.Rounded.Power,
+                                    tint = SettingsIconColors.Purple,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.Connectors) },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.route_mcp_servers),
