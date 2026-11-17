@@ -1643,4 +1643,10 @@
   <string name="prompt_unsaved_title">内容未保存</string>
   <string name="prompt_unsaved_message">当前内容还没保存，直接退出会丢失这些修改。</string>
   <string name="prompt_unsaved_cancel">取消</string>
+  <string name="conversation_images_empty">这个会话里还没有图片</string>
+  <string name="conversation_files_tab_all">全部 %1$d</string>
+  <string name="conversation_files_tab_images">图片 %1$d</string>
+  <string name="conversation_files_tab_files">文件 %1$d</string>
+  <string name="conversation_regular_files_empty">这个会话里还没有普通文件</string>
+  <string name="conversation_file_missing">这个文件已不存在：%1$s</string>
 </resources>

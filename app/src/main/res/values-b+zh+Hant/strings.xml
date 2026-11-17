@@ -1550,4 +1550,10 @@
   <string name="prompt_unsaved_title">內容未儲存</string>
   <string name="prompt_unsaved_message">目前內容還沒儲存，直接退出會遺失這些修改。</string>
   <string name="prompt_unsaved_cancel">取消</string>
+  <string name="conversation_images_empty">這個會話裡還沒有圖片</string>
+  <string name="conversation_files_tab_all">全部 %1$d</string>
+  <string name="conversation_files_tab_images">圖片 %1$d</string>
+  <string name="conversation_files_tab_files">檔案 %1$d</string>
+  <string name="conversation_regular_files_empty">這個會話裡還沒有普通檔案</string>
+  <string name="conversation_file_missing">這個檔案已不存在：%1$s</string>
 </resources>

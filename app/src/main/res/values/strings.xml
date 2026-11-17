@@ -1662,4 +1662,10 @@
   <string name="prompt_unsaved_title">Unsaved changes</string>
   <string name="prompt_unsaved_message">Your edits have not been saved. Leaving now will discard them.</string>
   <string name="prompt_unsaved_cancel">Cancel</string>
+  <string name="conversation_images_empty">No images shared in this conversation yet</string>
+  <string name="conversation_files_tab_all">All %1$d</string>
+  <string name="conversation_files_tab_images">Images %1$d</string>
+  <string name="conversation_files_tab_files">Files %1$d</string>
+  <string name="conversation_regular_files_empty">No regular files shared in this conversation yet</string>
+  <string name="conversation_file_missing">This file no longer exists: %1$s</string>
 </resources>

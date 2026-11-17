@@ -988,7 +988,7 @@ internal fun AgentConversationMessages(
         visible = showConversationFiles,
         onDismissRequest = { showConversationFiles = false },
         onOpen = { reference ->
-            // 交给系统按类型打开；文件已被移动或删除时静默失败并关闭弹层。
+            // 交给系统按类型打开；文件不存在时会提示，并照样关闭弹层。
             showConversationFiles = false
             openConversationFile(context, reference)
         },
