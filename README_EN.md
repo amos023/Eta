@@ -2,15 +2,15 @@
 
 <p align="center"><a href="README.md">简体中文</a> | <strong>English</strong></p>
 
-<p align="center"><strong>A third-party build based on upstream Eta 3.4.3 · current version 3.6.0</strong></p>
+<p align="center"><strong>A third-party build based on Eta 3.4.3 with selected later upstream improvements · current version 3.6.3</strong></p>
+
+<p align="center"><a href="https://github.com/amos023/Eta/releases/tag/v3.6.3">Download the 3.6.3 release</a></p>
 
 > **Original project: [Mangi-11/Eta](https://github.com/Mangi-11/Eta)**
 >
 > This repository is published independently from a modified upstream source tree.
-> It is not the original, nor a GitHub fork. Eta's design, core implementation and all
-> base capabilities come from the upstream authors; everything here is additive —
-> **nothing from upstream is removed, downgraded or changed**, only the capabilities
-> listed below are added.
+> It is not the original repository. Eta's design and core implementation come from
+> the upstream authors; the changes in this build are described below.
 >
 > Licensed the same way as upstream, under **GPL-3.0**; the source matches the released
 > APK one to one. For feature documentation, usage guides and issue reports, please
@@ -23,11 +23,19 @@
 | Item | Value |
 | --- | --- |
 | Upstream baseline | **Eta 3.4.3** (tag `v3.4.3`, commit `32e147a`) |
-| This build | **3.6.0** (versionCode 2026111601) |
+| This build | **3.6.3** (versionCode 2026111802) |
 | Package name | `io.github.mangi.eta.stable`, coexists with the original |
 
-81 commits accumulated since upstream 3.4.3. Everything below is layered on top of
-upstream code. **Nothing from upstream was removed or degraded.**
+## Recent features
+
+- **Steer a running task**: tap the lightning button beside a queued text message to add instructions without losing completed tool results.
+- **LaTeX rendering**: RaTeX displays inline and block formulas directly in chat.
+- **Context compaction**: preserve valid summaries when editing, regenerating, or branching. Manual compaction keeps the chat tool list to help providers reuse their prefix cache.
+- **Thinking duration**: track each thinking block separately so later rounds and replay do not overwrite recorded times.
+- **Per-conversation workspaces**: each chat has its own default terminal directory, with support for Chinese titles. Attachment storage is unchanged, and existing shared workspace files are not migrated.
+- **GitHub connector**: device-code authorization, repository and issue queries, file reads, MCP registration, and optional terminal credential sync.
+
+> GitHub authorization can include repository write access. Terminal sync stores a copy of the Git credential in the Linux environment.
 
 ---
 
@@ -126,6 +134,7 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 ## 8. Conversation file management
 
 - **Per-conversation file list**: every attachment sent in a conversation, browsable and retrievable
+- **Image previews**: browse all items, images, or files; open chat images in the built-in fullscreen viewer
 - Empty conversations show a clear hint instead of a blank panel
 
 ## 9. Segmented copy for long answers
@@ -187,19 +196,19 @@ Upstream speech recognition is entirely cloud-based; this build adds a fully off
 
 - **Stable and debug coexist**: the release build derives a `.stable` package name with its own signature, so both can be installed at once
 - **Signing fallback**: environment variables take priority, falling back to `keystore.properties` in the repo root, so release builds work locally
-- **CI gate**: lint and unit tests only run on release tags and manual dispatch, keeping routine pushes off the runner
-- **Release overwrite**: republishing the same version overwrites the asset in place instead of creating a duplicate install
+- **Build triggers**: push a `vX.Y.Z` tag matching the app version or dispatch the workflow manually; tag builds also run lint and unit tests
+- **Manual publishing**: Actions uploads the signed APK as an artifact, and the maintainer publishes the GitHub Release manually
 
 ---
 
 ## Install
 
-Current version **3.6.0** (versionCode 2026111601). The release build uses package name
+Current version **3.6.3** (versionCode 2026111802). The release build uses package name
 `io.github.mangi.eta.stable`. It has a different signature and package name from upstream,
 so both can be installed side by side.
 
-Download the APK from this repository's Releases. Upgrading from an older version
-migrates the database automatically; conversations, models and settings are kept.
+Download `Eta-v3.6.3.apk` from the [3.6.3 release page](https://github.com/amos023/Eta/releases/tag/v3.6.3).
+Upgrading this build in place with the same package name and signature migrates the database and preserves conversations, models, and settings.
 
 Requires **Android 13+ on ARM64 devices**.
 
