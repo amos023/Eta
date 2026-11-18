@@ -612,6 +612,7 @@ internal class RootShellTerminalController(
                         environment = environment,
                         linuxRootfsPath = rootfsPath,
                         linuxSharedMounts = mounts,
+                        workspacePath = executionContext.linuxHostWorkspacePath,
                         maxOutputBytes = outputLimit,
                     )
                 }
@@ -712,6 +713,7 @@ internal class RootShellTerminalController(
             environment = environment,
             linuxRootfsPath = rootfsPath,
             linuxSharedMounts = sharedMountsFor(environment),
+            workspacePath = executionContext.linuxHostWorkspacePath,
         )
 
     /** 共享挂载只在 Linux 会话建立时解析；Android 环境不涉及。 */
@@ -761,6 +763,7 @@ internal class RootShellTerminalController(
             environment = environment,
             linuxRootfsPath = rootfsPathFor(environment),
             linuxSharedMounts = sharedMountsFor(environment),
+            workspacePath = executionContext.linuxHostWorkspacePath,
             maxOutputBytes = maxOutputBytes,
         )
 

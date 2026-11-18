@@ -570,7 +570,9 @@ internal object AgentRuntimeWire {
         if (compactForDrain && runId.isNotBlank()) {
             putString("context_snapshot_ref", runId)
         } else {
-            contextSnapshot?.encode()?.takeIf { it.length <= 16_384 }?.let { putString("context_snapshot", it) }
+            // 快照可能远超 Binder 内联上限；超过时走文件通道，不能静默丢弃，
+            // 否则客户端只拿到 transcript，压缩结果永远落不了地。
+            contextSnapshot?.encode()?.let { AgentWireText.put(this, "context_snapshot", it, payloadDirectory) }
         }
         putString(KEY_RUN_ID, runId)
         putBoolean(KEY_OK, ok)
@@ -599,7 +601,7 @@ internal object AgentRuntimeWire {
 
     fun runResultFromBundle(bundle: Bundle): RunResult =
         AgentWireText.read(bundle, "complete_result_json")?.let { json.decodeFromString<RunResult>(it) } ?: RunResult(
-            contextSnapshot = AgentContextSnapshot.decode(bundle.getString("context_snapshot")),
+            contextSnapshot = AgentContextSnapshot.decode(AgentWireText.read(bundle, "context_snapshot")),
             contextSnapshotRef = bundle.getString("context_snapshot_ref").orEmpty(),
             operation = bundle.getString("operation") ?: OP_CHAT,
             rewriteTargetMessageId = bundle.getString("rewrite_target_message_id"),

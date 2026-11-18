@@ -20,10 +20,16 @@ internal data class WorkspaceEntry(val path: String, val name: String, val direc
 
 internal class WorkspaceFileStore(
     context: Context,
+    private val conversationId: String? = null,
+    private val conversationTitle: String = "",
     private val backendFor: (File) -> FileToolBackend = ::workspaceBackend,
 ) {
     private val appContext = context.applicationContext
-    private val root: File get() = TerminalPrivateStorage.workspace(appContext.filesDir).canonicalFile
+    private val root: File get() = (
+        conversationId?.takeIf { it.isNotBlank() }
+            ?.let { TerminalPrivateStorage.conversationWorkspace(appContext.filesDir, it, conversationTitle) }
+            ?: TerminalPrivateStorage.workspace(appContext.filesDir)
+        ).canonicalFile
 
     suspend fun list(path: String): List<WorkspaceEntry> = withContext(Dispatchers.IO) {
         if (!root.mkdirs() && !root.isDirectory) throw java.io.IOException("WORKSPACE_DIRECTORY_UNAVAILABLE")

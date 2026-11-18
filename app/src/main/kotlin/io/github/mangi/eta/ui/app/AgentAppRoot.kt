@@ -735,7 +735,11 @@ fun AgentAppRoot(
                 )
             }
             entry<AppRoute.Workspace>(swipeDismiss = swipeDismiss) {
-                WorkspaceScreen(onBack = ::popRoute)
+                WorkspaceScreen(
+                    onBack = ::popRoute,
+                    conversationId = agentState.currentConversationId,
+                    conversationTitle = agentState.currentConversationTitle.orEmpty(),
+                )
             }
             entry<AppRoute.Settings>(swipeDismiss = swipeDismiss) {
                 val answerInlineStyle = rememberMarkdownStyle(MarkdownTone.Answer).inline

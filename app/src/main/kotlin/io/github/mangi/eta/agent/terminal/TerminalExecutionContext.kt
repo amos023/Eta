@@ -7,7 +7,10 @@ import org.json.JSONObject
 internal data class TerminalExecutionContext(
     val linuxEnvironment: TerminalEnvironment,
     val linuxRootfsPath: String?,
+    /** 当前会话私有工作区，App 与 PRoot 共享同一宿主目录。 */
     val userWorkspacePath: String = TerminalRuntime.userWorkspacePath,
+    /** Android root / CHROOT 默认工作区也绑定到同一会话目录。 */
+    val rootWorkspacePath: String = userWorkspacePath,
     val sharedMounts: List<SharedFolderMount> = emptyList(),
 ) {
     init {
@@ -27,7 +30,7 @@ internal data class TerminalExecutionContext(
         get() = TerminalRuntime.LINUX_WORKSPACE_PATH
 
     val linuxHostWorkspacePath: String
-        get() = if (linuxIdentity == "root") TerminalRuntime.ROOT_WORKSPACE_PATH else userWorkspacePath
+        get() = if (linuxIdentity == "root") rootWorkspacePath else userWorkspacePath
 
     val linuxReady: Boolean
         get() = LinuxEnvironmentPaths.rootfsReady(linuxRootfsPath)

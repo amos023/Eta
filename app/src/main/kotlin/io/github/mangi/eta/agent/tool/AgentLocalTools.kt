@@ -47,6 +47,7 @@ import io.github.mangi.eta.agent.skill.GitHubSkillRepository
 import io.github.mangi.eta.agent.skill.GitHubSkillSourceException
 import io.github.mangi.eta.agent.skill.PublicGitHubSkillSource
 import io.github.mangi.eta.agent.terminal.TerminalExecutionContext
+import io.github.mangi.eta.agent.terminal.TerminalRuntime
 import io.github.mangi.eta.agent.terminal.DetachedTaskSupervisor
 import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.terminalEnvironment
@@ -72,6 +73,8 @@ import kotlinx.coroutines.runBlocking
 internal class AgentLocalTools(
     private val context: Context,
     private val logger: AgentLogger,
+    /** 当前会话的隔离工作区；未传时保留旧的全局默认工作区。 */
+    private val conversationWorkspacePath: String? = null,
     private val browserRunId: String = "",
     private val browserToolsEnabled: () -> Boolean = {
         Prefs.isEnabled(Prefs.Keys.AGENT_BROWSER_TOOLS)
@@ -142,6 +145,8 @@ internal class AgentLocalTools(
         TerminalExecutionContext(
             linuxEnvironment = environment,
             linuxRootfsPath = LinuxEnvironmentPaths.rootfsDir(context, checkNotNull(environment.linuxDistribution)).absolutePath,
+            userWorkspacePath = conversationWorkspacePath ?: TerminalRuntime.userWorkspacePath,
+            rootWorkspacePath = conversationWorkspacePath ?: TerminalRuntime.ROOT_WORKSPACE_PATH,
             sharedMounts = SharedFolderMounts.current(),
         )
     }

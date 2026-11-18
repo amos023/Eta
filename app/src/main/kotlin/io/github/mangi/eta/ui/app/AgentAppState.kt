@@ -15,6 +15,7 @@ import androidx.compose.runtime.snapshots.Snapshot
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.device.AgentFileReferenceGateway
+import io.github.mangi.eta.agent.terminal.TerminalPrivateStorage
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.media.AgentImageCodec
 import io.github.mangi.eta.agent.model.AgentFileReference
@@ -149,6 +150,8 @@ internal class AgentAppState(
     val isLoadingEarlierMessages: Boolean get() = historyLoadState == ConversationHistoryLoadState.Loading
 
     private var selectedConversationId: String? = initialConversations.selectedConversationId
+    val currentConversationId: String?
+        get() = selectedConversationId
     private var conversationsById: Map<String, AgentChatHomeUiState> = initialConversations.conversationsById
     private var conversationTitles: Map<String, String> = initialConversations.titles
     private var conversationUpdatedAt: Map<String, Long> = initialConversations.updatedAt
@@ -1092,11 +1095,16 @@ internal class AgentAppState(
         conversationLoadFailed = false
         if (homeState.messageEdit != null) cancelMessageEdit()
         fileAttachmentOwnerVersion += 1
-        selectedConversationId = null
+        // 新建时立即分配持久 conversationId；从第一条消息开始就拥有独立工作区。
+        val newId = newConversationId()
+        selectedConversationId = newId
         homeState = emptyChatState(defaultThinkingEnabled).copy(modelId = defaultModelId)
+        conversationsById = conversationsById + (newId to homeState)
+        conversationTitles = conversationTitles + (newId to "")
+        conversationUpdatedAt = conversationUpdatedAt + (newId to System.currentTimeMillis())
         refreshConversationModel()
         conversationPaneState = conversationPaneState.copy(
-            selectedConversationId = null,
+            selectedConversationId = newId,
             searchQuery = "",
         )
         refreshConversationSummaries()
@@ -1952,7 +1960,10 @@ internal class AgentAppState(
                         handoff = AgentRuntimeWire.EntryHandoff(
                             id = runId,
                             source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE,
-                            payload = conversationId,
+                            payload = AgentUiHandoffPayload(
+                                conversationId = conversationId,
+                                conversationTitle = conversationTitles[conversationId].orEmpty(),
+                            ).toJson(),
                         ),
                     ),
                     onEvent = { event -> enqueueRunEvent(runId, event) },

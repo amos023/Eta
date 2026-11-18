@@ -46,6 +46,7 @@ internal class ShellProcessSupervisor(
         environment: TerminalEnvironment = TerminalEnvironment.ANDROID,
         linuxRootfsPath: String? = null,
         linuxSharedMounts: List<SharedFolderMount> = emptyList(),
+        workspacePath: String = if (identity == "user") TerminalRuntime.userWorkspacePath else TerminalRuntime.ROOT_WORKSPACE_PATH,
         pty: Boolean = false,
         ptyCols: Int = DEFAULT_PTY_COLS,
         ptyRows: Int = DEFAULT_PTY_ROWS,
@@ -70,6 +71,7 @@ internal class ShellProcessSupervisor(
                 environment = environment,
                 linuxRootfsPath = linuxRootfsPath,
                 linuxSharedMounts = linuxSharedMounts,
+                workspacePath = workspacePath,
                 pty = pty,
                 ptyCols = ptyCols,
                 ptyRows = ptyRows,
@@ -88,7 +90,7 @@ internal class ShellProcessSupervisor(
                 ProcessBuilder("sh", "-c", launcher)
             }
             if (identity == "user" && environment == TerminalEnvironment.ANDROID) {
-                builder.environment()["HOME"] = TerminalRuntime.userWorkspacePath
+                builder.environment()["HOME"] = workspacePath
             }
             builder.redirectErrorStream(mergeStderr).start()
         }.getOrElse {
@@ -182,6 +184,7 @@ internal class ShellProcessSupervisor(
         environment: TerminalEnvironment,
         linuxRootfsPath: String?,
         linuxSharedMounts: List<SharedFolderMount> = emptyList(),
+        workspacePath: String = if (identity == "user") TerminalRuntime.userWorkspacePath else TerminalRuntime.ROOT_WORKSPACE_PATH,
         pty: Boolean = false,
         ptyCols: Int = DEFAULT_PTY_COLS,
         ptyRows: Int = DEFAULT_PTY_ROWS,
@@ -202,6 +205,7 @@ internal class ShellProcessSupervisor(
                 command = managedCommand,
                 sharedMounts = linuxSharedMounts,
                 termType = if (pty) PTY_TERM_TYPE else "dumb",
+                workspacePath = workspacePath,
             )
         }
 
@@ -287,9 +291,10 @@ internal class ShellProcessSupervisor(
         command: String?,
         sharedMounts: List<SharedFolderMount> = emptyList(),
         termType: String = "dumb",
+        workspacePath: String = TerminalRuntime.ROOT_WORKSPACE_PATH,
     ): String {
         if (LinuxEnvironmentPaths.backendOf(rootfsPath) == LinuxExecutionBackend.PROOT) {
-            return ProotCommandBuilder.payload(rootfsPath, command, sharedMounts, termType)
+            return ProotCommandBuilder.payload(rootfsPath, command, sharedMounts, termType, workspace = workspacePath)
         }
         val rootfs = shellQuote(rootfsPath)
         val mode = if (command == null) "session" else "command"
@@ -304,6 +309,7 @@ internal class ShellProcessSupervisor(
             eta_busybox=${'$'}2
             eta_mode=${'$'}3
             eta_payload=${'$'}4
+            eta_workspace=${'$'}5
             eta_mount_required() {
               eta_source=${'$'}1
               eta_target=${'$'}2
@@ -326,8 +332,8 @@ internal class ShellProcessSupervisor(
             fi
             [ -d /data/local/tmp ] || exit 125
             eta_mount_required /data/local/tmp "${'$'}eta_rootfs/data/local/tmp" bind
-            "${'$'}eta_busybox" mkdir -p /data/local/tmp/eta || exit 125
-            eta_mount_required /data/local/tmp/eta "${'$'}eta_rootfs/workspace" bind
+            "${'$'}eta_busybox" mkdir -p "${'$'}eta_workspace" || exit 125
+            eta_mount_required "${'$'}eta_workspace" "${'$'}eta_rootfs/workspace" bind
         """.trimIndent()
         val innerScriptTail = """
             if [ "${'$'}eta_mode" = command ]; then
@@ -374,7 +380,7 @@ internal class ShellProcessSupervisor(
             "{ echo 'ETA_LINUX_ENVIRONMENT_NOT_READY' >&2; exit 127; }; " +
             "\"${'$'}eta_busybox\" unshare -m --propagation private " +
             "\"${'$'}eta_busybox\" sh -c ${shellQuote(innerScript)} eta-linux " +
-            "\"${'$'}eta_rootfs\" \"${'$'}eta_busybox\" $mode $payload"
+            "\"${'$'}eta_rootfs\" \"${'$'}eta_busybox\" $mode $payload ${shellQuote(workspacePath)}"
     }
 
     private fun terminateProcessTree(
@@ -539,6 +545,7 @@ internal fun runOneShotShell(
     environment: TerminalEnvironment = TerminalEnvironment.ANDROID,
     linuxRootfsPath: String? = null,
     linuxSharedMounts: List<SharedFolderMount> = emptyList(),
+    workspacePath: String = if (identity == "user") TerminalRuntime.userWorkspacePath else TerminalRuntime.ROOT_WORKSPACE_PATH,
     maxOutputBytes: Int = Int.MAX_VALUE,
 ): OneShotShellResult {
     val process = processSupervisor.startShellProcess(
@@ -548,6 +555,7 @@ internal fun runOneShotShell(
         environment = environment,
         linuxRootfsPath = linuxRootfsPath,
         linuxSharedMounts = linuxSharedMounts,
+        workspacePath = workspacePath,
     ) ?: return OneShotShellResult(
         if (processSupervisor.isClosing) -3 else -1,
         ByteArray(0),

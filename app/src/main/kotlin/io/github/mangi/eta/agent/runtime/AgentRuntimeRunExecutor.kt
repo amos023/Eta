@@ -21,6 +21,7 @@ import io.github.mangi.eta.agent.subagent.SubagentExecutor
 import io.github.mangi.eta.agent.connector.ConnectorStore
 import io.github.mangi.eta.agent.connector.ConnectorToolExecutor
 import io.github.mangi.eta.agent.connector.GitHubConnector
+import io.github.mangi.eta.agent.terminal.TerminalPrivateStorage
 import io.github.mangi.eta.agent.mcp.McpRunSnapshot
 import io.github.mangi.eta.agent.mcp.McpToolExecutor
 import io.github.mangi.eta.agent.mcp.RoutingToolExecutor
@@ -118,6 +119,13 @@ internal class AgentRuntimeRunExecutor(
                 ?.let { AgentUiHandoffPayload.from(it.payload) }
             val conversationId = uiPayload?.conversationId
                 ?.takeIf { it.isNotBlank() }
+            // 每个持久会话使用自己的宿主工作区；无持久会话的入口按 runId 隔离。
+            val conversationTitle = uiPayload?.conversationTitle.orEmpty()
+            val conversationWorkspacePath = TerminalPrivateStorage.conversationWorkspace(
+                appContext.filesDir,
+                conversationId ?: request.runId,
+                conversationTitle,
+            ).absolutePath
             memoryConversationId = conversationId
             val roleplayContext = conversationId?.let { id ->
                 runBlocking { RoleplayRunContext.resolve(appContext, id, contextWindow, memoryEnabled) }
@@ -185,6 +193,7 @@ internal class AgentRuntimeRunExecutor(
             val executor = AgentLocalTools(
                 context = appContext,
                 logger = AndroidAgentLogger,
+                conversationWorkspacePath = conversationWorkspacePath,
                 browserRunId = request.runId,
                 browserSession = BrowserSessionRegistry.get(browserKey),
                 guiControl = guiRun,

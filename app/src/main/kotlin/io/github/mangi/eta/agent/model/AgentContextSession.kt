@@ -79,7 +79,8 @@ internal class AgentContextSession(
             } catch (failure: Exception) {
                 runController.throwIfCancelled()
                 if (!final) throw failure
-                committedSnapshot = createSnapshot(messages)
+                // 未真正压缩过就不要把全量历史当作压缩快照发布，那会让客户端以为压缩生效。
+                if (compacted) committedSnapshot = createSnapshot(messages)
                 onEvent(AgentEvent.ContextCompaction(operationId, "failed", before,
                     reasonCode = "CONTEXT_CHECKPOINT_FAILED"))
             }
@@ -128,7 +129,8 @@ internal class AgentContextSession(
                 reasonCode = (failure as? AgentModelFailure)?.code ?: "CONTEXT_SUMMARY_FAILED"))
             if (!final) throw failure
             // 已完成的回答仍成功交付；完整快照随终态 outbox 保存，不依赖先前检查点写入成功。
-            committedSnapshot = createSnapshot(messages)
+            // 但只有真的压缩过才发布快照，否则等于用全量历史伪装压缩结果。
+            if (compacted) committedSnapshot = createSnapshot(messages)
         }
     }
 

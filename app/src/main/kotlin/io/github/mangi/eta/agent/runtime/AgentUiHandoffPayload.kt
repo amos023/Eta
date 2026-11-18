@@ -5,6 +5,8 @@ import org.json.JSONObject
 
 internal data class AgentUiHandoffPayload(
     val conversationId: String,
+    /** 会话标题只用于工作区目录可读名，不参与模型上下文。 */
+    val conversationTitle: String = "",
     val promptSupplement: Supplement? = null,
     val supplements: List<Supplement> = emptyList(),
 ) {
@@ -25,6 +27,7 @@ internal data class AgentUiHandoffPayload(
             .put("type", TYPE)
             .put("version", VERSION)
             .put("conversationId", conversationId)
+            .put("conversationTitle", conversationTitle)
             .also { json ->
                 promptSupplement?.let { json.put("promptSupplement", it.toJson()) }
             }
@@ -57,6 +60,7 @@ internal data class AgentUiHandoffPayload(
                 val supplementsJson = json.optJSONArray("supplements") ?: JSONArray()
                 AgentUiHandoffPayload(
                     conversationId = json.optString("conversationId"),
+                    conversationTitle = json.optString("conversationTitle"),
                     promptSupplement = json.optJSONObject("promptSupplement")
                         ?.toSupplement(defaultIndex = 1),
                     supplements = (0 until supplementsJson.length()).mapNotNull { index ->

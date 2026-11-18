@@ -63,10 +63,20 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun WorkspaceScreen(onBack: () -> Unit) {
+internal fun WorkspaceScreen(
+    onBack: () -> Unit,
+    conversationId: String? = null,
+    conversationTitle: String = "",
+) {
     val context = LocalContext.current
     val resources = LocalResources.current
-    val store = remember(context.applicationContext) { WorkspaceFileStore(context) }
+    val store = remember(context.applicationContext, conversationId, conversationTitle) {
+        WorkspaceFileStore(
+            context,
+            conversationId = conversationId,
+            conversationTitle = conversationTitle,
+        )
+    }
     val scope = rememberCoroutineScope()
     var path by rememberSaveable { mutableStateOf("") }
     var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
