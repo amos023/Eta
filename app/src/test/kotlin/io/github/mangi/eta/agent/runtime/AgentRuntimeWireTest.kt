@@ -665,6 +665,7 @@ class AgentRuntimeWireTest {
                 round = 2,
                 kind = AgentEvent.AssistantBlockKind.THINKING,
                 index = 0,
+                startedAtEpochMs = 1_760_000_000_000L,
             ),
             AgentEvent.AssistantBlockDelta(
                 round = 2,
@@ -679,6 +680,7 @@ class AgentRuntimeWireTest {
                 index = 0,
                 contentChars = 4,
                 replacementContent = "思考",
+                elapsedMs = 4_200L,
             ),
             AgentEvent.AssistantReceived(
                 round = 2,
@@ -727,7 +729,16 @@ class AgentRuntimeWireTest {
 
         events.forEach { event ->
             assertEquals(event, AgentRuntimeWire.eventFromBundle(AgentRuntimeWire.eventToBundle(event)))
+            assertEquals(event, AgentEventJsonCodec.decode(AgentEventJsonCodec.encode(event)))
         }
+        val shortEnd = AgentEvent.AssistantBlockEnd(
+            round = 1,
+            kind = AgentEvent.AssistantBlockKind.THINKING,
+            index = 0,
+            contentChars = 2,
+            elapsedMs = 500L,
+        )
+        assertEquals(shortEnd, AgentEventJsonCodec.decode(AgentEventJsonCodec.encode(shortEnd)))
     }
 
     @Test
@@ -812,5 +823,21 @@ class AgentRuntimeWireTest {
         val handoff = AgentRuntimeWire.entryHandoffFromBundle(bundle)
 
         assertEquals(false, handoff.dismissEntrySurfaceOnForegroundOperation)
+    }
+
+    @Test
+    fun steerBundlesRoundTripTextAndAcceptanceStatus() {
+        val requestBundle = AgentRuntimeWire.steerBundle("run-steer", "改用另一种实现")
+        assertEquals("run-steer", AgentRuntimeWire.runIdFromBundle(requestBundle))
+        assertEquals("改用另一种实现", AgentRuntimeWire.steerTextFromBundle(requestBundle))
+
+        val acceptedBundle = AgentRuntimeWire.steerResponseBundle("run-steer", accepted = true, supplementIndex = 3)
+        assertEquals("run-steer", AgentRuntimeWire.runIdFromBundle(acceptedBundle))
+        assertEquals(true, AgentRuntimeWire.steerAcceptedFromBundle(acceptedBundle))
+        assertEquals(3, AgentRuntimeWire.steerSupplementIndexFromBundle(acceptedBundle))
+
+        val rejectedBundle = AgentRuntimeWire.steerResponseBundle("run-steer", accepted = false)
+        assertEquals(false, AgentRuntimeWire.steerAcceptedFromBundle(rejectedBundle))
+        assertEquals(0, AgentRuntimeWire.steerSupplementIndexFromBundle(rejectedBundle))
     }
 }
