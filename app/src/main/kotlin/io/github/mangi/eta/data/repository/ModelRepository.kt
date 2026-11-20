@@ -105,6 +105,18 @@ internal object ModelRepository {
             .filterNot { it.modelId.normalizedModelId() in existing }
     }
 
+    fun mergeDraftRemoteModels(
+        existing: List<Model>,
+        fetched: List<Model>,
+        adoptedModelIds: Set<String>,
+        authMode: String,
+    ): List<Model> = reconcileRemoteModels(
+        existing = existing,
+        fetched = fetched.map { it.copy(id = it.id.ifBlank(::newId)) },
+        adoptedModelIds = adoptedModelIds,
+        authMode = authMode,
+    ).models
+
     /** API Key 目录可直接同步；账号目录必须携带认证会话绑定。 */
     suspend fun syncRemoteModels(
         providerId: String,

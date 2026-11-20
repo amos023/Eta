@@ -47,6 +47,7 @@ import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.withId
+import io.github.mangi.eta.data.model.withModels
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
@@ -103,23 +104,23 @@ internal fun ModelProviderDetailScreen(
     val draft = remember(newType) {
         when (newType) {
             NewProviderType.OpenAiCompatible -> CustomProviderSetting(
-                id = "",
+                id = ProviderRepository.newId(),
                 name = "",
                 baseUrl = "",
                 endpointMode = OpenAiEndpointMode.CHAT_COMPLETIONS,
             )
             NewProviderType.Anthropic -> AnthropicProviderSetting(
-                id = "",
+                id = ProviderRepository.newId(),
                 name = "",
                 baseUrl = "https://api.anthropic.com",
             )
             NewProviderType.Gemini -> GeminiProviderSetting(
-                id = "",
+                id = ProviderRepository.newId(),
                 name = "",
             )
             // 生图供应商：走 OpenAI 兼容的图像接口，标记 imageOnly 后拉取只保留生图模型。
             NewProviderType.ImageOnly -> CustomProviderSetting(
-                id = "",
+                id = ProviderRepository.newId(),
                 name = "",
                 baseUrl = "",
                 endpointMode = OpenAiEndpointMode.CHAT_COMPLETIONS,
@@ -203,14 +204,13 @@ internal fun ModelProviderDetailScreen(
                         .horizontalCutoutPadding()
                         .padding(top = contentPadding.calculateTopPadding()),
                 ) {
-                    if (!isNew) {
-                        CouiChipTabs(
-                            items = tabs.mapIndexed { index, label -> index to label },
-                            selectedKey = currentTab,
-                            onSelectedKeyChange = { currentTab = it },
-                            modifier = Modifier.padding(horizontal = sidePadding),
-                        )
-                    }
+                    CouiChipTabs(
+                        items = tabs.mapIndexed { index, label -> index to label },
+                        selectedKey = currentTab,
+                        onSelectedKeyChange = { currentTab = it },
+                        modifier = Modifier.padding(horizontal = CouiPageDefaults.horizontalMargin),
+                        equalWidth = true,
+                    )
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         when (currentTab) {
                             0 -> ProviderConfigTab(
@@ -224,14 +224,15 @@ internal fun ModelProviderDetailScreen(
                                 onCreated = { id -> createdId = id },
                                 onDeleted = onBack,
                             )
-                            1 -> if (!isNew) {
-                                ProviderModelsTab(
-                                    provider = initial,
-                                    scope = scope,
-                                    nestedScrollConnection = nestedScrollConnection,
-                                    contentSidePadding = sidePadding,
-                                )
-                            }
+                            1 -> ProviderModelsTab(
+                                provider = configDraft.toProvider(initial).withModels(configDraft.models),
+                                isNew = isNew,
+                                draftModels = configDraft.models,
+                                onDraftModelsChange = { models -> configDraft = configDraft.copy(models = models) },
+                                scope = scope,
+                                nestedScrollConnection = nestedScrollConnection,
+                                contentSidePadding = sidePadding,
+                            )
                         }
                     }
                 }
@@ -245,17 +246,14 @@ internal fun ModelProviderDetailScreen(
                         .horizontalCutoutPadding()
                         .padding(top = paddingValues.calculateTopPadding()),
                 ) {
-                    if (!isNew) {
-                        TabRow(
-                            tabs = tabs,
-                            selectedTabIndex = currentTab,
-                            onTabSelected = { currentTab = it },
-                            modifier = Modifier.padding(
-                                horizontal = sidePadding + 12.dp,
-                                vertical = 8.dp,
-                            ),
-                        )
-                    }
+                    TabRow(
+                        tabs = tabs,
+                        selectedTabIndex = currentTab,
+                        onTabSelected = { currentTab = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = sidePadding + 12.dp, vertical = 2.dp),
+                    )
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         when (currentTab) {
                             0 -> ProviderConfigTab(
@@ -269,14 +267,15 @@ internal fun ModelProviderDetailScreen(
                                 onCreated = { id -> createdId = id },
                                 onDeleted = onBack,
                             )
-                            1 -> if (!isNew) {
-                                ProviderModelsTab(
-                                    provider = initial,
-                                    scope = scope,
-                                    scrollBehavior = scrollBehavior,
-                                    contentSidePadding = sidePadding,
-                                )
-                            }
+                            1 -> ProviderModelsTab(
+                                provider = configDraft.toProvider(initial).withModels(configDraft.models),
+                                isNew = isNew,
+                                draftModels = configDraft.models,
+                                onDraftModelsChange = { models -> configDraft = configDraft.copy(models = models) },
+                                scope = scope,
+                                scrollBehavior = scrollBehavior,
+                                contentSidePadding = sidePadding,
+                            )
                         }
                     }
                 }
@@ -359,7 +358,7 @@ private fun ProviderConfigTab(
                 try {
                     if (isNew) {
                         val added = ProviderRepository.addProvider(
-                            built.withId(ProviderRepository.newId()),
+                            built.withId(provider.id).withModels(draft.models),
                         )
                         if (added.isEnabled) {
                             RuntimeConfigRepository.setSelectedProviderId(added.id)

@@ -456,6 +456,7 @@ internal fun <T : Any> CouiChipTabs(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     backgroundColor: Color = CouiPageDefaults.themeColors().background,
+    equalWidth: Boolean = false,
 ) {
     val dark = CouiTheme.isDark
     val colors = CouiPageDefaults.themeColors(dark)
@@ -466,7 +467,7 @@ internal fun <T : Any> CouiChipTabs(
             null
         }
     }
-    if (Build.VERSION.SDK_INT >= 34 && renderers != null) {
+    if (Build.VERSION.SDK_INT >= 34 && renderers != null && !equalWidth) {
         val backdrop = rememberCouiBackdrop()
         val chipItems = remember(items) {
             items.map { (key, label) -> CouiChipTabItem(key = key, label = label) }
@@ -496,20 +497,21 @@ internal fun <T : Any> CouiChipTabs(
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .selectableGroup()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .then(if (equalWidth) Modifier.selectableGroup() else Modifier.horizontalScroll(rememberScrollState()).selectableGroup())
+                .then(if (equalWidth) Modifier.clip(CouiCapsuleShape).background(colors.card) else Modifier)
+                .padding(horizontal = if (equalWidth) 3.dp else 16.dp, vertical = if (equalWidth) 3.dp else 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (equalWidth) 3.dp else 8.dp),
         ) {
             items.forEach { (key, label) ->
                 val selected = key == selectedKey
                 val source = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
-                        .heightIn(min = 32.dp)
+                        .then(if (equalWidth) Modifier.weight(1f) else Modifier)
+                        .heightIn(min = if (equalWidth) 40.dp else 32.dp)
                         .clip(CouiCapsuleShape)
                         .background(
-                            if (selected) colors.accent else colors.card,
+                            if (selected) colors.accent else Color.Transparent,
                             CouiCapsuleShape,
                         )
                         .couiButtonFeedback(dark, source, enabled)

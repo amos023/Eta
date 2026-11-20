@@ -92,6 +92,7 @@ import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.provider.ModelCapabilityPresets
 import io.github.mangi.eta.data.provider.GeminiModelCapabilities
 import io.github.mangi.eta.data.model.ProviderSetting
+import io.github.mangi.eta.data.model.withModels
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ModelRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
@@ -200,6 +201,9 @@ internal fun filterProviderModels(models: List<Model>, query: String): List<Mode
 internal fun ProviderModelsTab(
     provider: ProviderSetting,
     scope: CoroutineScope,
+    isNew: Boolean = false,
+    draftModels: List<Model> = provider.models,
+    onDraftModelsChange: (List<Model>) -> Unit = {},
     scrollBehavior: ScrollBehavior? = null,
     nestedScrollConnection: NestedScrollConnection? = scrollBehavior?.nestedScrollConnection,
     contentSidePadding: Dp,
@@ -221,9 +225,10 @@ internal fun ProviderModelsTab(
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
     var modelSearchQuery by remember(provider.id) { mutableStateOf("") }
     var pendingImport by remember(provider.id) { mutableStateOf<RemoteModelImport?>(null) }
+    val models = if (isNew) draftModels else provider.models
     val normalizedModelSearchQuery = modelSearchQuery.trim()
-    val filteredModels = remember(provider.models, modelSearchQuery) {
-        filterProviderModels(provider.models, modelSearchQuery)
+    val filteredModels = remember(models, modelSearchQuery) {
+        filterProviderModels(models, modelSearchQuery)
     }
 
     val selectionBackState = rememberNavigationEventState(NavigationEventInfo.None)
@@ -241,21 +246,33 @@ internal fun ProviderModelsTab(
             isFetching = true
             message = null
             try {
-                val catalog = RemoteModelFetcher.fetchCatalog(provider).getOrElse { throwable ->
+                val fetchProvider = if (isNew) {
+                    provider.withModels(models)
+                } else provider
+                val catalog = RemoteModelFetcher.fetchCatalog(fetchProvider).getOrElse { throwable ->
                     message = context.getString(
                         R.string.provider_error,
                         throwable.message ?: throwable.javaClass.simpleName,
                     )
                     return@launch
                 }
-                if (ProviderAuthModes.isOAuth(provider.authMode)) {
+                if (!isNew && ProviderAuthModes.isOAuth(provider.authMode)) {
                     val sync = ModelRepository.syncRemoteCatalog(catalog)
                     RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
                     message = "已同步 ${sync.fetchedCount} 个远端模型"
                     return@launch
                 }
-                val candidates = ModelRepository.newRemoteModels(provider.id, catalog.models)
+                val candidates = if (isNew) {
+                    catalog.models.filter { fetched -> models.none { it.modelId.equals(fetched.modelId, ignoreCase = true) } }
+                } else ModelRepository.newRemoteModels(provider.id, catalog.models)
                 if (candidates.isNotEmpty()) {
+                    pendingImport = RemoteModelImport(catalog, candidates)
+                    return@launch
+                }
+                if (isNew) {
+                    message = if (catalog.models.isEmpty()) {
+                        context.getString(R.string.page_the_remote_end_did_not_return_a_usable_conversation__781487)
+                    } else "已获取 ${catalog.models.size} 个远端模型，请选择后添加"
                     pendingImport = RemoteModelImport(catalog, candidates)
                     return@launch
                 }
@@ -381,15 +398,15 @@ internal fun ProviderModelsTab(
             }
 
             val modelListTitle = if (normalizedModelSearchQuery.isBlank()) {
-                context.getString(R.string.provider_model_list_count, provider.models.size)
+                context.getString(R.string.provider_model_list_count, models.size)
             } else {
                 context.getString(
                     R.string.provider_model_list_matches,
                     filteredModels.size,
-                    provider.models.size,
+                    models.size,
                 )
             }
-            if (provider.models.isEmpty() || filteredModels.isEmpty()) {
+            if (models.isEmpty() || filteredModels.isEmpty()) {
                 item(key = "models_empty", contentType = "empty") {
                     ProviderSection(
                         title = modelListTitle,
@@ -399,7 +416,7 @@ internal fun ProviderModelsTab(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = if (provider.models.isEmpty()) {
+                                text = if (models.isEmpty()) {
                                     context.getString(R.string.page_there_is_no_model_yet_please_pull_it_from_the_remote_ced865)
                                 } else {
                                     context.getString(R.string.page_no_matching_model_found_ae7e96)
@@ -496,7 +513,9 @@ internal fun ProviderModelsTab(
                                 editingModel = model
                             },
                             onSetCurrent = {
-                                scope.launch {
+                                if (isNew) {
+                                    message = "请先创建服务商，再切换当前模型"
+                                } else scope.launch {
                                     try {
                                         RuntimeConfigRepository.setSelectedModelId(model.id)
                                         RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
@@ -560,6 +579,17 @@ internal fun ProviderModelsTab(
             },
             onSubmit = { updated ->
                 if (isMutatingModel) return@ModelEditDialog
+                if (isNew) {
+                    val next = if (isCreatingModel) models + updated.copy(
+                        id = updated.id.ifBlank { ModelRepository.newId() },
+                        source = io.github.mangi.eta.data.model.ModelSource.MANUAL,
+                        sortOrder = models.size,
+                    ) else models.map { if (it.id == updated.id) updated else it }
+                    onDraftModelsChange(next)
+                    editingModel = null
+                    message = context.getString(R.string.provider_model_saved, updated.displayName)
+                    return@ModelEditDialog
+                }
                 scope.launch {
                     isMutatingModel = true
                     editorError = null
@@ -592,8 +622,12 @@ internal fun ProviderModelsTab(
             scope.launch {
                 isMutatingModel = true
                 try {
-                    ModelRepository.deleteModel(provider.id, model.id)
-                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    if (isNew) {
+                        onDraftModelsChange(models.filterNot { it.id == model.id })
+                    } else {
+                        ModelRepository.deleteModel(provider.id, model.id)
+                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    }
                     message = context.getString(R.string.provider_model_deleted, model.displayName)
                     modelPendingDelete = null
                 } catch (cancelled: CancellationException) {
@@ -655,8 +689,12 @@ internal fun ProviderModelsTab(
                 val deletedCount = selectedModelIds.size
                 isMutatingModel = true
                 try {
-                    ModelRepository.deleteModels(provider.id, selectedModelIds)
-                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    if (isNew) {
+                        onDraftModelsChange(models.filterNot { it.id in selectedModelIds })
+                    } else {
+                        ModelRepository.deleteModels(provider.id, selectedModelIds)
+                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    }
                     message = context.resources.getQuantityString(
                         R.plurals.provider_models_deleted,
                         deletedCount,
@@ -719,6 +757,18 @@ internal fun ProviderModelsTab(
             scope.launch {
                 isMutatingModel = true
                 try {
+                    if (isNew) {
+                        val merged = ModelRepository.mergeDraftRemoteModels(
+                            existing = models,
+                            fetched = pending.catalog.models,
+                            adoptedModelIds = adopted,
+                            authMode = provider.authMode,
+                        )
+                        val addedCount = merged.size - models.size
+                        onDraftModelsChange(merged)
+                        message = if (addedCount > 0) "已暂存 $addedCount 个模型" else context.getString(R.string.provider_models_up_to_date)
+                        return@launch
+                    }
                     val sync = ModelRepository.syncRemoteCatalog(pending.catalog, adopted)
                     if (sync.applied) {
                         RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)

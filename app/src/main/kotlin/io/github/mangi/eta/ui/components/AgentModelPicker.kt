@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -78,6 +79,7 @@ import com.itos.coui.layout.Group
 import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
+import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiIconDivider
 import io.github.mangi.eta.ui.components.coui.CouiSearchBarBox
@@ -478,7 +480,10 @@ private fun ModelSheetContent(
     var query by remember { mutableStateOf("") }
     // 不再做服务商分类筛选：整份列表一次给全，靠分组标题折叠来收敛。
     // 折叠状态按 providerId 记，搜索换关键词时保留，方便边找边收。
-    var collapsedProviders by remember { mutableStateOf(emptySet<String>()) }
+    val savedCollapsedProviders by remember { SettingsDataStore.modelPickerCollapsedProvidersFlow() }
+        .collectAsState(initial = null)
+    val collapsedProviders = savedCollapsedProviders.orEmpty()
+    val scope = rememberCoroutineScope()
     val groups = remember(state.providerGroups, query) { state.filterGroups(query) }
     val selectedIndex = groups.indexOfFirst { group -> group.models.any { it.id == state.selectedModel?.id } }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedIndex - 1).coerceAtLeast(0))
@@ -555,11 +560,12 @@ private fun ModelSheetContent(
                     selectedId = selectedId,
                     collapsed = group.providerId in collapsedProviders,
                     onToggleCollapsed = {
-                        collapsedProviders = if (group.providerId in collapsedProviders) {
+                        val updated = if (group.providerId in collapsedProviders) {
                             collapsedProviders - group.providerId
                         } else {
                             collapsedProviders + group.providerId
                         }
+                        scope.launch { SettingsDataStore.setModelPickerCollapsedProviders(updated) }
                     },
                     onSelect = { select(it) },
                 )

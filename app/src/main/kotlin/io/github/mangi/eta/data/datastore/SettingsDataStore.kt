@@ -38,6 +38,7 @@ internal object SettingsDataStore {
     private val IMAGE_GENERATION_SETTINGS = stringPreferencesKey("image_generation_settings_v1")
     private val CONVERSATION_TITLE_SETTINGS = stringPreferencesKey("conversation_title_settings_v1")
     private val ASSISTANT_OVERLAY_SETTINGS = stringPreferencesKey("assistant_overlay_settings_v1")
+    private val MODEL_PICKER_COLLAPSED_PROVIDERS = stringPreferencesKey("model_picker_collapsed_providers_v1")
     private val speechJson = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
@@ -158,6 +159,29 @@ internal object SettingsDataStore {
         ensureInitialized()
         dataStore.edit { it[ASSISTANT_OVERLAY_SETTINGS] = speechJson.encodeToString(settings) }
     }
+
+    fun modelPickerCollapsedProvidersFlow(): Flow<Set<String>> {
+        ensureInitialized()
+        return dataStore.data
+            .catch { cause -> if (cause is IOException) emit(emptyPreferences()) else throw cause }
+            .map { prefs -> prefs[MODEL_PICKER_COLLAPSED_PROVIDERS]
+                ?.split(MODEL_PICKER_PROVIDER_SEPARATOR)
+                ?.filter(String::isNotBlank)
+                ?.toSet()
+                ?: emptySet()
+            }
+    }
+
+    suspend fun setModelPickerCollapsedProviders(providerIds: Set<String>) {
+        ensureInitialized()
+        dataStore.edit { prefs ->
+            val value = providerIds.sorted().joinToString(MODEL_PICKER_PROVIDER_SEPARATOR.toString())
+            if (value.isEmpty()) prefs.remove(MODEL_PICKER_COLLAPSED_PROVIDERS)
+            else prefs[MODEL_PICKER_COLLAPSED_PROVIDERS] = value
+        }
+    }
+
+    private const val MODEL_PICKER_PROVIDER_SEPARATOR = '\u001f'
 
     private const val STORE_NAME = "eta_settings"
 

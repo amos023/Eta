@@ -6,6 +6,7 @@ import io.github.mangi.eta.agent.model.CustomHeaderFilter
 import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomHeader
+import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
@@ -33,6 +34,7 @@ internal data class ProviderConfigDraft(
     val hostedWebSearchEnabled: Boolean,
     val anthropicVersion: String,
     val headers: List<ProviderHeaderDraft> = emptyList(),
+    val models: List<Model> = emptyList(),
     val authMode: String = ProviderAuthModes.API_KEY,
     /** 生图专用提供商：拉取模型时只保留生图模型，列表页归入生图分组。 */
     val imageOnly: Boolean = false,
@@ -43,6 +45,7 @@ internal data class ProviderConfigDraft(
         fun from(provider: ProviderSetting): ProviderConfigDraft {
             val profile = ProviderConnectionProfile.forAuthMode(provider.authMode)
             return ProviderConfigDraft(
+                models = provider.models,
                 headers = provider.customHeaders.map { ProviderHeaderDraft(header = it) },
                 name = provider.name,
                 baseUrl = profile?.baseUrl ?: provider.baseUrl,
@@ -68,6 +71,7 @@ internal data class ProviderConfigDraft(
 internal val ProviderConfigDraftSaver = mapSaver(
     save = { draft ->
         mapOf(
+            "models" to kotlinx.serialization.json.Json.encodeToString(draft.models),
             "headers" to ArrayList(draft.headers.flatMap { listOf(it.id, it.header.name, it.header.value) }),
             "name" to draft.name,
             "baseUrl" to draft.baseUrl,
@@ -84,6 +88,9 @@ internal val ProviderConfigDraftSaver = mapSaver(
     },
     restore = { state ->
         ProviderConfigDraft(
+            models = (state["models"] as? String)?.let {
+                runCatching { kotlinx.serialization.json.Json.decodeFromString<List<Model>>(it) }.getOrNull()
+            }.orEmpty(),
             headers = (state["headers"] as? List<*>)?.chunked(3)?.map {
                 ProviderHeaderDraft(it[0] as String, CustomHeader(it[1] as String, it[2] as String))
             }.orEmpty(),
