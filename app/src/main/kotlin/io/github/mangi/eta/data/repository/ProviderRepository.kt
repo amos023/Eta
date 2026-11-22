@@ -30,6 +30,7 @@ import io.github.mangi.eta.data.model.ProviderSourceTypes
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -47,11 +48,14 @@ internal object ProviderRepository {
         ProviderCredentialRepository.init(context)
     }
 
+    /**
+     * 模型是子表，改动不一定让 providers 的主查询重新发射。
+     * 这里把模型行数变化并进来：任一表变了就重新查一次库，
+     * 拉取或删除模型后列表立刻刷新，不用退出页面重进。
+     */
     fun providersFlow(): Flow<List<ProviderSetting>> =
-        dao().providersFlow().map { providers ->
-            providers
-                .map { it.toDomain() }
-                .sortedBy(ProviderSetting::sortOrder)
+        combine(dao().providersFlow(), dao().modelsCountFlow()) { _, _ ->
+            allProviders()
         }
 
     fun settingsFlow(): Flow<Settings> =
@@ -245,8 +249,11 @@ internal object ProviderRepository {
     suspend fun repairSelection(): Settings {
         val providers = allProviders()
         val settings = SettingsDataStore.settings()
-        val selectedProvider = providers.firstOrNull { it.id == settings.selectedProviderId && it.isEnabled }
-            ?: providers.firstOrNull { it.isEnabled }
+        // 聊天只能落在非生图提供商上：生图提供商只有图像模型，
+        // 选中它会让每一条消息都因为拿不到对话模型而立即结束。
+        val chatProviders = providers.filter { it.isEnabled && !it.imageOnly }
+        val selectedProvider = chatProviders.firstOrNull { it.id == settings.selectedProviderId }
+            ?: chatProviders.firstOrNull()
         val activeModel = selectedProvider
             ?.takeIf { it.id == settings.selectedProviderId }
             ?.models

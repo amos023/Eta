@@ -14,6 +14,10 @@ internal interface ProviderDao {
     @Query("SELECT * FROM model_providers ORDER BY sort_order ASC, id ASC")
     fun providersFlow(): Flow<List<ProviderWithModels>>
 
+    /** 模型表行数；拉取或删除模型后用它触发 providers 重新查库。 */
+    @Query("SELECT COUNT(*) FROM provider_models")
+    fun modelsCountFlow(): Flow<Int>
+
     @Transaction
     @Query("SELECT * FROM model_providers ORDER BY sort_order ASC, id ASC")
     suspend fun providers(): List<ProviderWithModels>

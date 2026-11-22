@@ -225,7 +225,13 @@ internal fun ModelProviderDetailScreen(
                                 onDeleted = onBack,
                             )
                             1 -> ProviderModelsTab(
-                                provider = configDraft.toProvider(initial).withModels(configDraft.models),
+                                // 已保存的提供商直接读库里的模型：拉取/删除后 providersFlow 一变更，
+                                // 列表跟着刷新。新建立才用草稿，因为那时还没入库。
+                                provider = if (isNew) {
+                                    configDraft.toProvider(initial).withModels(configDraft.models)
+                                } else {
+                                    initial
+                                },
                                 isNew = isNew,
                                 draftModels = configDraft.models,
                                 onDraftModelsChange = { models -> configDraft = configDraft.copy(models = models) },
@@ -268,7 +274,11 @@ internal fun ModelProviderDetailScreen(
                                 onDeleted = onBack,
                             )
                             1 -> ProviderModelsTab(
-                                provider = configDraft.toProvider(initial).withModels(configDraft.models),
+                                provider = if (isNew) {
+                                    configDraft.toProvider(initial).withModels(configDraft.models)
+                                } else {
+                                    initial
+                                },
                                 isNew = isNew,
                                 draftModels = configDraft.models,
                                 onDraftModelsChange = { models -> configDraft = configDraft.copy(models = models) },
@@ -360,7 +370,9 @@ private fun ProviderConfigTab(
                         val added = ProviderRepository.addProvider(
                             built.withId(provider.id).withModels(draft.models),
                         )
-                        if (added.isEnabled) {
+                        // 生图提供商只服务 /images/generations，把当前聊天提供商切过去
+                        // 会让下一条消息找不到可用的对话模型，直接被判定为 ended。
+                        if (added.isEnabled && !added.imageOnly) {
                             RuntimeConfigRepository.setSelectedProviderId(added.id)
                         }
                         RuntimeConfigRepository.syncToRemotePreferences(
@@ -371,7 +383,7 @@ private fun ProviderConfigTab(
                         onCreated(added.id)
                     } else {
                         ProviderRepository.updateProvider(built)
-                        if (built.isEnabled) {
+                        if (built.isEnabled && !built.imageOnly) {
                             RuntimeConfigRepository.setSelectedProviderId(built.id)
                         }
                         RuntimeConfigRepository.syncToRemotePreferences(
@@ -452,29 +464,37 @@ private fun ProviderConfigTab(
             }
         }
 
-        providerHeadersEditor(
-            headers = draft.headers,
-            expanded = headersExpanded,
-            onExpandedChange = { headersExpanded = it },
-            onHeadersChange = { onDraftChange(draft.copy(headers = it)) },
-        )
+        // 自定义请求头是给聊天网关调参用的，生图提供商不展示。
+        if (!draft.imageOnly) {
+            providerHeadersEditor(
+                headers = draft.headers,
+                expanded = headersExpanded,
+                onExpandedChange = { headersExpanded = it },
+                onHeadersChange = { onDraftChange(draft.copy(headers = it)) },
+            )
+        }
 
         item(key = "preferences_and_prompt") {
-            ProviderSection(title = stringResource(R.string.ui_preferences_and_strategies_2abd3c)) {
-                if (uiStyle == AppearanceUiStyle.COUI) {
-                    CouiSwitchPreference(
-                        title = stringResource(R.string.ui_enable_this_provider_683a76),
-                        checked = draft.isEnabled,
-                        onCheckedChange = { onDraftChange(draft.copy(isEnabled = it)) },
-                    )
-                } else {
-                    SwitchPreference(
-                        title = stringResource(R.string.ui_enable_this_provider_683a76),
-                        checked = draft.isEnabled,
-                        onCheckedChange = { onDraftChange(draft.copy(isEnabled = it)) },
-                    )
+            // 生图提供商创建即启用，没有单独的启停策略要调。
+            if (!draft.imageOnly) {
+                ProviderSection(title = stringResource(R.string.ui_preferences_and_strategies_2abd3c)) {
+                    if (uiStyle == AppearanceUiStyle.COUI) {
+                        CouiSwitchPreference(
+                            title = stringResource(R.string.ui_enable_this_provider_683a76),
+                            checked = draft.isEnabled,
+                            onCheckedChange = { onDraftChange(draft.copy(isEnabled = it)) },
+                        )
+                    } else {
+                        SwitchPreference(
+                            title = stringResource(R.string.ui_enable_this_provider_683a76),
+                            checked = draft.isEnabled,
+                            onCheckedChange = { onDraftChange(draft.copy(isEnabled = it)) },
+                        )
+                    }
                 }
             }
+            // 系统提示词只作用于聊天回合，生图提供商没有这一层，整块不显示。
+            if (!draft.imageOnly) {
             if (uiStyle == AppearanceUiStyle.COUI) {
                 Group(title = stringResource(R.string.ui_system_prompt_word_193981)) {
                     Column(
@@ -505,6 +525,7 @@ private fun ProviderConfigTab(
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 12.dp),
                 )
+            }
             }
         }
 
