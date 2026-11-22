@@ -74,12 +74,16 @@ internal fun ProviderConnectionFields(
     val accountMode = if (isImageOnly || isAnthropic || isGemini) null else providerAccountAuthMode(provider)
     // Endpoint 模式跟随协议栈：凡是走 OpenAI 兼容协议（含生图提供商）且用 API Key 登录都显示，
     // 只有 Anthropic / Gemini / 账号登录不显示——它们本身没有 chat completions / responses 之分。
-    val showEndpointMode = !oauth && !isAnthropic && !isGemini
+    // 生图提供商固定走 {baseUrl}/images/generations，没有 chat completions / responses 之分，
+    // 也不该在「上游格式」里换成 Anthropic 或 Gemini——那些协议不提供生图接口。
+    val showEndpointMode = !oauth && !isAnthropic && !isGemini && !isImageOnly
     val showWebSearchSwitch =
         isGemini || (draft.endpointMode == OpenAiEndpointMode.RESPONSES && showEndpointMode)
     // 「生图模型」开关只在 OpenAI 兼容协议下出现：Anthropic / Gemini 没有生图接口，
     // 在它们的页面里给这个开关等于承诺做不到的事。
-    val showImageOnlySwitch = !isAnthropic && !isGemini
+    // 生图提供商统一从「生图设置 → 添加生图提供商」创建，这里不再暴露开关：
+    // 从聊天入口进来的提供商做的是对话配置，给一个只会把页面变成矛盾的开关没有意义。
+    val showImageOnlySwitch = false
     // 类型下拉用上游的协议命名；生图模型不在这里，单独一个开关。
     val typeLabels = listOf(
         "OpenAI-compatible",
@@ -216,9 +220,9 @@ internal fun ProviderConnectionFields(
                     },
                 )
             }
-            if (showTypeSelector || showEndpointMode) {
+            if ((showTypeSelector && !isImageOnly) || showEndpointMode) {
                 Divider()
-                if (showTypeSelector) {
+                if (showTypeSelector && !isImageOnly) {
                     CouiDropdownPreference(
                         title = stringResource(R.string.provider_type_label),
                         items = typeLabels,
@@ -228,7 +232,7 @@ internal fun ProviderConnectionFields(
                     )
                 }
                 if (showEndpointMode) {
-                    if (showTypeSelector) {
+                    if (showTypeSelector && !isImageOnly) {
                         Divider()
                     }
                     CouiDropdownPreference(
@@ -272,7 +276,7 @@ internal fun ProviderConnectionFields(
         AppearanceUiStyle.MIUIX -> {
             // 与 COUI 一致：上游格式 → Endpoint 模式 → 认证方式 依次排列，
             // 名称 / Base URL / API Key 在同一输入区连续显示。
-            if (showTypeSelector) {
+            if (showTypeSelector && !isImageOnly) {
                 WindowSpinnerPreference(
                     title = stringResource(R.string.provider_type_label),
                     items = typeLabels.map { DropdownItem(text = it) },

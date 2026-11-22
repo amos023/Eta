@@ -53,7 +53,9 @@ internal class AgentExecutionService : Service() {
         } catch (failure: RuntimeException) {
             startRejected = true
             AndroidAgentLogger.warn("Execution service foreground failed: type=${failure.safeLogType()}")
-            stopTasks(startFailed = true)
+            // 前台服务起不来只代表进程可能被系统回收，不能当成用户点了停止：
+            // 之前的 stopTasks(startFailed = true) 会立刻把刚发出的 run 取消掉，
+            // 表现就是消息发出去秒回「已停止」。这里改为降级为进程内继续执行。
         }
     }
 

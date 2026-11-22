@@ -716,6 +716,8 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.Skills -> stringResource(R.string.route_skills)
     is AppRoute.Subagents -> "Subagent"
     is AppRoute.ConversationTitleSettings -> stringResource(R.string.conversation_title_settings_title)
+    is AppRoute.ImageGenerationSettings -> stringResource(R.string.image_settings_title)
+    is AppRoute.ImageGallery -> stringResource(R.string.image_gallery_title)
     is AppRoute.AssistantOverlaySettings -> stringResource(R.string.assistant_overlay_settings_title)
     is AppRoute.Characters -> "角色"
     is AppRoute.CharacterDetail -> "角色详情"

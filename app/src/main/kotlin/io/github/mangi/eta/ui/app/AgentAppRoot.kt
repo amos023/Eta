@@ -99,6 +99,8 @@ import io.github.mangi.eta.ui.screens.memory.AgentMemoryScreen
 import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.settings.AssistantOverlaySettingsScreen
 import io.github.mangi.eta.ui.screens.settings.ConversationTitleSettingsScreen
+import io.github.mangi.eta.ui.screens.gallery.ImageGalleryScreen
+import io.github.mangi.eta.ui.screens.settings.ImageGenerationSettingsScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.subagent.SubagentSettingsScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
@@ -477,6 +479,8 @@ fun AgentAppRoot(
                                 AgentHomeAction.OpenSystemEnhance -> pushRoute(AppRoute.SystemEnhance)
                                 AgentHomeAction.OpenSettings -> pushRoute(AppRoute.Settings)
                                 AgentHomeAction.OpenBrowser -> openConversationBrowser()
+                                AgentHomeAction.OpenImageGenerationSettings ->
+                                    pushRoute(AppRoute.ImageGenerationSettings)
                                 AgentHomeAction.ExpandRunTrace -> Unit
                             }
                         },
@@ -527,6 +531,15 @@ fun AgentAppRoot(
             }
             entry<AppRoute.ConversationTitleSettings>(swipeDismiss = swipeDismiss) {
                 ConversationTitleSettingsScreen(onBack = ::popRoute)
+            }
+            entry<AppRoute.ImageGenerationSettings>(swipeDismiss = swipeDismiss) {
+                ImageGenerationSettingsScreen(
+                    onBack = ::popRoute,
+                    onNavigate = { route -> pushRoute(route) },
+                )
+            }
+            entry<AppRoute.ImageGallery>(swipeDismiss = swipeDismiss) {
+                ImageGalleryScreen(onBack = ::popRoute)
             }
             entry<AppRoute.AssistantOverlaySettings>(swipeDismiss = swipeDismiss) {
                 AssistantOverlaySettingsScreen(onBack = ::popRoute)

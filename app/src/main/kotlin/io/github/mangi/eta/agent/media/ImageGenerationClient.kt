@@ -57,6 +57,8 @@ internal object ImageGenerationClient {
         val prompt: String,
         val size: String?,
         val count: Int,
+        /** 画质档；null 或 auto 时不写入请求。 */
+        val quality: String? = null,
     )
 
     suspend fun generate(
@@ -78,6 +80,8 @@ internal object ImageGenerationClient {
                     put("n", request.count.coerceIn(1, 4))
                     request.size?.trim()?.takeIf { it.isNotBlank() && !it.equals("auto", true) }
                         ?.let { put("size", it) }
+                    request.quality?.trim()?.takeIf { it.isNotBlank() && !it.equals("auto", true) }
+                        ?.let { put("quality", it) }
                     // 明确要 base64：部分中转站不回 url，直接给字节省一次下载。
                     put("response_format", "b64_json")
                 }.toString()

@@ -1,6 +1,11 @@
 package io.github.mangi.eta.ui.components
 
+import android.content.Context
 import android.os.SystemClock
+import android.content.Intent
+import androidx.compose.foundation.border
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -24,6 +29,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.runtime.Composable
@@ -39,7 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -245,68 +256,267 @@ internal fun GeneratedArtifactStrip(
     images: List<String>,
     groupKey: String,
     modifier: Modifier = Modifier,
+    onEditImage: ((String) -> Unit)? = null,
 ) {
     if (images.isEmpty()) return
     val previewer = LocalChatImagePreviewer.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val savedText = stringResource(R.string.image_saved_to_gallery)
+    val saveFailedText = stringResource(R.string.image_save_failed)
+    val saveLabel = stringResource(R.string.image_action_save)
+    val shareLabel = stringResource(R.string.image_action_share)
+    val editLabel = stringResource(R.string.image_action_edit)
+    val promptLabel = stringResource(R.string.image_action_prompt)
+    val copyLabel = stringResource(R.string.action_copy)
+    val clipboard = LocalClipboardManager.current
     var saving by remember { mutableStateOf(false) }
+    var showPrompt by remember { mutableStateOf(false) }
+    var prompts by remember(images) { mutableStateOf<List<String>>(emptyList()) }
+    // 提示词存在图片旁边的同名 json 里，读盘放到后台，避免组合期做 IO。
+    LaunchedEffect(images) {
+        prompts = withContext(Dispatchers.IO) { readGeneratedPrompts(images) }
+    }
     val single = images.size == 1
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(top = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        images.forEachIndexed { index, path ->
-            val bitmap = rememberDataUrlBitmap(path) ?: return@forEachIndexed
-            val ratio = (bitmap.width.toFloat() / bitmap.height.toFloat().coerceAtLeast(1f))
-                .coerceIn(0.55f, 1.85f)
-            val width = if (single) 232.dp else 132.dp
-            val height = width / ratio
-            Box(
-                modifier = Modifier
-                    .width(width)
-                    .height(height)
-                    .clip(RoundedCornerShape(12.dp))
-                    // 单击进全屏预览；长按直接存相册，省掉先进去再找按钮的两步。
-                    .combinedClickable(
-                        onClick = {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            images.forEachIndexed { index, path ->
+                val bitmap = rememberDataUrlBitmap(path) ?: return@forEachIndexed
+                val ratio = (bitmap.width.toFloat() / bitmap.height.toFloat().coerceAtLeast(1f))
+                    .coerceIn(0.55f, 1.85f)
+                val width = when {
+                    single -> 232.dp
+                    images.size == 2 -> 156.dp
+                    else -> 132.dp
+                }
+                val height = width / ratio
+                Box(
+                    modifier = Modifier
+                        .width(width)
+                        .height(height)
+                        .clip(RoundedCornerShape(12.dp))
+                        // 单击进全屏预览；保存统一走下方操作条，长按不再触发任何动作。
+                        .clickable {
                             previewer?.open(
                                 images = images,
                                 initialIndex = index,
                                 groupKey = groupKey,
                             )
                         },
-                        onLongClick = {
-                            if (saving) return@combinedClickable
-                            saving = true
-                            scope.launch {
-                                val result = GeneratedImageExporter.saveToGallery(context, path)
-                                saving = false
-                                Toast.makeText(
-                                    context,
-                                    when (result) {
-                                        is GeneratedImageExporter.Result.Saved -> savedText
-                                        is GeneratedImageExporter.Result.Failed -> result.reason
-                                    },
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                ) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxWidth().height(height),
+                    )
+                }
+            }
+        }
+        // 图片下方的操作条：保存、分享、改图在左，提示词单独靠右。
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ArtifactActionChip(
+                text = saveLabel,
+                icon = Icons.Rounded.FileDownload,
+                enabled = !saving,
+                onClick = {
+                    if (saving) return@ArtifactActionChip
+                    saving = true
+                    scope.launch {
+                        var savedCount = 0
+                        var failure: String? = null
+                        for (path in images) {
+                            when (val result = GeneratedImageExporter.saveToGallery(context, path)) {
+                                is GeneratedImageExporter.Result.Saved -> savedCount++
+                                is GeneratedImageExporter.Result.Failed -> failure = result.reason
                             }
-                        },
-                    ),
-            ) {
-                Image(
-                    bitmap = bitmap,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().height(height),
+                        }
+                        saving = false
+                        val message = when {
+                            savedCount > 0 && images.size > 1 -> "$savedText ×$savedCount"
+                            savedCount > 0 -> savedText
+                            else -> failure ?: saveFailedText
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    }
+                },
+            )
+            ArtifactActionChip(
+                text = shareLabel,
+                icon = Icons.Rounded.Share,
+                onClick = { shareGeneratedImages(context, images) },
+            )
+            if (onEditImage != null) {
+                ArtifactActionChip(
+                    text = editLabel,
+                    icon = Icons.Rounded.Edit,
+                    onClick = { onEditImage(images.first()) },
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            if (prompts.isNotEmpty()) {
+                ArtifactActionChip(
+                    text = promptLabel,
+                    icon = Icons.Rounded.KeyboardArrowDown,
+                    selected = showPrompt,
+                    transparent = true,
+                    onClick = { showPrompt = !showPrompt },
                 )
             }
         }
+        if (showPrompt && prompts.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(
+                        0.5.dp,
+                        MiuixTheme.colorScheme.outline.copy(alpha = 0.35f),
+                        RoundedCornerShape(10.dp),
+                    )
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+            ) {
+                // 合并显示时可能来自多次调用，逐条列出各自的提示词。
+                prompts.forEachIndexed { index, text ->
+                    if (index > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    SelectionContainer {
+                        Text(
+                            text = text,
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.onSurface,
+                        )
+                    }
+                    Text(
+                        text = copyLabel,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .clickable { clipboard.setText(AnnotatedString(text)) },
+                    )
+                }
+            }
+        }
     }
+}
+
+/** 生图卡片下方的胶囊按钮：浅底实心、图标配文字，与聊天里的图片操作风格一致。 */
+@Composable
+private fun ArtifactActionChip(
+    text: String,
+    icon: ImageVector,
+    selected: Boolean = false,
+    enabled: Boolean = true,
+    transparent: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val accent = MiuixTheme.colorScheme.primary
+    val contentColor = when {
+        !enabled -> MiuixTheme.colorScheme.onSurface.copy(alpha = 0.34f)
+        selected -> accent
+        else -> MiuixTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+    }
+    // 提示词按钮不铺底色，只靠图标和文字；其它按钮用浅底区分。
+    val background = if (transparent) {
+        Color.Transparent
+    } else {
+        MiuixTheme.colorScheme.onSurface.copy(alpha = 0.055f)
+    }
+    Row(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(background, CircleShape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = if (transparent) 6.dp else 13.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(14.dp),
+        )
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(
+            text = text,
+            style = MiuixTheme.textStyles.footnote2,
+            color = contentColor,
+        )
+    }
+}
+
+/** 把生成图所在文件解析出来；记录里可能是 file:// 前缀，也可能是裸绝对路径。 */
+private fun resolveGeneratedFile(path: String): File? {
+    val raw = path.trim()
+    val file = when {
+        raw.startsWith("file://", ignoreCase = true) ->
+            runCatching { File(java.net.URI(raw)) }.getOrNull()
+        raw.startsWith("/") -> File(raw)
+        else -> null
+    }
+    return file?.takeIf { it.isFile }
+}
+
+/** 读图片旁的 sidecar json，取每次生图用的提示词；旧图没有该文件时返回空表。 */
+private fun readGeneratedPrompts(images: List<String>): List<String> {
+    val prompts = LinkedHashSet<String>()
+    for (path in images) {
+        val file = resolveGeneratedFile(path) ?: continue
+        val meta = File(file.parentFile, file.nameWithoutExtension + ".json")
+        if (!meta.isFile) continue
+        val raw = runCatching { meta.readText() }.getOrNull() ?: continue
+        val prompt = runCatching { org.json.JSONObject(raw).optString("prompt") }.getOrNull()
+        if (!prompt.isNullOrBlank()) prompts += prompt
+    }
+    return prompts.toList()
+}
+
+/** 分享生成图：走 FileProvider 转 content://，带上临时读权限。 */
+private fun shareGeneratedImages(context: Context, images: List<String>) {
+    val uris = images.mapNotNull { path ->
+        val file = resolveGeneratedFile(path) ?: return@mapNotNull null
+        runCatching {
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        }.getOrNull()
+    }
+    if (uris.isEmpty()) {
+        Toast.makeText(
+            context,
+            context.getString(R.string.image_share_no_file),
+            Toast.LENGTH_SHORT,
+        ).show()
+        return
+    }
+    val intent = if (uris.size == 1) {
+        Intent(Intent.ACTION_SEND).apply {
+            type = "image/*"
+            putExtra(Intent.EXTRA_STREAM, uris.first())
+        }
+    } else {
+        Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "image/*"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+        }
+    }
+    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    val chooser = Intent.createChooser(intent, null)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    runCatching { context.startActivity(chooser) }
 }
 
 /**

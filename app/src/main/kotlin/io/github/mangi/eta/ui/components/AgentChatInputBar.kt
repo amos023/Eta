@@ -136,22 +136,7 @@ private val SendIconSize = 16.dp
 private val StopIconSize = 10.dp
 private val ThinkingIconSize = 21.dp
 private const val OFF_VALUE = "__off__"
-private const val ACTION_SIZE = "__size__"
-private const val ACTION_COUNT = "__count__"
-private const val ACTION_GALLERY = "__gallery__"
-
-/** 尺寸按预设顺序循环；模型给了自定义尺寸时从第一档重新开始。 */
-private fun ImageGenerationSettings.nextSize(): String {
-    val presets = ImageGenerationSettings.SIZE_PRESETS
-    val index = presets.indexOf(size.trim())
-    return presets[(index + 1) % presets.size]
-}
-
-private fun ImageGenerationSettings.nextCount(): Int {
-    val presets = ImageGenerationSettings.COUNT_PRESETS
-    val index = presets.indexOf(count)
-    return presets[(index + 1) % presets.size]
-}
+private const val ACTION_SETTINGS = "__image_settings__"
 private val InputContainerShape = RoundedCornerShape(20.dp)
 
 /**
@@ -190,6 +175,8 @@ internal fun AgentChatInputBar(
     onAttachFilePath: (String) -> Unit,
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    /** 生图菜单里的「生图设置」入口，跳到生图设置页。 */
+    onOpenImageSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -467,6 +454,7 @@ internal fun AgentChatInputBar(
                                 enabled = !isStreaming,
                                 popupAnchorTopPx = inputContainerTopPx,
                                 popupMaxHeight = thinkingPopupMaxHeight,
+                                onOpenSettings = onOpenImageSettings,
                             )
                         }
 
@@ -908,6 +896,7 @@ private fun ImageGenerationChip(
     enabled: Boolean,
     popupAnchorTopPx: Int,
     popupMaxHeight: Dp,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -998,37 +987,19 @@ private fun ImageGenerationChip(
             )
         }
         val offLabel = stringResource(R.string.image_model_chip_off)
-        val sizeLabel = stringResource(R.string.image_size_label)
-        val countLabel = stringResource(R.string.image_count_label)
-        val galleryLabel = stringResource(R.string.image_auto_save_label)
-        val galleryOn = stringResource(R.string.image_gallery_on)
-        val galleryOff = stringResource(R.string.image_gallery_off)
+        val settingsLabel = stringResource(R.string.image_settings_title)
         when (LocalUiStyle.current) {
             AppearanceUiStyle.COUI -> {
-                val items = remember(options, settings.modelId, settings.size, settings.count, settings.autoSaveToGallery, offLabel, sizeLabel, countLabel) {
+                val items = remember(options, settings.modelId, offLabel, settingsLabel) {
                     buildList {
-                        // 生成参数在前，模型选择在后：尺寸/数量/自动存相册是每次出图都要看的档位，
-                        // 模型选好之后基本不动，放在底部避免遮挡。
+                        // 尺寸、数量、画质、自动存相册这些选完基本不动的项挪进独立设置页，
+                        // 菜单里只留一个入口，避免每次生图都要在菜单里翻档位。
                         if (settings.modelId != null) {
                             add(
                                 CouiMenuItem(
-                                    value = ACTION_SIZE,
-                                    text = "$sizeLabel · ${settings.size}",
+                                    value = ACTION_SETTINGS,
+                                    text = settingsLabel,
                                     selected = false,
-                                ),
-                            )
-                            add(
-                                CouiMenuItem(
-                                    value = ACTION_COUNT,
-                                    text = "$countLabel · ${settings.count}",
-                                    selected = false,
-                                ),
-                            )
-                            add(
-                                CouiMenuItem(
-                                    value = ACTION_GALLERY,
-                                    text = galleryLabel + " · " + if (settings.autoSaveToGallery) galleryOn else galleryOff,
-                                    selected = settings.autoSaveToGallery,
                                 ),
                             )
                         }
@@ -1045,15 +1016,14 @@ private fun ImageGenerationChip(
                     items = items,
                     onItemClick = { item ->
                         showPopup = false
-                        scope.launch {
-                            when (item.value) {
-                                OFF_VALUE -> ImageGenerationRepository.selectModel(null)
-                                ACTION_SIZE -> ImageGenerationRepository.selectSize(settings.nextSize())
-                                ACTION_COUNT -> ImageGenerationRepository.selectCount(settings.nextCount())
-                                ACTION_GALLERY -> ImageGenerationRepository.setAutoSaveToGallery(
-                                    !settings.autoSaveToGallery,
-                                )
-                                else -> ImageGenerationRepository.selectModel(item.value)
+                        if (item.value == ACTION_SETTINGS) {
+                            onOpenSettings()
+                        } else {
+                            scope.launch {
+                                when (item.value) {
+                                    OFF_VALUE -> ImageGenerationRepository.selectModel(null)
+                                    else -> ImageGenerationRepository.selectModel(item.value)
+                                }
                             }
                         }
                     },
@@ -1071,16 +1041,11 @@ private fun ImageGenerationChip(
                     val dismiss = LocalDismissState.current
                     ListPopupColumn {
                         val all = buildList {
+                            if (settings.modelId != null) {
+                                add(ACTION_SETTINGS to settingsLabel)
+                            }
                             add(OFF_VALUE to offLabel)
                             options.forEach { add(it.id to it.displayName) }
-                            if (settings.modelId != null) {
-                                add(ACTION_SIZE to "$sizeLabel · ${settings.size}")
-                                add(ACTION_COUNT to "$countLabel · ${settings.count}")
-                                add(
-                                    ACTION_GALLERY to galleryLabel + " · " +
-                                        if (settings.autoSaveToGallery) galleryOn else galleryOff,
-                                )
-                            }
                         }
                         all.forEachIndexed { index, (id, label) ->
                             DropdownImpl(
@@ -1089,18 +1054,18 @@ private fun ImageGenerationChip(
                                 isSelected = id == settings.modelId || (id == OFF_VALUE && settings.modelId.isNullOrBlank()),
                                 index = index,
                                 onSelectedIndexChange = {
-                                    scope.launch {
-                                        when (id) {
-                                            OFF_VALUE -> ImageGenerationRepository.selectModel(null)
-                                            ACTION_SIZE -> ImageGenerationRepository.selectSize(settings.nextSize())
-                                            ACTION_COUNT -> ImageGenerationRepository.selectCount(settings.nextCount())
-                                            ACTION_GALLERY -> ImageGenerationRepository.setAutoSaveToGallery(
-                                                !settings.autoSaveToGallery,
-                                            )
-                                            else -> ImageGenerationRepository.selectModel(id)
+                                    if (id == ACTION_SETTINGS) {
+                                        dismiss?.invoke()
+                                        onOpenSettings()
+                                    } else {
+                                        scope.launch {
+                                            when (id) {
+                                                OFF_VALUE -> ImageGenerationRepository.selectModel(null)
+                                                else -> ImageGenerationRepository.selectModel(id)
+                                            }
                                         }
+                                        dismiss?.invoke()
                                     }
-                                    dismiss?.invoke()
                                 },
                             )
                         }

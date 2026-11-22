@@ -38,6 +38,11 @@ internal object ImageGenerationRepository {
         save(current.copy(count = count.coerceIn(1, 4)))
     }
 
+    suspend fun selectQuality(quality: String) {
+        val current = settings()
+        save(current.copy(quality = quality))
+    }
+
     suspend fun setAutoSaveToGallery(enabled: Boolean) {
         val current = settings()
         save(current.copy(autoSaveToGallery = enabled))

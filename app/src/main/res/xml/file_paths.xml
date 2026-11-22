@@ -6,4 +6,6 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <external-path name="external" path="." />
     <root-path name="root" path="/" />
+    <!-- 生成图落在应用私有 files/generated_images，分享时需经 FileProvider 授权。 -->
+    <files-path name="eta_files" path="." />
 </paths>

@@ -12,8 +12,11 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -51,6 +54,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -208,6 +212,12 @@ private fun ChatImageViewerOverlay(
 
     var zoomedPage by remember { mutableIntStateOf(-1) }
     val sourceCornerPx = with(LocalDensity.current) { request.sourceCornerRadius.toPx() }
+    val context = LocalContext.current
+    val actionScope = rememberCoroutineScope()
+    val saveLabel = stringResource(R.string.image_action_save)
+    val shareLabel = stringResource(R.string.image_action_share)
+    // 当前页的图片引用；单图恒为第 0 张，多图跟随翻页。
+    fun sourceAt(index: Int): String? = request.images.getOrNull(index)
 
     Box(
         modifier = Modifier
@@ -301,6 +311,69 @@ private fun ChatImageViewerOverlay(
                 )
             }
         }
+
+        // 单张的保存与分享：多图时缩略图下的「保存」是保存全部，
+        // 想只存某一张就在这里操作，作用对象是当前页。
+        val currentSource = sourceAt(
+            (if (request.images.size == 1) 0 else previewer.activePage)
+                .coerceIn(0, request.images.lastIndex),
+        )
+        if (currentSource != null) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 32.dp)
+                    .graphicsLayer {
+                        alpha = ((progress.value - 0.5f) / 0.5f).coerceIn(0f, 1f)
+                    },
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ViewerActionChip(
+                    text = saveLabel,
+                    onClick = {
+                        actionScope.launch {
+                            toastBriefly(context, savePreviewImage(context, currentSource))
+                        }
+                    },
+                )
+                ViewerActionChip(
+                    text = shareLabel,
+                    onClick = {
+                        actionScope.launch {
+                            sharePreviewImage(context, currentSource)?.let { message ->
+                                toastBriefly(context, message)
+                            }
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** 全屏预览底部的操作胶囊。 */
+@Composable
+private fun ViewerActionChip(
+    text: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.16f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 9.dp),
+    ) {
+        Text(
+            text = text,
+            style = MiuixTheme.textStyles.footnote1.copy(
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            color = Color.White.copy(alpha = 0.94f),
+        )
     }
 }
 

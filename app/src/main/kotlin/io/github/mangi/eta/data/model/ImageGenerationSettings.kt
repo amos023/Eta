@@ -22,10 +22,17 @@ internal data class ImageGenerationSettings(
      * 不想污染相册就在生图菜单里关掉，图仍留在会话里可看。
      */
     val autoSaveToGallery: Boolean = true,
+    /**
+     * 画质档。`auto` 表示请求里不带 quality 字段，由服务商决定。
+     * 各家中转站支持的取值不一致（standard\/hd 与 low\/medium\/high 两套），
+     * 传了不认的值会触发客户端的降级重试。
+     */
+    val quality: String = DEFAULT_QUALITY,
 ) {
     companion object {
         const val DEFAULT_SIZE = "1024x1024"
         const val DEFAULT_COUNT = 1
+        const val DEFAULT_QUALITY = "auto"
 
         /** 常见尺寸档位；自定义尺寸交给服务商自己校验。 */
         val SIZE_PRESETS = listOf(
@@ -41,5 +48,8 @@ internal data class ImageGenerationSettings(
         )
 
         val COUNT_PRESETS = listOf(1, 2, 3, 4)
+
+        /** 画质档位；第一项 auto 不写入请求。 */
+        val QUALITY_PRESETS = listOf("auto", "standard", "hd", "high")
     }
 }

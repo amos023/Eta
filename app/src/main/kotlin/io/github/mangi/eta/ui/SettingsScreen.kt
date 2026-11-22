@@ -401,6 +401,12 @@ private fun SettingsPageContent(
                     )
                     CouiIconDivider()
                     CouiPreference(
+                        title = stringResource(R.string.image_settings_title),
+                        icon = { CouiSettingsIcon(Icons.Rounded.Palette, SettingsIconColors.Purple) },
+                        onClick = { onNavigate(AppRoute.ImageGenerationSettings) },
+                    )
+                    CouiIconDivider()
+                    CouiPreference(
                         title = stringResource(R.string.prompt_page_title),
                         summary = stringResource(R.string.prompt_settings_summary),
                         icon = {
@@ -857,6 +863,16 @@ private fun SettingsPageContent(
                             key = Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED,
                             icon = Icons.Rounded.Layers,
                             iconTint = SettingsIconColors.Blue,
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.image_settings_title),
+                            startAction = {
+                                SettingsIcon(
+                                    icon = Icons.Rounded.Palette,
+                                    tint = SettingsIconColors.Purple,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.ImageGenerationSettings) },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.conversation_title_settings_title),

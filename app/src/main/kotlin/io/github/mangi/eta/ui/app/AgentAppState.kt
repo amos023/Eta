@@ -3,6 +3,7 @@ package io.github.mangi.eta.ui.app
 import io.github.mangi.eta.agent.model.AgentContextSnapshot
 
 import android.content.ContentResolver
+import android.util.Log
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -2039,6 +2040,7 @@ internal class AgentAppState(
                 )
             }
             if (withContext(Dispatchers.Main) { runStore.isStopRequested(runId) }) {
+                traceRun("stopRequested-before-exec run=$runId")
                 withContext(Dispatchers.Main) {
                     applyRunResult(runId, AgentRuntimeWire.RunResult(runId, false, "", "已停止", operation = operation))
                 }
@@ -2436,6 +2438,14 @@ internal class AgentAppState(
     }
 
     private fun stopRun(runId: String) {
+        val startedAt = runStore.startedAt(runId)
+        // 发送后按钮会立刻变成「停止」，手指的第二次触碰会命中它，
+        // 造成刚发出的消息被瞬间停掉。800ms 内的停止一律当误触忽略。
+        if (startedAt != null && System.currentTimeMillis() - startedAt < 800) {
+            traceRun("stopRun-ignored run=$runId gap=${System.currentTimeMillis() - startedAt}ms")
+            return
+        }
+        traceRun("stopRun run=$runId caller=${Throwable().stackTrace.getOrNull(2)?.methodName}")
         conversationIdForRun(runId)?.let { id ->
             conversationsById[id]?.let { state ->
                 val cleared = AgentMessageQueueReducer.clearInterruptFlags(state)
@@ -2448,6 +2458,7 @@ internal class AgentAppState(
     }
 
     private fun requestCancelRun(runId: String, byUser: Boolean = false) {
+        traceRun("requestCancel run=$runId byUser=$byUser")
         if (!runStore.requestStop(runId, byUser)) return
         scope.launch(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).cancelRun(runId)
@@ -2523,11 +2534,21 @@ internal class AgentAppState(
         }
     }
 
+    /** 临时诊断：把运行关键点写进私有目录文件，ROM 会屏蔽三方应用的 logcat。 */
+    private fun traceRun(line: String) {
+        runCatching {
+            java.io.File(appContext.filesDir, "eta_run.log").appendText(
+                "${System.currentTimeMillis()} $line\n",
+            )
+        }
+    }
+
     private fun applyRunResult(
         runId: String,
         result: AgentRuntimeWire.RunResult,
         acknowledgeRuntimeResult: Boolean = false,
     ) {
+        traceRun("result run=$runId ok=${result.ok} err=${result.error} len=${result.content.length}")
         flushPendingRunDelta(runId)
         val completedConversationId = conversationIdForRun(runId) ?: return
         if (!runStore.beginSettlement(runId)) return

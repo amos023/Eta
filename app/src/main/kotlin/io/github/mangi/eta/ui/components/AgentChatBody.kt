@@ -174,6 +174,8 @@ internal fun AgentChatBody(
     onRemoveFileReference: (String) -> Unit,
     onEditMessage: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    /** 生图菜单里的「生图设置」入口。 */
+    onOpenImageSettings: () -> Unit = {},
     onDeleteMessage: (String) -> Unit,
     onRegenerateMessage: (String) -> Unit,
     onBranchMessage: (String) -> Unit,
@@ -302,6 +304,7 @@ internal fun AgentChatBody(
             onRemoveFileReference = onRemoveFileReference,
             onEditMessage = onEditMessage,
             onCancelMessageEdit = onCancelMessageEdit,
+            onOpenImageSettings = onOpenImageSettings,
             onDeleteMessage = onDeleteMessage,
             onRegenerateMessage = onRegenerateMessage,
             onBranchMessage = onBranchMessage,
@@ -364,6 +367,7 @@ private fun AgentChatScaffold(
     onRemoveFileReference: (String) -> Unit,
     onEditMessage: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    onOpenImageSettings: () -> Unit,
     onDeleteMessage: (String) -> Unit,
     onRegenerateMessage: (String) -> Unit,
     onBranchMessage: (String) -> Unit,
@@ -422,6 +426,7 @@ private fun AgentChatScaffold(
                 onAttachFilePath = onAttachFilePath,
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
+                onOpenImageSettings = onOpenImageSettings,
             )
         },
     ) { innerPadding ->
@@ -451,6 +456,7 @@ private fun AgentChatScaffold(
                 onRegenerateMessage = onRegenerateMessage,
                 onBranchMessage = onBranchMessage,
                 onSelectReplyCandidate = onSelectReplyCandidate,
+                onAttachImage = onAttachImage,
                 messageActionsEnabled = !isStreaming && !isCompacting && !isBranching && messageEdit == null,
                 editTargetMessageId = messageEdit?.targetMessageId,
                 currentBrowserMessageId = currentBrowserMessageId,
@@ -486,6 +492,8 @@ internal fun AgentConversationMessages(
     onRegenerateMessage: (String) -> Unit = {},
     onBranchMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
+    /** 把生成图重新加进输入栏待发送附件，「改图」按钮走这条通道。 */
+    onAttachImage: (String) -> Unit = {},
     messageActionsEnabled: Boolean = false,
     editTargetMessageId: String? = null,
     currentBrowserMessageId: String? = null,
@@ -500,8 +508,11 @@ internal fun AgentConversationMessages(
 ) {
     // 上一版条目只作复用比对，不参与组合观察。
     val previousTimelineEntries = remember { arrayOf(emptyList<AgentTimelineEntry>()) }
-    val timelineEntries = remember(visibleMessages) {
-        visibleMessages.toTimelineEntries(previous = previousTimelineEntries[0])
+    val timelineEntries = remember(visibleMessages, isStreaming) {
+        visibleMessages.toTimelineEntries(
+            previous = previousTimelineEntries[0],
+            streaming = isStreaming,
+        )
     }
     SideEffect { previousTimelineEntries[0] = timelineEntries }
     val activeWorkProcessKey = if (isStreaming) {
@@ -545,7 +556,7 @@ internal fun AgentConversationMessages(
             is AgentTimelineEntry.Message -> entry.message.id == messageId
             is AgentTimelineEntry.WorkProcess -> entry.messages.any { it.id == messageId }
             // 图片条目由工具消息派生，定位工具消息时也要命中它所在的图片槽位。
-            is AgentTimelineEntry.GeneratedImages -> entry.key == "$messageId-artifacts"
+            is AgentTimelineEntry.GeneratedImages -> messageId in entry.messageIds
         }
     }
     var showMessageNavigator by remember { mutableStateOf(false) }
@@ -891,6 +902,7 @@ internal fun AgentConversationMessages(
                         GeneratedArtifactStrip(
                             images = entry.images,
                             groupKey = entry.key,
+                            onEditImage = onAttachImage,
                             modifier = itemModifier.padding(
                                 start = 12.dp,
                                 end = 12.dp,
@@ -1085,6 +1097,8 @@ internal sealed interface AgentTimelineEntry {
     data class GeneratedImages(
         override val key: String,
         val images: List<String>,
+        /** 这条合并了哪几次工具调用；消息定位要能命中组内任意一次。 */
+        val messageIds: List<String> = emptyList(),
     ) : AgentTimelineEntry
 }
 
@@ -1094,6 +1108,8 @@ internal sealed interface AgentTimelineEntry {
  */
 internal fun List<AgentChatMessageUi>.toTimelineEntries(
     previous: List<AgentTimelineEntry> = emptyList(),
+    /** 本轮是否仍在流式；为 true 时末尾分组的图片暂不投影，等正文出现后一起放。 */
+    streaming: Boolean = false,
 ): List<AgentTimelineEntry> = buildList {
     val previousWorkByMessageId = previous.asSequence()
         .filterIsInstance<AgentTimelineEntry.WorkProcess>()
@@ -1101,7 +1117,7 @@ internal fun List<AgentChatMessageUi>.toTimelineEntries(
         .toMap()
     val workMessages = mutableListOf<AgentChatMessageUi>()
 
-    fun flushWorkProcess() {
+    fun flushWorkProcess(atTail: Boolean) {
         if (workMessages.isEmpty()) return
         // 历史页可能从同一工作过程的中间开始；前插补齐后保留已显示分组的身份和滚动锚点。
         val messageIds = workMessages.mapTo(HashSet()) { it.id }
@@ -1115,12 +1131,21 @@ internal fun List<AgentChatMessageUi>.toTimelineEntries(
         add(reusable ?: AgentTimelineEntry.WorkProcess(key = key, messages = workMessages.toList()))
         // 工具产出的图片脱离折叠区，作为独立条目排在分组之后、该轮正文之前。
         // 分组内消息顺序即执行顺序，多张图按调用先后依次成条。
-        workMessages.forEach { message ->
-            if (message is ToolActivityMessageUi && message.images.isNotEmpty()) {
+        //
+        // 但流式中且该分组还在列表末尾时先不投影：否则工具刚返回就把图弹出来，
+        // 正文还在生成，看起来像图抢跑。等正文出现或本轮结束再一次性放出。
+        if (!(atTail && streaming)) {
+            // 同一轮里可能连着调用多次生图；合并成一条条目，横排显示、共用一组按钮，
+            // 否则每张图各占一条、各带一行按钮，纵向被拉得很长。
+            val withImages = workMessages
+                .filterIsInstance<ToolActivityMessageUi>()
+                .filter { it.images.isNotEmpty() }
+            if (withImages.isNotEmpty()) {
                 add(
                     AgentTimelineEntry.GeneratedImages(
-                        key = "${message.id}-artifacts",
-                        images = message.images,
+                        key = "${withImages.first().id}-artifacts",
+                        images = withImages.flatMap { it.images },
+                        messageIds = withImages.map { it.id },
                     ),
                 )
             }
@@ -1132,11 +1157,11 @@ internal fun List<AgentChatMessageUi>.toTimelineEntries(
         if (message.isWorkProcessMessage()) {
             workMessages += message
         } else {
-            flushWorkProcess()
+            flushWorkProcess(atTail = false)
             add(AgentTimelineEntry.Message(message))
         }
     }
-    flushWorkProcess()
+    flushWorkProcess(atTail = true)
 }
 
 private fun AgentTimelineEntry.contentType(): Any = when (this) {
@@ -1206,6 +1231,7 @@ private fun AgentChatBottomBar(
     onAttachFilePath: (String) -> Unit,
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    onOpenImageSettings: () -> Unit,
 ) {
     val surface = MiuixTheme.colorScheme.surface
     Box(
@@ -1247,6 +1273,7 @@ private fun AgentChatBottomBar(
                 focusInputOnSync = focusInputOnSync,
                 isEditingMessage = messageEdit != null,
                 preserveFollowingMessages = messageEdit?.preserveFollowingMessages == true,
+                onOpenImageSettings = onOpenImageSettings,
                 onSubmit = onSubmit,
                 onInterruptAndSubmit = onInterruptAndSubmit,
                 onSteerQueuedMessage = onSteerQueuedMessage,

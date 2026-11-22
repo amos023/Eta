@@ -1262,65 +1262,7 @@ private fun ModelEditDialog(
                     }
                     }
 
-                    // 生图模型不需要上下文窗口，但调用图像接口要用到尺寸与格式。
-                    if (isImageModel) {
-                        Divider(startIndent = 0.dp, endIndent = 0.dp)
-
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            CouiTextField(
-                                value = imageSizeText,
-                                onValueChange = { imageSizeText = it },
-                                label = stringResource(R.string.model_image_default_size),
-                                placeholder = "1024x1024",
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Ascii,
-                                    imeAction = ImeAction.Next,
-                                ),
-                            )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                ImageGenerationSettings.SIZE_PRESETS.forEach { preset ->
-                                    EtaChoiceChip(
-                                        text = preset,
-                                        selected = imageSizeText.trim() == preset,
-                                        onClick = { imageSizeText = preset },
-                                        enabled = !isSaving,
-                                    )
-                                }
-                            }
-                            CouiTextField(
-                                value = imageFormatText,
-                                onValueChange = { imageFormatText = it },
-                                label = stringResource(R.string.model_image_default_format),
-                                placeholder = "png",
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Ascii,
-                                    imeAction = ImeAction.Next,
-                                ),
-                            )
-                            CouiTextField(
-                                value = imageEndpointText,
-                                onValueChange = { imageEndpointText = it },
-                                label = stringResource(R.string.model_image_endpoint),
-                                placeholder = stringResource(R.string.model_image_endpoint_hint),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Uri,
-                                    imeAction = ImeAction.Done,
-                                ),
-                            )
-                            CouiText(
-                                text = stringResource(R.string.model_image_endpoint_summary),
-                                kind = CouiTextKind.Description,
-                                color = colors.summary,
-                            )
-                        }
-                    }
-
+                    // 生图模型的尺寸、画质统一在「生图设置」里配，模型级不再单独设默认值。
                     error?.let { message ->
                         CouiText(
                             text = message,
@@ -1509,65 +1451,6 @@ private fun ModelEditDialog(
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             modifier = Modifier.padding(start = 4.dp, top = 8.dp),
                         )
-                        // 生图模型需要的生成参数：尺寸 · 格式 · 接口地址。
-                        if (isImageModel) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            TextField(
-                                value = imageSizeText,
-                                onValueChange = { imageSizeText = it },
-                                label = stringResource(R.string.model_image_default_size),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Ascii,
-                                    imeAction = ImeAction.Next,
-                                ),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(top = 10.dp),
-                            ) {
-                                ImageGenerationSettings.SIZE_PRESETS.forEach { preset ->
-                                    EtaChoiceChip(
-                                        text = preset,
-                                        selected = imageSizeText.trim() == preset,
-                                        onClick = { imageSizeText = preset },
-                                        enabled = !isSaving,
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            TextField(
-                                value = imageFormatText,
-                                onValueChange = { imageFormatText = it },
-                                label = stringResource(R.string.model_image_default_format),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Ascii,
-                                    imeAction = ImeAction.Next,
-                                ),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            TextField(
-                                value = imageEndpointText,
-                                onValueChange = { imageEndpointText = it },
-                                label = stringResource(R.string.model_image_endpoint),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Uri,
-                                    imeAction = ImeAction.Done,
-                                ),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Text(
-                                text = stringResource(R.string.model_image_endpoint_summary),
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
-                            )
-                        }
                         error?.let { message ->
                             Text(
                                 text = message,

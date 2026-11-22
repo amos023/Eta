@@ -13,6 +13,8 @@ internal class AgentRunStore(
     private val onEvent: (String, AgentEvent) -> Unit,
 ) {
     private class Entry(val conversationId: String, val observed: Boolean) {
+        /** run 注册时刻；用于识别发送后瞬间的误触停止。 */
+        val startedAt: Long = System.currentTimeMillis()
         var job: Job? = null
         var flushJob: Job? = null
         var stopRequested = false
@@ -56,6 +58,8 @@ internal class AgentRunStore(
     }
 
     fun isStopRequested(runId: String): Boolean = entries[runId]?.stopRequested == true
+
+    fun startedAt(runId: String): Long? = entries[runId]?.startedAt
 
     fun wasStoppedByUser(runId: String): Boolean = entries[runId]?.stoppedByUser == true
 

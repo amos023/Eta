@@ -50,6 +50,7 @@ internal class AgentImageGenerationTools(
 
         val size = args.optString("size").trim().takeIf { it.isNotBlank() } ?: settings.size
         val count = args.optInt("count", settings.count).coerceIn(1, 4)
+        val quality = args.optString("quality").trim().takeIf { it.isNotBlank() } ?: settings.quality
         if (size.isNotBlank() && size != "auto") {
             val matched = Regex("^\\d{2,5}x\\d{2,5}$").matches(size)
             if (!matched) return error("INVALID_ARGUMENT", "size 必须是 宽x高（例如 1024x1024）或 auto")
@@ -65,6 +66,7 @@ internal class AgentImageGenerationTools(
                         prompt = prompt,
                         size = size,
                         count = count,
+                        quality = quality,
                     ),
                     controller = controller,
                 )
@@ -85,7 +87,17 @@ internal class AgentImageGenerationTools(
             if (image.bytes.isEmpty() || image.bytes.size > MAX_AGENT_IMAGE_BYTES) {
                 return error("IMAGE_TOO_LARGE", "生成的图片超过大小限制（${image.bytes.size} 字节）")
             }
-            val file = runCatching { saveImage(image.bytes, image.mimeType, index) }.getOrNull()
+            val file = runCatching {
+                saveImage(
+                    bytes = image.bytes,
+                    mimeType = image.mimeType,
+                    index = index,
+                    prompt = prompt,
+                    model = model.modelId,
+                    size = size,
+                    quality = quality,
+                )
+            }.getOrNull()
                 ?: return error("IMAGE_SAVE_FAILED", "生成的图片无法写入本地目录")
             savedImages += file
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -127,6 +139,7 @@ internal class AgentImageGenerationTools(
                 .put("model", model.modelId)
                 .put("prompt", prompt)
                 .put("size", size)
+                .put("quality", quality)
                 .put("count", savedImages.size)
                 .put("images", org.json.JSONArray().also { array ->
                     savedImages.forEach { array.put(it.absolutePath) }
@@ -155,7 +168,15 @@ internal class AgentImageGenerationTools(
         return null
     }
 
-    private fun saveImage(bytes: ByteArray, mimeType: String, index: Int): File {
+    private fun saveImage(
+        bytes: ByteArray,
+        mimeType: String,
+        index: Int,
+        prompt: String,
+        model: String,
+        size: String,
+        quality: String,
+    ): File {
         val dir = File(context.filesDir, "generated_images")
         if (!dir.isDirectory && !dir.mkdirs()) error("无法创建生图目录")
         val ext = when (mimeType.lowercase()) {
@@ -163,9 +184,24 @@ internal class AgentImageGenerationTools(
             "image/webp" -> "webp"
             else -> "png"
         }
-        val name = "img-${System.currentTimeMillis()}-$index.$ext"
-        val file = File(dir, name)
+        val base = "img-${System.currentTimeMillis()}-$index"
+        val file = File(dir, "$base.$ext")
         file.writeBytes(bytes)
+        // 提示词等元数据写成同名 sidecar json：聊天里的「提示词」按钮和历史回看都靠它，
+        // 不必为此改数据库结构。写失败只丢提示词，不影响出图。
+        runCatching {
+            File(dir, "$base.json").writeText(
+                JSONObject()
+                    .put("prompt", prompt)
+                    .put("model", model)
+                    .put("size", size)
+                    .put("quality", quality)
+                    .put("index", index)
+                    .put("image", "$base.$ext")
+                    .put("createdAt", System.currentTimeMillis())
+                    .toString(),
+            )
+        }
         return file
     }
 
