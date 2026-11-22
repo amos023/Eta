@@ -1,7 +1,6 @@
 package io.github.mangi.eta.agent.runtime
 
 import android.content.Context
-import android.util.Log
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityKeeper
 import io.github.mangi.eta.agent.browser.BrowserSessionRegistry
 import io.github.mangi.eta.agent.model.AgentConversationCodec
@@ -64,8 +63,6 @@ internal class AgentRuntimeRunExecutor(
         List<AgentEvent>,
     ) -> Unit,
 ) {
-    private val appCtx: Context = context.applicationContext
-
     data class Outcome(
         val result: AgentRuntimeWire.RunResult,
         val entrySurfaceGuard: EntrySurfaceGuard?,
@@ -423,14 +420,6 @@ internal class AgentRuntimeRunExecutor(
                 "已停止"
             } else {
                 throwable.message ?: throwable.javaClass.simpleName
-            }
-            runCatching {
-                val dir = appCtx.filesDir
-                val trace = throwable.stackTrace.take(14).joinToString("\n") { "  at $it" }
-                java.io.File(dir, "eta_run.log").appendText(
-                    "${System.currentTimeMillis()} executor-failed cancelled=$cancelled " +
-                        "type=${throwable.javaClass.name} msg=$message\n$trace\n",
-                )
             }
             if (cancelled) {
                 AndroidAgentLogger.info("Agent runtime stopped")

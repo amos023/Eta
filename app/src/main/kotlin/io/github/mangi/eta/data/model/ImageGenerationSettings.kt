@@ -21,7 +21,7 @@ internal data class ImageGenerationSettings(
      * 应用私有目录会被清理、卸载时也会一起消失，默认开着让产物落在用户自己能找到的地方；
      * 不想污染相册就在生图菜单里关掉，图仍留在会话里可看。
      */
-    val autoSaveToGallery: Boolean = true,
+    val autoSaveToGallery: Boolean = false,
     /**
      * 画质档。`auto` 表示请求里不带 quality 字段，由服务商决定。
      * 各家中转站支持的取值不一致（standard\/hd 与 low\/medium\/high 两套），

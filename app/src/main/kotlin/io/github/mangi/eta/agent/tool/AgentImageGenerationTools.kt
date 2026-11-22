@@ -110,28 +110,8 @@ internal class AgentImageGenerationTools(
             )
         }
 
-        // 自动同步相册：产物落在用户能找到的地方，卸载或清缓存也不会丢。
-        // 失败不影响本次结果，只在返回里带一行说明。
-        var galleryNote: String? = null
-        if (settings.autoSaveToGallery) {
-            val saved = savedImages.mapNotNull { file ->
-                val result = runCatching {
-                    runBlocking {
-                        io.github.mangi.eta.agent.media.GeneratedImageExporter.saveToGallery(
-                            context, file.absolutePath,
-                        )
-                    }
-                }.getOrNull()
-                when (result) {
-                    is io.github.mangi.eta.agent.media.GeneratedImageExporter.Result.Saved -> file.name
-                    is io.github.mangi.eta.agent.media.GeneratedImageExporter.Result.Failed ->
-                        result.reason.also { galleryNote = it }
-                    null -> "无法同步相册".also { galleryNote = it }
-                }
-            }
-            if (saved.isNotEmpty() && galleryNote == null) galleryNote = "已同步 ${saved.size} 张到相册"
-        }
-
+        // 不再自动写相册：图片留在应用私有目录，聊天与画廊都能看到，
+        // 需要进相册时由用户点卡片上的「保存」，避免每次出图都往相册里塞。
         return AgentModelClient.ToolResult(
             content = JSONObject()
                 .put("ok", true)
@@ -144,7 +124,6 @@ internal class AgentImageGenerationTools(
                 .put("images", org.json.JSONArray().also { array ->
                     savedImages.forEach { array.put(it.absolutePath) }
                 })
-                .apply { galleryNote?.let { put("gallery", it) } }
                 .toString(),
             images = modelImages,
             // 生成结果属于会话资产，不进敏感工具脱敏路径。
