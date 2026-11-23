@@ -370,14 +370,26 @@ private const val CONVERSATION_FILES_IMAGE_GROUP = "conversation-files-images"
  * 图片来源有两种：聊天里粘贴/发送的图片存成 data URL，普通文件是磁盘路径。
  * 两条都要能解出来，否则图片页永远只有占位图标。
  */
+/** 把 file:// 或绝对路径读成字节；读不到返回 null，由调用方回退到占位图标。 */
+private fun readImagePathBytes(value: String): ByteArray? {
+    val file = if (value.startsWith("file://", true)) {
+        runCatching { java.io.File(java.net.URI(value)) }.getOrNull()
+    } else {
+        java.io.File(value)
+    }
+    return file?.let { runCatching { it.readBytes() }.getOrNull() }
+}
+
 private fun ConversationFileEntry.decodeBitmap(maxPx: Int): android.graphics.Bitmap? {
     val bytes = when {
-        imageDataUrl.isNotBlank() -> {
+        // 用户附件是 data URL，工具产物是文件路径，两种都要能解码出缩略图。
+        imageDataUrl.startsWith("data:", true) -> {
             val base64 = imageDataUrl.substringAfter(',', "")
             if (base64.isBlank()) null else runCatching {
                 android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
             }.getOrNull()
         }
+        imageDataUrl.isNotBlank() -> readImagePathBytes(imageDataUrl)
         reference.absolutePath.isNotBlank() -> runCatching {
             java.io.File(reference.absolutePath).readBytes()
         }.getOrNull()
