@@ -204,12 +204,12 @@ internal fun ModelProviderDetailScreen(
                         .horizontalCutoutPadding()
                         .padding(top = contentPadding.calculateTopPadding()),
                 ) {
+                    // 不传 equalWidth：该开关会退回自绘的实心胶囊，用官方 ChipTabRow 才和 COUI 一致。
                     CouiChipTabs(
                         items = tabs.mapIndexed { index, label -> index to label },
                         selectedKey = currentTab,
                         onSelectedKeyChange = { currentTab = it },
                         modifier = Modifier.padding(horizontal = CouiPageDefaults.horizontalMargin),
-                        equalWidth = true,
                     )
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         when (currentTab) {
