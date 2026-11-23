@@ -42,6 +42,7 @@ import io.github.mangi.eta.ui.components.coui.CouiIcon
 import io.github.mangi.eta.ui.components.coui.CouiPreference
 import io.github.mangi.eta.ui.components.coui.rememberCouiDialogMaterial
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
+import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Icon
@@ -123,8 +124,32 @@ internal fun collectConversationFiles(messages: List<AgentChatMessageUi>): List<
             }
         }
     }
+    // 生图、截图等工具产出的图片同样是会话资产：聊天里看得到，这里也要能翻到。
+    messages.filterIsInstance<ToolActivityMessageUi>().forEach { message ->
+        message.images.forEach { path ->
+            if (path.isBlank()) return@forEach
+            val fingerprint = "asset:$path"
+            if (seen.add(fingerprint)) {
+                imageOrdinal += 1
+                result += ConversationFileEntry(
+                    reference = AgentFileReference(
+                        displayName = indexLabel(imageOrdinal, path),
+                        absolutePath = path,
+                        kind = AgentFileReferenceKind.File,
+                    ),
+                    messageId = message.id,
+                    imageDataUrl = path,
+                )
+            }
+        }
+    }
     return result
 }
+
+/** 文件路径的图片扩展名，供工具产物生成展示名。 */
+private fun pathImageSuffix(source: String): String? =
+    source.substringAfterLast('.', "").lowercase()
+        .takeIf { it in setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif") }
 
 /** 从 data URL 里取 MIME 后缀做展示名；ordinal 是从 1 开始的全局序号。 */
 private fun indexLabel(ordinal: Int, dataUrl: String): String {
@@ -135,7 +160,8 @@ private fun indexLabel(ordinal: Int, dataUrl: String): String {
         mime.contains("webp", true) -> "webp"
         mime.contains("bmp", true) -> "bmp"
         mime.contains("heic", true) || mime.contains("heif", true) -> "heic"
-        mime.isBlank() -> "img"
+        // 工具产物是文件路径而不是 data URL，扩展名要从路径尾巴取。
+        mime.isBlank() -> pathImageSuffix(dataUrl) ?: "img"
         else -> "jpg"
     }
     return "图片 $ordinal.$suffix"
