@@ -52,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.itos.coui.dialog.CouiDialogDefaults
 import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.icons.CouiIcons
 import com.itos.coui.input.CouiHapticFeedback
 import com.itos.coui.input.performCouiHapticFeedback
 import com.itos.coui.layout.CouiPageDefaults
@@ -204,7 +203,7 @@ internal fun McpServersScreen(
                 onBack = onBack,
                 actions = {
                     CouiTopAppBarIconButton(
-                        icon = CouiIcons.Add,
+                        icon = Icons.Rounded.Add,
                         contentDescription = stringResource(R.string.mcp_add_server),
                         onClick = { showAdd = true },
                     )
@@ -936,7 +935,7 @@ private fun McpToolSwitchRow(
                     Column(modifier = Modifier.weight(1f)) {
                         CouiText(
                             text = displayTitle,
-                            kind = CouiTextKind.PreferenceTitle,
+                            kind = CouiTextKind.ItemTitle,
                             color = colors.title,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -944,7 +943,7 @@ private fun McpToolSwitchRow(
                         if (showRawName) {
                             CouiText(
                                 text = tool.name,
-                                kind = CouiTextKind.Description,
+                                kind = CouiTextKind.ItemSummary,
                                 color = colors.summary.copy(alpha = 0.75f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -1018,7 +1017,7 @@ private fun McpToolSwitchRow(
                     ) {
                         CouiText(
                             text = if (expanded) "收起说明" else "展开说明",
-                            kind = CouiTextKind.Description,
+                            kind = CouiTextKind.ItemSummary,
                             color = colors.accent,
                         )
                         CouiIcon(

@@ -48,7 +48,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Scaffold as CouiLayoutScaffold
 import com.itos.coui.menu.CouiMenuItem
@@ -97,6 +96,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup
+import androidx.compose.material.icons.rounded.MoreVert
 
 /**
  * Agent App 统一壳层。
@@ -389,7 +389,7 @@ private fun CouiTopBarOverflowMenu(
 
     Box {
         CouiTopAppBarIconButton(
-            icon = CouiIcons.More,
+            icon = Icons.Rounded.MoreVert,
             contentDescription = stringResource(R.string.action_more),
             modifier = Modifier.couiMenuAnchor(anchor),
             dark = dark,

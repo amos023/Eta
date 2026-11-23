@@ -75,7 +75,7 @@ internal fun PromptFullscreenEditor(
             ) {
                 Text(
                     text = "取消",
-                    kind = CouiTextKind.PreferenceTitle,
+                    kind = CouiTextKind.ItemTitle,
                     color = colors.summary,
                     modifier = Modifier
                         .clickableNoRipple { onDismiss() }
@@ -83,14 +83,14 @@ internal fun PromptFullscreenEditor(
                 )
                 Text(
                     text = title,
-                    kind = CouiTextKind.PreferenceTitle,
+                    kind = CouiTextKind.ItemTitle,
                     color = colors.title,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = "完成",
-                    kind = CouiTextKind.PreferenceTitle,
+                    kind = CouiTextKind.ItemTitle,
                     color = colors.accent,
                     modifier = Modifier
                         .clickableNoRipple {
@@ -119,7 +119,7 @@ internal fun PromptFullscreenEditor(
                     if (state.text.isEmpty()) {
                         Text(
                             text = "在这里输入…",
-                            kind = CouiTextKind.Body,
+                            kind = CouiTextKind.ItemTitle,
                             color = colors.summary,
                         )
                     }
@@ -135,13 +135,13 @@ internal fun PromptFullscreenEditor(
             ) {
                 Text(
                     text = "${state.text.length} 字 · 约 ${estimateTokens(state.text)} token",
-                    kind = CouiTextKind.Description,
+                    kind = CouiTextKind.ItemSummary,
                     color = colors.summary,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = "粘贴",
-                    kind = CouiTextKind.Description,
+                    kind = CouiTextKind.ItemSummary,
                     color = colors.accent,
                     modifier = Modifier
                         .clickableNoRipple {
@@ -158,7 +158,7 @@ internal fun PromptFullscreenEditor(
                 )
                 Text(
                     text = "清空",
-                    kind = CouiTextKind.Description,
+                    kind = CouiTextKind.ItemSummary,
                     color = if (state.text.isEmpty()) colors.disabled else colors.accent,
                     modifier = Modifier
                         .clickableNoRipple {

@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import com.itos.coui.effect.CouiFloatingRenderer
 import com.itos.coui.effect.LocalCouiContourGlowEnabled
 import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.CouiPageColors
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Scaffold
@@ -73,6 +72,8 @@ import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.rememberIsWideScreen
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.Icons
 
 @Composable
 internal fun rememberCouiSystemToolbarStyle(
@@ -81,7 +82,7 @@ internal fun rememberCouiSystemToolbarStyle(
 ): CouiToolbarStyle {
     val density = LocalDensity.current.density
     val contour = LocalCouiContourGlowEnabled.current
-    val textStyle = rememberCouiTextStyle(CouiTextKind.Toolbar)
+    val textStyle = rememberCouiTextStyle(CouiTextKind.TopBar)
     return CouiTopAppBarButtonDefaults.style(dark).copy(
         contentColor = colors.title,
         textStyle = textStyle,
@@ -100,7 +101,7 @@ internal fun CouiBackButton(
     backDescription: String = stringResource(R.string.action_back),
 ) {
     CouiTopAppBarIconButton(
-        icon = CouiIcons.Back,
+        icon = Icons.AutoMirrored.Rounded.ArrowBack,
         contentDescription = backDescription,
         onClick = onClick,
         modifier = modifier,
@@ -213,7 +214,7 @@ internal fun CouiTopAppBarTextButton(
         }
     } else {
         val source = remember { MutableInteractionSource() }
-        val textStyle = rememberCouiTextStyle(CouiTextKind.SearchCancel)
+        val textStyle = rememberCouiTextStyle(CouiTextKind.Search)
         val textColor = if (enabled) colors.accent else colors.disabled
         Box(
             modifier = modifier

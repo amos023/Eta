@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.itos.coui.dialog.CouiDialogDefaults
-import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Item
 import com.itos.coui.menu.CouiMenuItem
@@ -47,6 +46,7 @@ import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.material.icons.rounded.MoreVert
 
 @Composable
 internal fun SkillSwitchRow(
@@ -89,14 +89,14 @@ internal fun SkillSwitchRow(
                 title = {
                     CouiText(
                         text = skill.name,
-                        kind = CouiTextKind.PreferenceTitle,
+                        kind = CouiTextKind.ItemTitle,
                         color = if (enabled) colors.title else colors.disabled,
                     )
                 },
                 summary = {
                     CouiText(
                         text = description,
-                        kind = CouiTextKind.PreferenceSummary,
+                        kind = CouiTextKind.ItemSummary,
                         color = if (enabled) colors.summary else colors.disabled,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -114,7 +114,7 @@ internal fun SkillSwitchRow(
                             contentAlignment = Alignment.Center,
                         ) {
                             CouiIcon(
-                                imageVector = CouiIcons.More,
+                                imageVector = Icons.Rounded.MoreVert,
                                 contentDescription = stringResource(R.string.skills_more_named, skill.name),
                                 modifier = Modifier.size(20.dp),
                                 tint = colors.summary,

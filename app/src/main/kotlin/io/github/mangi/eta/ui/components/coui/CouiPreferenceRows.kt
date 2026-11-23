@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import com.itos.coui.checkbox.Checkbox
 import com.itos.coui.checkbox.CouiCheckboxDefaults
 import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.icons.CouiIcons
 import com.itos.coui.input.CouiHapticFeedback
 import com.itos.coui.input.performCouiHapticFeedback
 import com.itos.coui.layout.CouiPageDefaults
@@ -69,6 +68,9 @@ import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text
 import com.itos.coui.text.rememberCouiTextStyle
 import com.itos.coui.theme.CouiTheme
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.OpenInNew
 
 val CouiIconDividerIndent: Dp =
     CouiPageDefaults.rowPadding + CouiPageDefaults.iconSize + CouiPageDefaults.iconSpacing
@@ -185,7 +187,7 @@ internal fun CouiPreference(
                     .widthIn(max = 162.dp)
                     .padding(start = 16.dp),
                 text = value,
-                kind = CouiTextKind.PreferenceValue,
+                kind = CouiTextKind.ItemValue,
                 color = resolvedValueColor,
                 textAlign = TextAlign.End,
                 maxLines = 2,
@@ -363,13 +365,13 @@ internal fun <T> CouiPopupPreference(
                     .padding(start = 16.dp),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                style = rememberCouiTextStyle(CouiTextKind.PreferenceValue).copy(
+                style = rememberCouiTextStyle(CouiTextKind.ItemValue).copy(
                     color = if (enabled) colors.summary else colors.disabled,
                     textAlign = TextAlign.End,
                 ),
             )
             CouiIcon(
-                imageVector = CouiIcons.Popup,
+                imageVector = Icons.Rounded.OpenInNew,
                 contentDescription = null,
                 modifier = Modifier
                     .padding(start = 4.dp)
@@ -524,7 +526,7 @@ internal fun CouiPreferenceRow(
         title = {
             Text(
                 text = title,
-                kind = CouiTextKind.PreferenceTitle,
+                kind = CouiTextKind.ItemTitle,
                 color = resolvedTitleColor,
                 textAlign = TextAlign.Start,
             )
@@ -533,7 +535,7 @@ internal fun CouiPreferenceRow(
             @Composable {
                 Text(
                     text = text,
-                    kind = CouiTextKind.PreferenceSummary,
+                    kind = CouiTextKind.ItemSummary,
                     color = resolvedSummaryColor,
                     textAlign = TextAlign.Start,
                 )
@@ -550,7 +552,7 @@ internal fun CouiSettingsArrow(
     color: Color,
 ) {
     CouiIcon(
-        imageVector = if (back) CouiIcons.Back else CouiIcons.Next,
+        imageVector = if (back) Icons.AutoMirrored.Rounded.ArrowBack else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
         contentDescription = null,
         modifier = modifier,
         tint = color,

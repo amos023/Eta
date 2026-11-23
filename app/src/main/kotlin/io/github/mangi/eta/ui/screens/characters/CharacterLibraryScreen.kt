@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.Footer
 import com.itos.coui.layout.Group
 import com.itos.coui.text.CouiTextKind
@@ -86,7 +85,7 @@ internal fun CharacterLibraryScreen(
                         onClick = importCard,
                     )
                     CouiTopAppBarIconButton(
-                        icon = CouiIcons.Add,
+                        icon = Icons.Rounded.Add,
                         contentDescription = "创建角色",
                         enabled = !store.busy,
                         onClick = createCharacter,

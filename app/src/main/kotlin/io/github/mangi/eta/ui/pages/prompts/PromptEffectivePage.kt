@@ -88,7 +88,7 @@ internal fun PromptEffectivePage(onBack: () -> Unit) {
                         if (open) {
                             Text(
                                 text = content,
-                                kind = CouiTextKind.PreferenceSummary,
+                                kind = CouiTextKind.ItemSummary,
                                 color = colors.summary,
                                 textAlign = TextAlign.Start,
                                 modifier = Modifier

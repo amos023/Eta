@@ -70,7 +70,6 @@ import com.itos.coui.backdrop.couiBackdrop
 import com.itos.coui.backdrop.rememberCouiBackdrop
 import com.itos.coui.dialog.CouiDialogDefaults
 import com.itos.coui.effect.couiButtonFeedback
-import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Divider as CouiDivider
 import com.itos.coui.menu.CouiMenuItem
@@ -104,6 +103,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowListPopup
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 
 @Stable
 private class PaneBarInsets {
@@ -423,7 +423,7 @@ private fun CouiWorkbenchRow(
         Spacer(Modifier.width(ConversationPanelMetrics.WorkbenchIconGap))
         CouiText(
             text = entry.title,
-            kind = CouiTextKind.Body,
+            kind = CouiTextKind.ItemTitle,
             color = colors.title,
             modifier = Modifier.weight(1f),
             maxLines = 1,
@@ -432,7 +432,7 @@ private fun CouiWorkbenchRow(
         if (!entry.trailingValue.isNullOrEmpty()) {
             CouiText(
                 text = entry.trailingValue,
-                kind = CouiTextKind.PreferenceValue,
+                kind = CouiTextKind.ItemValue,
                 color = colors.summary,
                 modifier = Modifier
                     .widthIn(max = 136.dp)
@@ -443,7 +443,7 @@ private fun CouiWorkbenchRow(
             )
         }
         CouiIcon(
-            imageVector = CouiIcons.Next,
+            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
             modifier = Modifier
                 .padding(start = 6.dp)

@@ -226,20 +226,20 @@ private fun PresetRow(
         ) {
             Text(
                 text = preset.name,
-                kind = CouiTextKind.PreferenceTitle,
+                kind = CouiTextKind.ItemTitle,
                 color = colors.title,
             )
             if (preset.description.isNotBlank()) {
                 Text(
                     text = preset.description,
-                    kind = CouiTextKind.PreferenceSummary,
+                    kind = CouiTextKind.ItemSummary,
                     color = colors.summary,
                 )
             }
         }
         Text(
             text = stringResource(R.string.prompt_presets_edit),
-            kind = CouiTextKind.Description,
+            kind = CouiTextKind.ItemSummary,
             color = colors.accent,
             modifier = Modifier
                 .clickable(interactionSource = interaction, indication = null, onClick = onEdit)
@@ -247,7 +247,7 @@ private fun PresetRow(
         )
         Text(
             text = stringResource(R.string.prompt_presets_export_short),
-            kind = CouiTextKind.Description,
+            kind = CouiTextKind.ItemSummary,
             color = colors.accent,
             modifier = Modifier
                 .clickable(interactionSource = interaction, indication = null, onClick = onExport)
@@ -256,7 +256,7 @@ private fun PresetRow(
         if (onDelete != null) {
             Text(
                 text = stringResource(R.string.prompt_presets_delete_short),
-                kind = CouiTextKind.Description,
+                kind = CouiTextKind.ItemSummary,
                 color = colors.summary,
                 modifier = Modifier
                     .clickable(interactionSource = interaction, indication = null, onClick = onDelete)

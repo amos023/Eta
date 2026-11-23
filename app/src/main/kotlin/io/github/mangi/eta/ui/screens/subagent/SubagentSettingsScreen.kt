@@ -48,7 +48,6 @@ import com.itos.coui.dialog.CouiDialogAction
 import com.itos.coui.dialog.CouiDialogDefaults
 import com.itos.coui.dialog.CouiDialogPlacement
 import com.itos.coui.dialog.Dialog
-import com.itos.coui.icons.CouiIcons
 import com.itos.coui.layout.Divider
 import com.itos.coui.layout.Group
 import com.itos.coui.menu.rememberCouiWindowBackdrop
@@ -249,7 +248,7 @@ internal fun SubagentSettingsScreen(
                 onBack = onBack,
                 actions = {
                     CouiTopAppBarIconButton(
-                        icon = CouiIcons.Add,
+                        icon = Icons.Rounded.Add,
                         contentDescription = "新建 Subagent",
                         onClick = {
                             editorError = null

@@ -93,7 +93,7 @@ internal fun PromptTextFieldRow(
         ) {
             Text(
                 text = "${value.length} 字 · 约 ${estimateTokens(value)} token",
-                kind = CouiTextKind.Description,
+                kind = CouiTextKind.ItemSummary,
                 color = colors.summary,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.weight(1f),
@@ -101,7 +101,7 @@ internal fun PromptTextFieldRow(
             if (!singleLine) {
                 Text(
                     text = "全屏编辑",
-                    kind = CouiTextKind.Description,
+                    kind = CouiTextKind.ItemSummary,
                     color = if (enabled) colors.accent else colors.disabled,
                     modifier = Modifier
                         .clickable(
@@ -115,7 +115,7 @@ internal fun PromptTextFieldRow(
             }
             Text(
                 text = "粘贴",
-                kind = CouiTextKind.Description,
+                kind = CouiTextKind.ItemSummary,
                 color = if (enabled) colors.accent else colors.disabled,
                 modifier = Modifier
                     .clickable(enabled = enabled) {
@@ -127,7 +127,7 @@ internal fun PromptTextFieldRow(
             Spacer(Modifier.width(2.dp))
             Text(
                 text = "清空",
-                kind = CouiTextKind.Description,
+                kind = CouiTextKind.ItemSummary,
                 color = if (enabled && value.isNotEmpty()) colors.accent else colors.disabled,
                 modifier = Modifier
                     .clickable(enabled = enabled && value.isNotEmpty()) {

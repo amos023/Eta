@@ -304,7 +304,7 @@ internal fun ConnectorDetailScreen(
                         ) {
                             CouiText(
                                 text = stringResource(R.string.connector_device_code_title),
-                                kind = CouiTextKind.Body,
+                                kind = CouiTextKind.ItemTitle,
                             )
                             CouiText(
                                 text = authorization!!.userCode,
@@ -315,7 +315,7 @@ internal fun ConnectorDetailScreen(
                                     R.string.connector_device_code_hint,
                                     authorization!!.verificationUri,
                                 ),
-                                kind = CouiTextKind.Description,
+                                kind = CouiTextKind.ItemSummary,
                             )
                             CouiButton(
                                 text = if (polling) {
