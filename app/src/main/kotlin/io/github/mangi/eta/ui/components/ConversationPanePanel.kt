@@ -84,6 +84,7 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiIcon
+import io.github.mangi.eta.ui.components.coui.CouiIconNext
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import top.yukonga.miuix.kmp.basic.Card
@@ -103,7 +104,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowListPopup
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 
 @Stable
 private class PaneBarInsets {
@@ -443,11 +443,11 @@ private fun CouiWorkbenchRow(
             )
         }
         CouiIcon(
-            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            imageVector = CouiIconNext,
             contentDescription = null,
             modifier = Modifier
-                .padding(start = 6.dp)
-                .size(width = 11.dp, height = 20.dp),
+                .padding(start = 4.dp)
+                .size(width = 12.dp, height = 24.dp),
             tint = chevronTint,
         )
     }

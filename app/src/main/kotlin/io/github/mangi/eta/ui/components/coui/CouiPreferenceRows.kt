@@ -68,9 +68,64 @@ import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text
 import com.itos.coui.text.rememberCouiTextStyle
 import com.itos.coui.theme.CouiTheme
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.res.vectorResource
+import io.github.mangi.eta.R
+
+
+/**
+ * 复刻 alpha7 的 COUI 原生图标。
+ *
+ * alpha16 移除了 com.itos.coui.icons，这里按 alpha7 的 CouiIcons.Next / Back / Popup
+ * 原始 pathData、固有尺寸与笔触（线宽 1.4）重建。固有尺寸必须照抄，
+ * 否则放进固定的图标槽时会被 ContentScale.Fit 二次缩放，观感偏小。
+ */
+internal val CouiIconNext: ImageVector = ImageVector.Builder(
+    name = "CouiIconNext",
+    defaultWidth = 24.dp,
+    defaultHeight = 48.dp,
+    viewportWidth = 12f,
+    viewportHeight = 24f,
+    autoMirror = true,
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.4f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Miter,
+    ) {
+        moveTo(5f, 6f)
+        lineTo(10.646f, 11.646f)
+        curveTo(10.842f, 11.842f, 10.842f, 12.158f, 10.646f, 12.354f)
+        lineTo(5f, 18f)
+    }
+}.build()
+
+internal val CouiIconBack: ImageVector = ImageVector.Builder(
+    name = "CouiIconBack",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f,
+    autoMirror = true,
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.4f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round,
+    ) {
+        moveTo(10.1f, 4.4f)
+        lineTo(2.5f, 12f)
+        moveTo(2.5f, 12f)
+        lineTo(10.1f, 19.6f)
+        moveTo(2.5f, 12f)
+        lineTo(21.5f, 12.001f)
+    }
+}.build()
 
 val CouiIconDividerIndent: Dp =
     CouiPageDefaults.rowPadding + CouiPageDefaults.iconSize + CouiPageDefaults.iconSpacing
@@ -371,7 +426,7 @@ internal fun <T> CouiPopupPreference(
                 ),
             )
             CouiIcon(
-                imageVector = Icons.Rounded.OpenInNew,
+                imageVector = ImageVector.vectorResource(R.drawable.coui_pop_up_next),
                 contentDescription = null,
                 modifier = Modifier
                     .padding(start = 4.dp)
@@ -552,7 +607,7 @@ internal fun CouiSettingsArrow(
     color: Color,
 ) {
     CouiIcon(
-        imageVector = if (back) Icons.AutoMirrored.Rounded.ArrowBack else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+        imageVector = if (back) CouiIconBack else CouiIconNext,
         contentDescription = null,
         modifier = modifier,
         tint = color,

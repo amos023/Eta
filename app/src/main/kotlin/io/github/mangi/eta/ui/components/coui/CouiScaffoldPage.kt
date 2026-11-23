@@ -72,7 +72,7 @@ import com.itos.coui.topappbar.TopAppBarButtonGroup
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.layout.WidePageContent
 import io.github.mangi.eta.ui.layout.rememberIsWideScreen
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+
 import androidx.compose.material.icons.Icons
 
 @Composable
@@ -101,7 +101,7 @@ internal fun CouiBackButton(
     backDescription: String = stringResource(R.string.action_back),
 ) {
     CouiTopAppBarIconButton(
-        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+        icon = CouiIconBack,
         contentDescription = backDescription,
         onClick = onClick,
         modifier = modifier,
