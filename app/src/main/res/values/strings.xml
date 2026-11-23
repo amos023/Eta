@@ -1456,6 +1456,7 @@
   <string name="image_aspect_auto">Auto</string>
   <string name="image_settings_note">Aspect ratio is a shortcut for common sizes; the size value is what gets sent to the provider. These settings are shared with the image button in the input bar.</string>
   <string name="image_action_save">Save</string>
+  <string name="image_actions_title">Image actions</string>
   <string name="image_action_share">Share</string>
   <string name="image_action_edit">Edit</string>
   <string name="image_action_prompt">Prompt</string>

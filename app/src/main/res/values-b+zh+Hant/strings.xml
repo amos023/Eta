@@ -1411,6 +1411,7 @@
   <string name="image_aspect_auto">自動</string>
   <string name="image_settings_note">比例用於快速切換常用尺寸，實際傳送給服務商的是尺寸參數；這裡的檔位與輸入欄生圖按鈕共用同一份設定。</string>
   <string name="image_action_save">儲存</string>
+  <string name="image_actions_title">圖片操作</string>
   <string name="image_action_share">分享</string>
   <string name="image_action_edit">改圖</string>
   <string name="image_action_prompt">提示詞</string>

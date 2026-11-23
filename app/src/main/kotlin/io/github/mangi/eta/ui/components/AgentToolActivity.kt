@@ -61,6 +61,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.itos.coui.menu.CouiMenuItem
+import com.itos.coui.menu.Menu
+import com.itos.coui.menu.couiMenuAnchor
+import com.itos.coui.menu.rememberCouiMenuAnchor
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.graphics.luminance
@@ -85,6 +89,13 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+/** 长按图片弹出的操作项标识。 */
+private const val ACTION_SAVE = "__save__"
+private const val ACTION_SHARE = "__share__"
+private const val ACTION_EDIT = "__edit__"
+private const val ACTION_PROMPT = "__prompt__"
+
 
 /**
  * 工作过程之外单独出现的工具条目（例如旧会话或语音浮层），沿用时间线节点外观。
@@ -279,12 +290,26 @@ internal fun GeneratedArtifactStrip(
     var showActions by remember { mutableStateOf(false) }
     var actionTarget by remember { mutableStateOf<String?>(null) }
     var prompts by remember(images) { mutableStateOf<List<String>>(emptyList()) }
+    val menuAnchor = rememberCouiMenuAnchor()
+    val menuItems = remember(saveLabel, shareLabel, editLabel, promptLabel, onEditImage, prompts) {
+        buildList {
+            add(CouiMenuItem(value = ACTION_SAVE, text = saveLabel, selected = false))
+            add(CouiMenuItem(value = ACTION_SHARE, text = shareLabel, selected = false))
+            if (onEditImage != null) {
+                add(CouiMenuItem(value = ACTION_EDIT, text = editLabel, selected = false))
+            }
+            if (prompts.isNotEmpty()) {
+                add(CouiMenuItem(value = ACTION_PROMPT, text = promptLabel, selected = false))
+            }
+        }
+    }
     // 提示词存在图片旁边的同名 json 里，读盘放到后台，避免组合期做 IO。
     LaunchedEffect(images) {
         prompts = withContext(Dispatchers.IO) { readGeneratedPrompts(images) }
     }
     val single = images.size == 1
     Column(modifier = modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.couiMenuAnchor(menuAnchor)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,7 +342,7 @@ internal fun GeneratedArtifactStrip(
                             },
                             onLongClick = {
                                 actionTarget = path
-                                showActions = true
+                                menuAnchor.open { showActions = true }
                             },
                         ),
                 ) {
@@ -330,18 +355,16 @@ internal fun GeneratedArtifactStrip(
                 }
             }
         }
-        val target = actionTarget
-        if (showActions && target != null) {
-            ImageActionSheet(
-                onDismiss = { showActions = false },
-                saveLabel = saveLabel,
-                shareLabel = shareLabel,
-                editLabel = editLabel,
-                promptLabel = promptLabel,
-                cancelLabel = stringResource(R.string.action_cancel),
-                onSave = {
-                    showActions = false
-                    if (!saving) {
+        }
+        Menu(
+            expanded = showActions && actionTarget != null,
+            onDismissRequest = { showActions = false },
+            items = menuItems,
+            onItemClick = { item ->
+                showActions = false
+                val target = actionTarget
+                when (item.value) {
+                    ACTION_SAVE -> if (target != null && !saving) {
                         saving = true
                         scope.launch {
                             val result = GeneratedImageExporter.saveToGallery(context, target)
@@ -356,27 +379,20 @@ internal fun GeneratedArtifactStrip(
                             ).show()
                         }
                     }
-                },
-                onShare = {
-                    showActions = false
-                    shareGeneratedImages(context, listOf(target))
-                },
-                onEdit = onEditImage?.let { callback ->
-                    {
-                        showActions = false
-                        callback(target)
+
+                    ACTION_SHARE -> if (target != null) {
+                        shareGeneratedImages(context, listOf(target))
                     }
-                },
-                onPrompt = if (prompts.isNotEmpty()) {
-                    {
-                        showActions = false
-                        showPrompt = true
+
+                    ACTION_EDIT -> if (target != null) {
+                        onEditImage?.invoke(target)
                     }
-                } else {
-                    null
-                },
-            )
-        }
+
+                    ACTION_PROMPT -> showPrompt = true
+                }
+            },
+            anchor = menuAnchor,
+        )
         if (showPrompt && prompts.isNotEmpty()) {
             Column(
                 modifier = Modifier
@@ -413,69 +429,6 @@ internal fun GeneratedArtifactStrip(
                 }
             }
         }
-    }
-}
-
-/** 长按生成图后弹出的操作面板。 */
-@Composable
-private fun ImageActionSheet(
-    onDismiss: () -> Unit,
-    saveLabel: String,
-    shareLabel: String,
-    editLabel: String,
-    promptLabel: String,
-    cancelLabel: String,
-    onSave: () -> Unit,
-    onShare: () -> Unit,
-    onEdit: (() -> Unit)?,
-    onPrompt: (() -> Unit)?,
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(MiuixTheme.colorScheme.surface)
-                .padding(vertical = 6.dp),
-        ) {
-            ImageActionRow(saveLabel, Icons.Rounded.FileDownload, onSave)
-            ImageActionRow(shareLabel, Icons.Rounded.Share, onShare)
-            if (onEdit != null) {
-                ImageActionRow(editLabel, Icons.Rounded.Edit, onEdit)
-            }
-            if (onPrompt != null) {
-                ImageActionRow(promptLabel, Icons.Rounded.KeyboardArrowDown, onPrompt)
-            }
-            ImageActionRow(cancelLabel, Icons.Rounded.Close, onDismiss)
-        }
-    }
-}
-
-@Composable
-private fun ImageActionRow(
-    text: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-            modifier = Modifier.size(18.dp),
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = text,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurface,
-        )
     }
 }
 
