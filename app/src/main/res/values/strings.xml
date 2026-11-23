@@ -1410,6 +1410,7 @@
   <string name="image_quality_label">Quality</string>
   <string name="image_quality_summary">1K standard, 2K high, 3K maximum detail; actual pixels come from the size setting.</string>
   <string name="image_provider_add">Add image provider</string>
+  <string name="image_provider_none_short">No image provider yet</string>
   <string name="image_gallery_entry">Gallery</string>
   <string name="image_gallery_title">Image gallery</string>
   <string name="image_gallery_entry_summary">Every image generated on this device</string>
@@ -1446,7 +1447,7 @@
   <string name="image_gallery_off">Off</string>
   <string name="image_model_chip_idle">Image</string>
   <string name="image_model_chip_off">No image model</string>
-  <string name="image_settings_title">Image settings</string>
+  <string name="image_settings_title">Image config</string>
   <string name="image_settings_group_model">Image model</string>
   <string name="image_settings_group_params">Generation</string>
   <string name="image_settings_group_provider">Image providers</string>

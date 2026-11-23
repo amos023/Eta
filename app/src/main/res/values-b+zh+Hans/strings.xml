@@ -1391,6 +1391,7 @@
   <string name="image_quality_label">画质</string>
   <string name="image_quality_summary">1K 标准细节、2K 高细节、3K 最高细节；真实像素由上面的尺寸决定。</string>
   <string name="image_provider_add">添加生图提供商</string>
+  <string name="image_provider_none_short">暂无生图提供商</string>
   <string name="image_gallery_entry">画廊</string>
   <string name="image_gallery_title">图片画廊</string>
   <string name="image_gallery_entry_summary">本机已生成的全部图片</string>
@@ -1427,7 +1428,7 @@
   <string name="image_gallery_off">关</string>
   <string name="image_model_chip_idle">生图</string>
   <string name="image_model_chip_off">不使用生图</string>
-  <string name="image_settings_title">生图设置</string>
+  <string name="image_settings_title">生图配置</string>
   <string name="image_settings_group_model">生图模型</string>
   <string name="image_settings_group_params">生成参数</string>
   <string name="image_settings_group_provider">生图提供商</string>

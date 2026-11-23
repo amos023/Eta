@@ -56,6 +56,7 @@ import io.github.mangi.eta.ui.model.AgentModelPickerProjector
 import io.github.mangi.eta.ui.pages.providers.RemoteModelImport
 import io.github.mangi.eta.ui.pages.providers.RemoteModelImportSheet
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
@@ -271,6 +272,7 @@ internal fun ImageGenerationSettingsScreen(
     val qualitySummary = stringResource(R.string.image_quality_summary)
     val noteText = stringResource(R.string.image_settings_note)
     val addProviderLabel = stringResource(R.string.image_provider_add)
+    val noProviderLabel = stringResource(R.string.image_provider_none_short)
     val addProviderSummary = stringResource(R.string.image_provider_add_summary)
     val setupHint = stringResource(R.string.image_provider_hint)
     val nameFieldLabel = stringResource(R.string.image_provider_name)
@@ -353,8 +355,24 @@ internal fun ImageGenerationSettingsScreen(
                         selectedIndex = modelIndex,
                         onSelectedIndexChange = onModelChange,
                     )
+                    Divider()
+                    CouiPreference(
+                        title = addProviderLabel,
+                        summary = addProviderSummary,
+                        onClick = {
+                            setupMessage = null
+                            showSetup = true
+                        },
+                    )
                 }
                 Group(title = providerGroupTitle) {
+                    if (imageProviders.isEmpty()) {
+                        CouiPreference(
+                            title = noProviderLabel,
+                            showChevron = false,
+                            enabled = false,
+                        )
+                    }
                     imageProviders.forEachIndexed { index, provider ->
                         if (index > 0) {
                             Divider()
@@ -368,17 +386,6 @@ internal fun ImageGenerationSettingsScreen(
                             onLongClick = { providerPendingDelete = provider },
                         )
                     }
-                    if (imageProviders.isNotEmpty()) {
-                        Divider()
-                    }
-                    CouiPreference(
-                        title = addProviderLabel,
-                        summary = addProviderSummary,
-                        onClick = {
-                            setupMessage = null
-                            showSetup = true
-                        },
-                    )
                 }
                 Group(title = galleryGroupTitle) {
                     CouiPreference(
@@ -459,6 +466,14 @@ internal fun ImageGenerationSettingsScreen(
                             selectedIndex = modelIndex,
                             onSelectedIndexChange = onModelChange,
                         )
+                        ArrowPreference(
+                            title = addProviderLabel,
+                            summary = addProviderSummary,
+                            onClick = {
+                                setupMessage = null
+                                showSetup = true
+                            },
+                        )
                     }
                 }
                 item(key = "image_settings_provider_group") {
@@ -468,6 +483,12 @@ internal fun ImageGenerationSettingsScreen(
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
                     ) {
+                        if (imageProviders.isEmpty()) {
+                            BasicComponent(
+                                title = noProviderLabel,
+                                enabled = false,
+                            )
+                        }
                         imageProviders.forEach { provider ->
                             ImageProviderRow(
                                 title = provider.name,
@@ -478,14 +499,6 @@ internal fun ImageGenerationSettingsScreen(
                                 onLongClick = { providerPendingDelete = provider },
                             )
                         }
-                        ArrowPreference(
-                            title = addProviderLabel,
-                            summary = addProviderSummary,
-                            onClick = {
-                                setupMessage = null
-                                showSetup = true
-                            },
-                        )
                     }
                 }
                 item(key = "image_settings_gallery_group") {

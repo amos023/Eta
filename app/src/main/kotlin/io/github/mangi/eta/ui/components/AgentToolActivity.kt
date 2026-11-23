@@ -8,6 +8,7 @@ import androidx.core.content.FileProvider
 import java.io.File
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -60,6 +62,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.graphics.luminance
 import io.github.mangi.eta.R
 import android.widget.Toast
@@ -251,6 +254,7 @@ internal fun ToolActivityRow(
  * 由 AgentChatBody 的时间线投影调用，作为独立的聊天流条目出现在工具分组之后、
  * 该轮正文之前，而不是塞进可折叠的工具活动卡内部。
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun GeneratedArtifactStrip(
     images: List<String>,
@@ -272,6 +276,8 @@ internal fun GeneratedArtifactStrip(
     val clipboard = LocalClipboardManager.current
     var saving by remember { mutableStateOf(false) }
     var showPrompt by remember { mutableStateOf(false) }
+    var showActions by remember { mutableStateOf(false) }
+    var actionTarget by remember { mutableStateOf<String?>(null) }
     var prompts by remember(images) { mutableStateOf<List<String>>(emptyList()) }
     // 提示词存在图片旁边的同名 json 里，读盘放到后台，避免组合期做 IO。
     LaunchedEffect(images) {
@@ -300,14 +306,20 @@ internal fun GeneratedArtifactStrip(
                         .width(width)
                         .height(height)
                         .clip(RoundedCornerShape(12.dp))
-                        // 单击进全屏预览；保存统一走下方操作条，长按不再触发任何动作。
-                        .clickable {
-                            previewer?.open(
-                                images = images,
-                                initialIndex = index,
-                                groupKey = groupKey,
-                            )
-                        },
+                        // 单击进全屏预览；长按弹出保存/分享/改图/提示词。
+                        .combinedClickable(
+                            onClick = {
+                                previewer?.open(
+                                    images = images,
+                                    initialIndex = index,
+                                    groupKey = groupKey,
+                                )
+                            },
+                            onLongClick = {
+                                actionTarget = path
+                                showActions = true
+                            },
+                        ),
                 ) {
                     Image(
                         bitmap = bitmap,
@@ -318,62 +330,52 @@ internal fun GeneratedArtifactStrip(
                 }
             }
         }
-        // 图片下方的操作条：保存、分享、改图在左，提示词单独靠右。
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ArtifactActionChip(
-                text = saveLabel,
-                icon = Icons.Rounded.FileDownload,
-                enabled = !saving,
-                onClick = {
-                    if (saving) return@ArtifactActionChip
-                    saving = true
-                    scope.launch {
-                        var savedCount = 0
-                        var failure: String? = null
-                        for (path in images) {
-                            when (val result = GeneratedImageExporter.saveToGallery(context, path)) {
-                                is GeneratedImageExporter.Result.Saved -> savedCount++
-                                is GeneratedImageExporter.Result.Failed -> failure = result.reason
-                            }
+        val target = actionTarget
+        if (showActions && target != null) {
+            ImageActionSheet(
+                onDismiss = { showActions = false },
+                saveLabel = saveLabel,
+                shareLabel = shareLabel,
+                editLabel = editLabel,
+                promptLabel = promptLabel,
+                cancelLabel = stringResource(R.string.action_cancel),
+                onSave = {
+                    showActions = false
+                    if (!saving) {
+                        saving = true
+                        scope.launch {
+                            val result = GeneratedImageExporter.saveToGallery(context, target)
+                            saving = false
+                            Toast.makeText(
+                                context,
+                                when (result) {
+                                    is GeneratedImageExporter.Result.Saved -> savedText
+                                    is GeneratedImageExporter.Result.Failed -> result.reason
+                                },
+                                Toast.LENGTH_SHORT,
+                            ).show()
                         }
-                        saving = false
-                        val message = when {
-                            savedCount > 0 && images.size > 1 -> "$savedText ×$savedCount"
-                            savedCount > 0 -> savedText
-                            else -> failure ?: saveFailedText
-                        }
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                 },
+                onShare = {
+                    showActions = false
+                    shareGeneratedImages(context, listOf(target))
+                },
+                onEdit = onEditImage?.let { callback ->
+                    {
+                        showActions = false
+                        callback(target)
+                    }
+                },
+                onPrompt = if (prompts.isNotEmpty()) {
+                    {
+                        showActions = false
+                        showPrompt = true
+                    }
+                } else {
+                    null
+                },
             )
-            ArtifactActionChip(
-                text = shareLabel,
-                icon = Icons.Rounded.Share,
-                onClick = { shareGeneratedImages(context, images) },
-            )
-            if (onEditImage != null) {
-                ArtifactActionChip(
-                    text = editLabel,
-                    icon = Icons.Rounded.Edit,
-                    onClick = { onEditImage(images.first()) },
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            if (prompts.isNotEmpty()) {
-                ArtifactActionChip(
-                    text = promptLabel,
-                    icon = Icons.Rounded.KeyboardArrowDown,
-                    selected = showPrompt,
-                    transparent = true,
-                    onClick = { showPrompt = !showPrompt },
-                )
-            }
         }
         if (showPrompt && prompts.isNotEmpty()) {
             Column(
@@ -414,47 +416,65 @@ internal fun GeneratedArtifactStrip(
     }
 }
 
-/** 生图卡片下方的胶囊按钮：浅底实心、图标配文字，与聊天里的图片操作风格一致。 */
+/** 长按生成图后弹出的操作面板。 */
 @Composable
-private fun ArtifactActionChip(
+private fun ImageActionSheet(
+    onDismiss: () -> Unit,
+    saveLabel: String,
+    shareLabel: String,
+    editLabel: String,
+    promptLabel: String,
+    cancelLabel: String,
+    onSave: () -> Unit,
+    onShare: () -> Unit,
+    onEdit: (() -> Unit)?,
+    onPrompt: (() -> Unit)?,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(MiuixTheme.colorScheme.surface)
+                .padding(vertical = 6.dp),
+        ) {
+            ImageActionRow(saveLabel, Icons.Rounded.FileDownload, onSave)
+            ImageActionRow(shareLabel, Icons.Rounded.Share, onShare)
+            if (onEdit != null) {
+                ImageActionRow(editLabel, Icons.Rounded.Edit, onEdit)
+            }
+            if (onPrompt != null) {
+                ImageActionRow(promptLabel, Icons.Rounded.KeyboardArrowDown, onPrompt)
+            }
+            ImageActionRow(cancelLabel, Icons.Rounded.Close, onDismiss)
+        }
+    }
+}
+
+@Composable
+private fun ImageActionRow(
     text: String,
     icon: ImageVector,
-    selected: Boolean = false,
-    enabled: Boolean = true,
-    transparent: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val accent = MiuixTheme.colorScheme.primary
-    val contentColor = when {
-        !enabled -> MiuixTheme.colorScheme.onSurface.copy(alpha = 0.34f)
-        selected -> accent
-        else -> MiuixTheme.colorScheme.onSurface.copy(alpha = 0.72f)
-    }
-    // 提示词按钮不铺底色，只靠图标和文字；其它按钮用浅底区分。
-    val background = if (transparent) {
-        Color.Transparent
-    } else {
-        MiuixTheme.colorScheme.onSurface.copy(alpha = 0.055f)
-    }
     Row(
         modifier = Modifier
-            .clip(CircleShape)
-            .background(background, CircleShape)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = if (transparent) 6.dp else 13.dp, vertical = 8.dp),
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = contentColor,
-            modifier = Modifier.size(14.dp),
+            tint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+            modifier = Modifier.size(18.dp),
         )
-        Spacer(modifier = Modifier.width(5.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = text,
-            style = MiuixTheme.textStyles.footnote2,
-            color = contentColor,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurface,
         )
     }
 }

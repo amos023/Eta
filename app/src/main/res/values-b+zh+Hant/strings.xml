@@ -1365,6 +1365,7 @@
   <string name="image_quality_label">畫質</string>
   <string name="image_quality_summary">1K 標準細節、2K 高細節、3K 最高細節；真實像素由上面的尺寸決定。</string>
   <string name="image_provider_add">新增生圖供應商</string>
+  <string name="image_provider_none_short">暫無生圖供應商</string>
   <string name="image_gallery_entry">畫廊</string>
   <string name="image_gallery_title">圖片畫廊</string>
   <string name="image_gallery_entry_summary">本機已生成的全部圖片</string>
@@ -1401,7 +1402,7 @@
   <string name="image_gallery_off">關</string>
   <string name="image_model_chip_idle">生圖</string>
   <string name="image_model_chip_off">不使用生圖</string>
-  <string name="image_settings_title">生圖設定</string>
+  <string name="image_settings_title">生圖配置</string>
   <string name="image_settings_group_model">生圖模型</string>
   <string name="image_settings_group_params">生成參數</string>
   <string name="image_settings_group_provider">生圖供應商</string>
