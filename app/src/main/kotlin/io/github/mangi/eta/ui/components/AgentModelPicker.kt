@@ -1,6 +1,12 @@
 package io.github.mangi.eta.ui.components
 
+import android.widget.Toast
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +57,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
@@ -78,8 +86,16 @@ import com.itos.coui.layout.Divider
 import com.itos.coui.layout.Group
 import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
+import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.datastore.SettingsDataStore
+import io.github.mangi.eta.data.repository.ModelRepository
+import io.github.mangi.eta.data.repository.ProviderRepository
+import io.github.mangi.eta.data.repository.RemoteModelFetcher
+import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.pages.providers.RemoteModelImport
+import io.github.mangi.eta.ui.pages.providers.RemoteModelImportSheet
+import java.util.Locale
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiIconDivider
 import io.github.mangi.eta.ui.components.coui.CouiSearchBarBox
@@ -89,6 +105,7 @@ import io.github.mangi.eta.ui.model.AgentModelProviderGroupUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.filterGroups
 import io.github.mangi.eta.ui.model.modelCount
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -502,6 +519,68 @@ private fun ModelSheetContent(
     val density = LocalDensity.current
     val sheetHeight = with(density) { LocalWindowInfo.current.containerSize.height.toDp() } * 0.68f
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val context = LocalContext.current
+    // 中转站改分组后模型会变，允许在面板里直接重拉，不必再进设置找供应商。
+    var refreshingProviders by remember { mutableStateOf(setOf<String>()) }
+    // 拉取结果先落到这里等用户勾选，只把选中的模型并入当前服务商。
+    var pendingImport by remember { mutableStateOf<RemoteModelImport?>(null) }
+    val onRefreshProvider: (AgentModelProviderGroupUi) -> Unit = { group ->
+        if (group.providerId !in refreshingProviders) {
+            refreshingProviders = refreshingProviders + group.providerId
+            scope.launch {
+                try {
+                    val provider = ProviderRepository.providerById(group.providerId)
+                    if (provider == null) {
+                        Toast.makeText(context, "服务商已不存在，请重新打开面板", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    val catalog = RemoteModelFetcher.fetchCatalog(provider).getOrElse { throwable ->
+                        Toast.makeText(
+                            context,
+                            context.getString(
+                                R.string.provider_error,
+                                throwable.message ?: throwable.javaClass.simpleName,
+                            ),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        return@launch
+                    }
+                    // 先把拉到的目录交给用户勾选，只并入选中的新模型，不再整包拉进来。
+                    val candidates = ModelRepository.newRemoteModels(group.providerId, catalog.models)
+                    if (candidates.isNotEmpty()) {
+                        pendingImport = RemoteModelImport(catalog, candidates)
+                        return@launch
+                    }
+                    val sync = ModelRepository.syncRemoteCatalog(catalog, emptySet())
+                    if (sync.applied) {
+                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    }
+                    Toast.makeText(
+                        context,
+                        if (sync.applied) {
+                            "远端没有新模型，已对齐本地已下线的条目"
+                        } else {
+                            context.getString(R.string.provider_models_up_to_date)
+                        },
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (throwable: Throwable) {
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.provider_error,
+                            throwable.message ?: context.getString(R.string.provider_sync_failed),
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                } finally {
+                    refreshingProviders = refreshingProviders - group.providerId
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -568,10 +647,55 @@ private fun ModelSheetContent(
                         scope.launch { SettingsDataStore.setModelPickerCollapsedProviders(updated) }
                     },
                     onSelect = { select(it) },
+                    refreshing = group.providerId in refreshingProviders,
+                    onRefresh = { onRefreshProvider(group) },
                 )
             }
         }
     }
+
+    // 与设置页同一套导入弹窗：勾选后才写入，取消则什么都不改。
+    RemoteModelImportSheet(
+        pending = pendingImport,
+        onDismissRequest = { pendingImport = null },
+        onConfirm = { pending, adopted ->
+            pendingImport = null
+            scope.launch {
+                try {
+                    val sync = ModelRepository.syncRemoteCatalog(pending.catalog, adopted)
+                    if (sync.applied) {
+                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    }
+                    Toast.makeText(
+                        context,
+                        when {
+                            !sync.applied -> context.getString(
+                                R.string.page_the_remote_end_did_not_return_a_usable_conversation__781487,
+                            )
+                            adopted.isEmpty() -> context.getString(R.string.provider_models_up_to_date)
+                            else -> context.resources.getQuantityString(
+                                R.plurals.provider_models_added,
+                                sync.addedCount,
+                                sync.addedCount,
+                            )
+                        },
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (throwable: Throwable) {
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.provider_error,
+                            throwable.message ?: context.getString(R.string.provider_sync_failed),
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+        },
+    )
 }
 
 /**
@@ -613,6 +737,8 @@ private fun ModelProviderCard(
     collapsed: Boolean,
     onToggleCollapsed: () -> Unit,
     onSelect: (String) -> Unit,
+    refreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
 ) {
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> Column(modifier = Modifier.padding(bottom = 14.dp)) {
@@ -621,6 +747,8 @@ private fun ModelProviderCard(
                 count = group.models.size,
                 collapsed = collapsed,
                 onToggle = onToggleCollapsed,
+                refreshing = refreshing,
+                onRefresh = onRefresh,
             )
             if (!collapsed) {
                 Group(title = null) {
@@ -647,6 +775,8 @@ private fun ModelProviderCard(
                 count = group.models.size,
                 collapsed = collapsed,
                 onToggle = onToggleCollapsed,
+                refreshing = refreshing,
+                onRefresh = onRefresh,
             )
             if (!collapsed) {
                 Card {
@@ -687,6 +817,8 @@ private fun ModelGroupCaption(
     count: Int,
     collapsed: Boolean,
     onToggle: () -> Unit,
+    refreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
 ) {
     val title = name.ifBlank { "未命名服务商" }
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
@@ -698,6 +830,13 @@ private fun ModelGroupCaption(
     val rotation by animateFloatAsState(
         targetValue = if (collapsed) -90f else 0f,
         label = "provider_chevron",
+    )
+    // 拉取远端目录时让按钮自转，给出明确的进行中反馈。
+    val spin by rememberInfiniteTransition(label = "provider_refresh").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(durationMillis = 900, easing = LinearEasing)),
+        label = "provider_refresh_angle",
     )
     Row(
         modifier = Modifier
@@ -716,6 +855,28 @@ private fun ModelGroupCaption(
             modifier = Modifier.weight(1f),
         )
         Spacer(modifier = Modifier.width(8.dp))
+        // 拉取当前服务商的远端模型目录：中转站改分组后不必再进设置页。
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .clickable(
+                    enabled = !refreshing,
+                    role = Role.Button,
+                    onClick = onRefresh,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Refresh,
+                contentDescription = "拉取模型",
+                tint = if (refreshing) color.copy(alpha = 0.38f) else color,
+                modifier = Modifier
+                    .size(16.dp)
+                    .rotate(if (refreshing) spin else 0f),
+            )
+        }
+        Spacer(modifier = Modifier.width(4.dp))
         Icon(
             imageVector = Icons.Rounded.KeyboardArrowDown,
             contentDescription = null,
@@ -759,6 +920,17 @@ private fun ModelPickerRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        // 右侧常驻上下文窗口，方便在长列表里直接对比容量。
+        val contextLabel = formatContextWindowLabel(model.contextWindow)
+        if (contextLabel != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = contextLabel,
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                maxLines = 1,
+            )
+        }
         if (selected) {
             Spacer(modifier = Modifier.width(8.dp))
             Icon(
@@ -810,3 +982,19 @@ private val ModelPopupWidth = 248.dp
 private const val ModelPopupLimit = 8
 
 private const val SelectionConfirmMs = 140L
+
+/** 上下文窗口的紧凑写法：128K / 200K / 1M，未知或非正数返回 null 不占位。 */
+internal fun formatContextWindowLabel(tokens: Int?): String? {
+    val value = tokens?.takeIf { it > 0 } ?: return null
+    return when {
+        value >= 1_000_000 -> {
+            val millions = value / 1_000_000.0
+            if (millions % 1.0 == 0.0) "${millions.toInt()}M" else "%.1fM".format(Locale.US, millions)
+        }
+        value >= 1000 -> {
+            val thousands = value / 1000.0
+            if (thousands % 1.0 == 0.0) "${thousands.toInt()}K" else "%.1fK".format(Locale.US, thousands)
+        }
+        else -> value.toString()
+    }
+}
