@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -68,7 +69,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.itos.coui.backdrop.couiBackdrop
 import com.itos.coui.backdrop.rememberCouiBackdrop
+import com.itos.coui.dialog.CouiDialogAction
 import com.itos.coui.dialog.CouiDialogDefaults
+import com.itos.coui.dialog.CouiDialogPlacement
+import com.itos.coui.dialog.Dialog as CouiDialog
 import com.itos.coui.effect.couiButtonFeedback
 import com.itos.coui.layout.CouiPageDefaults
 import com.itos.coui.layout.Divider as CouiDivider
@@ -76,6 +80,7 @@ import com.itos.coui.menu.CouiMenuItem
 import com.itos.coui.menu.Menu
 import com.itos.coui.menu.couiMenuAnchor
 import com.itos.coui.menu.rememberCouiMenuAnchor
+import com.itos.coui.menu.rememberCouiWindowBackdrop
 import com.itos.coui.shape.CouiShape
 import com.itos.coui.text.CouiTextKind
 import com.itos.coui.text.Text as CouiText
@@ -85,6 +90,9 @@ import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.components.coui.CouiIcon
 import io.github.mangi.eta.ui.components.coui.CouiIconNext
+import io.github.mangi.eta.ui.components.coui.couiPrimaryDialogAction
+import io.github.mangi.eta.ui.components.coui.rememberCouiDialogMaterial
+import io.github.mangi.eta.ui.model.ConversationGroupUi
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import top.yukonga.miuix.kmp.basic.Card
@@ -126,6 +134,8 @@ internal fun ConversationPanePanel(
     onConversationRename: (ConversationSummaryUi) -> Unit,
     onConversationExport: (ConversationSummaryUi) -> Unit,
     onConversationDelete: (ConversationSummaryUi) -> Unit,
+    onConversationMoveToGroup: (ConversationSummaryUi, String?) -> Unit,
+    onConversationCreateGroup: (ConversationSummaryUi, String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenTools: () -> Unit,
@@ -137,7 +147,11 @@ internal fun ConversationPanePanel(
     // state.conversations 已由 AgentAppState 按标题、预览与消息内容过滤。
     val query = state.searchQuery.trim()
     val isSearching = query.isNotBlank()
-    val groups = remember(state.conversations) { state.conversations.groupForDrawer() }
+    val groups = remember(state.conversations, state.groups) {
+        state.conversations.groupForDrawer(state.groups)
+    }
+    // 长按菜单「移动到项目」的当前目标会话。
+    var moveTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     val containerColor = conversationPaneContainerColor()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val couiBackdrop = if (isCoui) rememberCouiBackdrop() else null
@@ -221,6 +235,7 @@ internal fun ConversationPanePanel(
                                             onRename = { onConversationRename(conversation) },
                                             onExport = { onConversationExport(conversation) },
                                             onDelete = { onConversationDelete(conversation) },
+                                            onMoveToGroup = { moveTarget = conversation },
                                         )
                                     }
                                 }
@@ -271,6 +286,23 @@ internal fun ConversationPanePanel(
             )
         }
     }
+
+    MoveToGroupDialog(
+        target = moveTarget,
+        groups = state.groups,
+        onDismiss = { moveTarget = null },
+        onPick = { groupId ->
+            moveTarget?.let { onConversationMoveToGroup(it, groupId) }
+            moveTarget = null
+        },
+        onCreate = {
+            val conversation = moveTarget
+            moveTarget = null
+            if (conversation != null) {
+                onConversationCreateGroup(conversation, "新项目 ${state.groups.size + 1}")
+            }
+        },
+    )
 }
 
 private data class WorkbenchEntry(
@@ -569,6 +601,7 @@ private fun ConversationHistoryRow(
     onRename: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
+    onMoveToGroup: () -> Unit,
 ) {
     var showActionMenu by remember { mutableStateOf(false) }
     val hapticFeedback = LocalHapticFeedback.current
@@ -755,18 +788,20 @@ private fun ConversationHistoryRow(
             },
         )
         val renameText = stringResource(R.string.action_rename)
+        val moveText = "移动到项目"
         val exportText = stringResource(R.string.action_export)
         val deleteText = stringResource(R.string.action_delete)
         when (LocalUiStyle.current) {
             AppearanceUiStyle.COUI -> {
                 val destructiveColor = CouiDialogDefaults.themeColors().destructive
-                val menuItems = remember(pinText, renameText, exportText, deleteText, destructiveColor) {
+                val menuItems = remember(pinText, renameText, moveText, exportText, deleteText, destructiveColor) {
                     listOf(
                         CouiMenuItem(value = 0, text = pinText, icon = Icons.Outlined.PushPin),
                         CouiMenuItem(value = 1, text = renameText, icon = Icons.Outlined.Edit),
-                        CouiMenuItem(value = 2, text = exportText, icon = Icons.Outlined.Download),
+                        CouiMenuItem(value = 2, text = moveText, icon = Icons.Outlined.Folder),
+                        CouiMenuItem(value = 3, text = exportText, icon = Icons.Outlined.Download),
                         CouiMenuItem(
-                            value = 3,
+                            value = 4,
                             text = deleteText,
                             icon = Icons.Outlined.Delete,
                             iconTint = destructiveColor,
@@ -783,8 +818,9 @@ private fun ConversationHistoryRow(
                         when (item.value) {
                             0 -> onTogglePin()
                             1 -> onRename()
-                            2 -> onExport()
-                            3 -> onDelete()
+                            2 -> onMoveToGroup()
+                            3 -> onExport()
+                            4 -> onDelete()
                         }
                     },
                     anchor = anchor,
@@ -962,6 +998,8 @@ private data class ConversationDrawerGroup(
 )
 
 private sealed interface ConversationDrawerSection {
+    /** 手动归入的项目：标题显示项目名，成员只含该项目内的会话。 */
+    data class Project(val groupId: String, val name: String) : ConversationDrawerSection
     data object Pinned : ConversationDrawerSection
     data object Today : ConversationDrawerSection
     data class Dated(val label: String) : ConversationDrawerSection
@@ -969,15 +1007,31 @@ private sealed interface ConversationDrawerSection {
 
 @Composable
 private fun ConversationDrawerGroup.localizedLabel(): String = when (val value = section) {
+    is ConversationDrawerSection.Project -> value.name
     ConversationDrawerSection.Pinned -> stringResource(R.string.conversation_section_pinned)
     ConversationDrawerSection.Today -> stringResource(R.string.conversation_section_today)
     is ConversationDrawerSection.Dated -> value.label
 }
 
-private fun List<ConversationSummaryUi>.groupForDrawer(): List<ConversationDrawerGroup> {
+private fun List<ConversationSummaryUi>.groupForDrawer(
+    definitions: List<ConversationGroupUi>,
+): List<ConversationDrawerGroup> {
     if (isEmpty()) return emptyList()
+    val knownIds = definitions.mapTo(mutableSetOf()) { it.id }
+    val byGroup = groupBy { conversation -> conversation.groupId?.takeIf { it in knownIds } }
     val groups = mutableListOf<ConversationDrawerGroup>()
-    for (conversation in this) {
+    // 项目组按 sort_order 升序，组内保持会话原有时间顺序；空项目不占位。
+    definitions.sortedBy { it.sortOrder }.forEach { definition ->
+        val items = byGroup[definition.id].orEmpty()
+        if (items.isNotEmpty()) {
+            groups += ConversationDrawerGroup(
+                section = ConversationDrawerSection.Project(definition.id, definition.name),
+                items = items,
+            )
+        }
+    }
+    // 未归组（含指向已删除项目的孤儿引用）仍走置顶 / 今天 / 日期分段。
+    for (conversation in byGroup[null].orEmpty()) {
         val section = conversation.drawerSection()
         val last = groups.lastOrNull()
         if (last?.section == section) {
@@ -1002,4 +1056,87 @@ private fun isUpdatedToday(timestampMillis: Long): Boolean {
     return now.get(java.util.Calendar.ERA) == target.get(java.util.Calendar.ERA) &&
         now.get(java.util.Calendar.YEAR) == target.get(java.util.Calendar.YEAR) &&
         now.get(java.util.Calendar.DAY_OF_YEAR) == target.get(java.util.Calendar.DAY_OF_YEAR)
+}
+
+
+/** 「移动到项目」选择器：列出已有项目，底部可新建项目或取消。 */
+@Composable
+private fun MoveToGroupDialog(
+    target: ConversationSummaryUi?,
+    groups: List<ConversationGroupUi>,
+    onDismiss: () -> Unit,
+    onPick: (String?) -> Unit,
+    onCreate: () -> Unit,
+) {
+    if (LocalUiStyle.current != AppearanceUiStyle.COUI) return
+    val dark = CouiTheme.isDark
+    val colors = CouiPageDefaults.themeColors(dark)
+    CouiDialog(
+        onDismissRequest = onDismiss,
+        dark = dark,
+        title = "移动到项目",
+        confirmAction = couiPrimaryDialogAction(
+            text = "新建项目",
+            onClick = onCreate,
+            dark = dark,
+        ),
+        dismissAction = CouiDialogAction(text = "取消", onClick = onDismiss),
+        placement = CouiDialogPlacement.Bottom,
+        material = rememberCouiDialogMaterial(dark),
+        backdrop = rememberCouiWindowBackdrop(),
+        visible = target != null,
+    ) {
+        if (groups.isEmpty()) {
+            CouiText(
+                text = "还没有项目，点下方「新建项目」把这条会话收进去。",
+                kind = CouiTextKind.ItemSummary,
+                color = colors.summary,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+            )
+        }
+        groups.forEachIndexed { index, group ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onPick(group.id) }
+                    .padding(horizontal = 4.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CouiText(
+                    text = group.name,
+                    kind = CouiTextKind.ItemTitle,
+                    color = colors.title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (target?.groupId == group.id) {
+                    CouiText(
+                        text = "当前",
+                        kind = CouiTextKind.ItemSummary,
+                        color = colors.summary,
+                    )
+                }
+            }
+            if (index < groups.lastIndex) {
+                CouiDivider(startIndent = 4.dp, endIndent = 4.dp)
+            }
+        }
+        if (target?.groupId != null) {
+            CouiDivider(startIndent = 4.dp, endIndent = 4.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onPick(null) }
+                    .padding(horizontal = 4.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CouiText(
+                    text = "移出项目",
+                    kind = CouiTextKind.ItemTitle,
+                    color = colors.title,
+                )
+            }
+        }
+    }
 }

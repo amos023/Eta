@@ -12,6 +12,7 @@ import androidx.room.migration.Migration
         AgentTextChunkEntity::class,
         ConversationEntity::class,
         ConversationGroupEntity::class,
+        ConversationGroupFileEntity::class,
         ConversationContextCheckpointEntity::class,
         ConversationMessageEntity::class,
         ConversationStateEntity::class,
@@ -27,7 +28,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 30,
+    version = 31,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -74,6 +75,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_27_28,
                         MIGRATION_28_29,
                         MIGRATION_29_30,
+                        MIGRATION_30_31,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -182,6 +184,24 @@ internal abstract class EtaDatabase : RoomDatabase() {
          * 按实体 schema 建表，本就带着它们；再次 ALTER 会报
          * duplicate column name 而崩溃。两种来源都要能过，因此逐列先检查。
          */
+        internal val MIGRATION_30_31 = Migration(30, 31) { database ->
+            // 项目化分组：补说明与项目级指令，并新增项目共享资料表。
+            database.addColumnIfMissing("conversation_groups", "description", "TEXT NOT NULL DEFAULT ''")
+            database.addColumnIfMissing("conversation_groups", "instructions", "TEXT NOT NULL DEFAULT ''")
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS `conversation_group_files` (" +
+                    "`id` TEXT NOT NULL, `group_id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                    "`mime` TEXT NOT NULL DEFAULT '', `path` TEXT NOT NULL, " +
+                    "`size_bytes` INTEGER NOT NULL DEFAULT 0, `created_at` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`id`), FOREIGN KEY(`group_id`) REFERENCES `conversation_groups`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_conversation_group_files_group_id` " +
+                    "ON `conversation_group_files` (`group_id`)"
+            )
+        }
+
         internal val MIGRATION_29_30 = Migration(29, 30) { database ->
             database.addColumnIfMissing("conversation_messages", "cache_write_tokens", "INTEGER")
             database.addColumnIfMissing("conversation_messages", "compaction_archive_id", "TEXT")

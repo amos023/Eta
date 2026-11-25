@@ -1119,7 +1119,15 @@ internal class AgentAppState(
             EtaDatabase.get(appContext).conversationDao().groups()
         }
         withContext(Dispatchers.Main.immediate) {
-            groupDefinitions = rows.map { ConversationGroupUi(it.id, it.name, it.sortOrder) }
+            groupDefinitions = rows.map {
+                ConversationGroupUi(
+                    id = it.id,
+                    name = it.name,
+                    description = it.description,
+                    instructions = it.instructions,
+                    sortOrder = it.sortOrder,
+                )
+            }
             refreshConversationSummaries()
         }
     }
@@ -1139,6 +1147,30 @@ internal class AgentAppState(
                         createdAt = System.currentTimeMillis(),
                     ),
                 )
+            }
+            reloadGroupDefinitions()
+        }
+    }
+
+    /** 新建项目并把会话直接放进去，供侧栏「移动到新项目」一步完成。 */
+    fun createConversationGroupAndAssign(conversationId: String, name: String) {
+        val trimmed = name.trim().ifEmpty { "新项目" }
+        scope.launch {
+            val dao = EtaDatabase.get(appContext).conversationDao()
+            val groupId = newGroupId()
+            withContext(Dispatchers.IO) {
+                dao.insertGroup(
+                    ConversationGroupEntity(
+                        id = groupId,
+                        name = trimmed,
+                        sortOrder = dao.nextGroupSortOrder(),
+                        createdAt = System.currentTimeMillis(),
+                    ),
+                )
+                dao.setConversationGroup(conversationId, groupId)
+            }
+            withContext(Dispatchers.Main.immediate) {
+                conversationGroups = conversationGroups + (conversationId to groupId)
             }
             reloadGroupDefinitions()
         }
@@ -1171,6 +1203,19 @@ internal class AgentAppState(
             val existing = withContext(Dispatchers.IO) { dao.groups() }.firstOrNull { it.id == groupId }
                 ?: return@launch
             withContext(Dispatchers.IO) { dao.insertGroup(existing.copy(name = trimmed)) }
+            reloadGroupDefinitions()
+        }
+    }
+
+    /** 更新项目元数据：名称、说明与项目级指令。 */
+    fun updateConversationGroupMeta(groupId: String, name: String, description: String, instructions: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                EtaDatabase.get(appContext).conversationDao()
+                    .updateGroupMeta(groupId, trimmed, description, instructions)
+            }
             reloadGroupDefinitions()
         }
     }

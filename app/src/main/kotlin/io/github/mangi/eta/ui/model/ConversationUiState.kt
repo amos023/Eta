@@ -16,7 +16,23 @@ data class ConversationPaneUiState(
 data class ConversationGroupUi(
     val id: String,
     val name: String,
+    /** 项目说明，只在项目页展示。 */
+    val description: String = "",
+    /** 项目级指令，项目内会话发起请求时注入系统提示。 */
+    val instructions: String = "",
     val sortOrder: Int = 0,
+)
+
+/** 项目资料：项目内共享的文件条目。 */
+@Immutable
+data class ConversationGroupFileUi(
+    val id: String,
+    val groupId: String,
+    val name: String,
+    val mime: String = "",
+    val path: String = "",
+    val sizeBytes: Long = 0L,
+    val createdAt: Long = 0L,
 )
 
 @Immutable

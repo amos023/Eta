@@ -42,7 +42,39 @@ internal data class ConversationEntity(
 internal data class ConversationGroupEntity(
     @PrimaryKey val id: String,
     val name: String,
+    /** 项目说明：只在项目页展示，不进入提示词。 */
+    @ColumnInfo(name = "description", defaultValue = "''") val description: String = "",
+    /** 项目级自定义指令：项目内会话发起请求时注入系统提示。 */
+    @ColumnInfo(name = "instructions", defaultValue = "''") val instructions: String = "",
     @ColumnInfo(name = "sort_order", defaultValue = "0") val sortOrder: Int = 0,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+)
+
+/**
+ * 项目资料：项目内所有会话共享的文件。
+ * 文件本体复制到应用私有目录，这里只留元数据与路径。
+ */
+@Entity(
+    tableName = "conversation_group_files",
+    indices = [Index(value = ["group_id"])],
+    foreignKeys = [
+        ForeignKey(
+            entity = ConversationGroupEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["group_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+internal data class ConversationGroupFileEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "group_id") val groupId: String,
+    val name: String,
+    /** MIME 类型：文本类直接读内容注入，图片类按附件引用。 */
+    @ColumnInfo(name = "mime", defaultValue = "''") val mime: String = "",
+    /** 应用私有目录内的绝对路径。 */
+    @ColumnInfo(name = "path") val path: String,
+    @ColumnInfo(name = "size_bytes", defaultValue = "0") val sizeBytes: Long = 0,
     @ColumnInfo(name = "created_at") val createdAt: Long,
 )
 
