@@ -378,7 +378,7 @@ internal fun ConversationPanePanel(
     deleteGroupTarget?.let { project ->
         CouiConfirmDialog(
             visible = true,
-            title = "删除项目",
+            title = "删除分组",
             message = "项目里的会话会退回未分组，聊天记录不会删除。",
             confirmText = "删除",
             destructive = true,
@@ -1299,7 +1299,7 @@ private fun ProjectGroupRow(
                 CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
                 CouiMenuItem(
                     value = 1,
-                    text = "删除项目",
+                    text = "删除",
                     icon = Icons.Outlined.Delete,
                     iconTint = destructiveColor,
                     dividerBefore = true,
@@ -1319,6 +1319,8 @@ private fun ProjectGroupRow(
             onDismissRequest = { sessionsExpanded = false },
             items = buildList {
                 add(CouiMenuItem(value = -1, text = "请选择会话", enabled = false))
+                // 每个会话项带二级菜单：打开 / 移出分组 / 重命名 / 删除。
+                // COUI 菜单项只支持展开二级，不支持长按，所以操作放在二级里。
                 conversations.forEachIndexed { index, conversation ->
                     add(
                         CouiMenuItem(
@@ -1327,15 +1329,14 @@ private fun ProjectGroupRow(
                                 conversation.preview.ifBlank { "未命名会话" }
                             },
                             icon = if (conversation.id == selectedId) Icons.Rounded.Check else null,
+                            children = listOf(
+                                CouiMenuItem(value = 1000 + index * 10 + 0, text = "打开会话"),
+                                CouiMenuItem(value = 1000 + index * 10 + 1, text = "移出分组"),
+                                CouiMenuItem(value = 1000 + index * 10 + 2, text = "重命名"),
+                                CouiMenuItem(value = 1000 + index * 10 + 3, text = "删除"),
+                            ),
                         ),
                     )
-                }
-                // 末尾三项针对当前选中的会话，没有选中时不显示。
-                val target = conversations.firstOrNull { it.id == selectedId }
-                if (target != null) {
-                    add(CouiMenuItem(value = 1000, text = "移出分组", dividerBefore = true))
-                    add(CouiMenuItem(value = 1001, text = "重命名会话"))
-                    add(CouiMenuItem(value = 1002, text = "删除会话"))
                 }
             },
             onItemClick = { item ->
@@ -1343,12 +1344,19 @@ private fun ProjectGroupRow(
                 when {
                     item.value in conversations.indices ->
                         conversations.getOrNull(item.value)?.let { onSelect(it.id) }
-                    item.value == 1000 ->
-                        conversations.firstOrNull { it.id == selectedId }?.let(onMoveOutGroup)
-                    item.value == 1001 ->
-                        conversations.firstOrNull { it.id == selectedId }?.let(onRenameConversation)
-                    item.value == 1002 ->
-                        conversations.firstOrNull { it.id == selectedId }?.let(onDeleteConversation)
+                    item.value >= 1000 -> {
+                        val index = (item.value - 1000) / 10
+                        val operation = (item.value - 1000) % 10
+                        val target = conversations.getOrNull(index)
+                        if (target != null) {
+                            when (operation) {
+                                0 -> onSelect(target.id)
+                                1 -> onMoveOutGroup(target)
+                                2 -> onRenameConversation(target)
+                                3 -> onDeleteConversation(target)
+                            }
+                        }
+                    }
                 }
             },
             anchor = sessionsAnchor,
