@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Power
 import androidx.compose.material.icons.rounded.Mic
@@ -397,6 +398,42 @@ private fun SettingsPageContent(
                         title = stringResource(R.string.settings_auto_compaction),
                         key = Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED,
                         icon = Icons.Rounded.Layers,
+                        iconTint = SettingsIconColors.Blue,
+                    )
+                    CouiIconDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = "任务完成提醒",
+                        key = Prefs.Keys.AGENT_NOTIFY_ON_COMPLETE,
+                        icon = Icons.Rounded.Notifications,
+                        iconTint = SettingsIconColors.Blue,
+                    )
+                    CouiIconDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = "任务失败提醒",
+                        key = Prefs.Keys.AGENT_NOTIFY_ON_FAILURE,
+                        icon = Icons.Rounded.Notifications,
+                        iconTint = SettingsIconColors.Blue,
+                    )
+                    CouiIconDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = "仅在后台时提醒",
+                        key = Prefs.Keys.AGENT_NOTIFY_ONLY_BACKGROUND,
+                        icon = Icons.Rounded.Notifications,
+                        iconTint = SettingsIconColors.Blue,
+                    )
+                    CouiIconDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = "静默提醒（不响铃）",
+                        key = Prefs.Keys.AGENT_NOTIFY_SILENT,
+                        icon = Icons.Rounded.Notifications,
                         iconTint = SettingsIconColors.Blue,
                     )
                     CouiIconDivider()
@@ -862,6 +899,38 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.settings_auto_compaction),
                             key = Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED,
                             icon = Icons.Rounded.Layers,
+                            iconTint = SettingsIconColors.Blue,
+                        )
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = "任务完成提醒",
+                            key = Prefs.Keys.AGENT_NOTIFY_ON_COMPLETE,
+                            icon = Icons.Rounded.Notifications,
+                            iconTint = SettingsIconColors.Blue,
+                        )
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = "任务失败提醒",
+                            key = Prefs.Keys.AGENT_NOTIFY_ON_FAILURE,
+                            icon = Icons.Rounded.Notifications,
+                            iconTint = SettingsIconColors.Blue,
+                        )
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = "仅在后台时提醒",
+                            key = Prefs.Keys.AGENT_NOTIFY_ONLY_BACKGROUND,
+                            icon = Icons.Rounded.Notifications,
+                            iconTint = SettingsIconColors.Blue,
+                        )
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = "静默提醒（不响铃）",
+                            key = Prefs.Keys.AGENT_NOTIFY_SILENT,
+                            icon = Icons.Rounded.Notifications,
                             iconTint = SettingsIconColors.Blue,
                         )
                         ArrowPreference(

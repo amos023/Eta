@@ -362,7 +362,11 @@ fun AgentAppRoot(
             onStopKimiWeb = appViewModel::stopKimiWeb,
             onRefreshKimiWeb = appViewModel::refreshKimiWeb,
             onOpenBrowser = { openConversationBrowser() },
-            onSelectConversation = { conversationId -> selectConversation(conversationId) },
+            onSelectConversation = { conversationId ->
+                selectConversation(conversationId)
+                // 选中会话后收起侧栏，否则会停在抽屉里看不到对话内容。
+                conversationPaneOpen = false
+            },
             onConversationTogglePin = { conversation ->
                 agentState.toggleConversationPin(conversation.id)
             },

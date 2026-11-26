@@ -751,14 +751,16 @@ private fun ModelProviderCard(
                 onRefresh = onRefresh,
             )
             if (!collapsed) {
-                // 直接平铺模型行，不做缩进。
+                // 展开后缩进一级，和服务商标题形成层次。
                 group.models.forEach { model ->
-                    ModelPickerRow(
-                        model = model,
-                        selected = model.id == selectedId,
-                        onClick = { onSelect(model.id) },
-                        horizontalPadding = 4.dp,
-                    )
+                    Box(modifier = Modifier.padding(start = 14.dp)) {
+                        ModelPickerRow(
+                            model = model,
+                            selected = model.id == selectedId,
+                            onClick = { onSelect(model.id) },
+                            horizontalPadding = 4.dp,
+                        )
+                    }
                 }
             }
         }
