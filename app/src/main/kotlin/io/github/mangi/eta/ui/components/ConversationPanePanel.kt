@@ -211,18 +211,6 @@ internal fun ConversationPanePanel(
                             verticalArrangement = Arrangement.spacedBy(ConversationPanelMetrics.RowGap),
                             overscrollEffect = null,
                         ) {
-                            if (!isSearching) {
-                                item(key = "pane_workbench") {
-                                    PaneWorkbenchSection(
-                                        activeModelLabel = activeModelLabel,
-                                        onOpenModelProviders = onOpenModelProviders,
-                                        onOpenCharacters = onOpenCharacters,
-                                        onOpenTools = onOpenTools,
-                                        onOpenSkills = onOpenSkills,
-                                    )
-                                }
-                            }
-
                             if (state.conversations.isEmpty()) {
                                 item(key = "pane_empty_conversations") {
                                     EmptyConversations(isSearching = isSearching)
@@ -272,7 +260,6 @@ internal fun ConversationPanePanel(
                                             ConversationSectionHeader(
                                                 group = group,
                                                 isFirstSection = groupIndex == 0,
-                                                hasWorkbenchAbove = !isSearching,
                                             )
                                         }
                                         items(
@@ -300,6 +287,10 @@ internal fun ConversationPanePanel(
                         couiBackdrop = couiBackdrop,
                         miuixBackdrop = miuixBackdrop,
                         onNewConversation = onNewConversation,
+                        onOpenModelProviders = onOpenModelProviders,
+                        onOpenCharacters = onOpenCharacters,
+                        onOpenTools = onOpenTools,
+                        onOpenSkills = onOpenSkills,
                     )
                     ConversationPaneBottomDock(
                         query = state.searchQuery,
@@ -627,14 +618,9 @@ private fun MiuixWorkbenchRow(entry: WorkbenchEntry) {
 private fun ConversationSectionHeader(
     group: ConversationDrawerGroup,
     isFirstSection: Boolean,
-    hasWorkbenchAbove: Boolean,
 ) {
     val label = group.localizedLabel()
-    val topPadding = when {
-        isFirstSection && hasWorkbenchAbove -> ConversationPanelMetrics.FirstSectionTopPadding
-        isFirstSection -> 8.dp
-        else -> ConversationPanelMetrics.SectionTopPadding
-    }
+    val topPadding = if (isFirstSection) 8.dp else ConversationPanelMetrics.SectionTopPadding
     val horizontalInset = ConversationPanelMetrics.PaneHorizontalPadding +
         ConversationPanelMetrics.RowHorizontalPadding
 
@@ -1095,7 +1081,7 @@ private sealed interface ConversationDrawerSection {
 private fun ConversationDrawerGroup.localizedLabel(): String = when (val value = section) {
     is ConversationDrawerSection.Project -> value.name
     ConversationDrawerSection.Pinned -> stringResource(R.string.conversation_section_pinned)
-    ConversationDrawerSection.Today -> stringResource(R.string.conversation_section_today)
+    ConversationDrawerSection.Today -> "最近"
     is ConversationDrawerSection.Dated -> value.label
 }
 
@@ -1131,8 +1117,8 @@ private fun List<ConversationSummaryUi>.groupForDrawer(
 
 private fun ConversationSummaryUi.drawerSection(): ConversationDrawerSection = when {
     isPinned -> ConversationDrawerSection.Pinned
-    isActiveRun || isUpdatedToday(updatedAtMillis) -> ConversationDrawerSection.Today
-    else -> ConversationDrawerSection.Dated(timeLabel)
+    // 不再按日期细分成今天/昨天/周二，统一收进「最近」。
+    else -> ConversationDrawerSection.Today
 }
 
 private fun isUpdatedToday(timestampMillis: Long): Boolean {
@@ -1270,13 +1256,6 @@ private fun ProjectGroupRow(
                     .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CouiIcon(
-                    imageVector = Icons.Outlined.Folder,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = colors.summary,
-                )
-                Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     CouiText(
                         text = project.name,

@@ -205,6 +205,10 @@ internal fun ConversationPaneTopBar(
     couiBackdrop: CouiBackdrop?,
     miuixBackdrop: LayerBackdrop?,
     onNewConversation: () -> Unit,
+    onOpenModelProviders: () -> Unit,
+    onOpenCharacters: () -> Unit,
+    onOpenTools: () -> Unit,
+    onOpenSkills: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val barContent: @Composable () -> Unit = {
@@ -218,7 +222,30 @@ internal fun ConversationPaneTopBar(
                 .height(ConversationPanelMetrics.TopBarHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PaneBrandHeader(modifier = Modifier.weight(1f))
+            PaneBrandHeader()
+            Spacer(modifier = Modifier.weight(1f))
+            // 模型 / 角色 / 工具能力 / Skills 收进顶栏，与新建会话同一排。
+            PaneQuickAction(
+                icon = ConversationPaneIcons.Model,
+                contentDescription = stringResource(R.string.route_model_providers),
+                onClick = onOpenModelProviders,
+            )
+            PaneQuickAction(
+                icon = ConversationPaneIcons.Character,
+                contentDescription = "角色",
+                onClick = onOpenCharacters,
+            )
+            PaneQuickAction(
+                icon = ConversationPaneIcons.Tools,
+                contentDescription = stringResource(R.string.route_tools),
+                onClick = onOpenTools,
+            )
+            PaneQuickAction(
+                icon = ConversationPaneIcons.Skills,
+                contentDescription = stringResource(R.string.route_skills),
+                onClick = onOpenSkills,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
             PaneNewChatButton(
                 hasCouiToolbarBackdrop = LocalUiStyle.current == AppearanceUiStyle.COUI && couiBackdrop != null,
                 onClick = onNewConversation,
@@ -315,6 +342,30 @@ private fun PaneBrandHeader(modifier: Modifier = Modifier) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+/** 顶栏的轻量图标入口：模型、角色、工具能力、Skills。 */
+@Composable
+private fun PaneQuickAction(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    val colors = CouiPageDefaults.themeColors()
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        CouiIcon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(20.dp),
+            tint = colors.title,
+        )
     }
 }
 
