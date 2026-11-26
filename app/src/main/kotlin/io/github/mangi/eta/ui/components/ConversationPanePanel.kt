@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.shadow.Shadow
@@ -255,15 +257,11 @@ internal fun ConversationPanePanel(
                                                 conversations = group.items,
                                                 selectedId = state.selectedConversationId,
                                                 onSelect = onConversationSelected,
-                                                onMoveOutGroup = { conversation ->
-                                                    onConversationMoveToGroup(conversation, null)
-                                                },
-                                                onRenameConversation = { conversation ->
-                                                    onConversationRename(conversation)
-                                                },
-                                                onDeleteConversation = { conversation ->
-                                                    onConversationDelete(conversation)
-                                                },
+                                                onTogglePin = onConversationTogglePin,
+                                                onRename = onConversationRename,
+                                                onExport = onConversationExport,
+                                                onDelete = onConversationDelete,
+                                                onMoveToGroup = { conversation -> moveTarget = conversation },
                                                 onRenameGroup = { renameGroupTarget = projectSection },
                                                 onDeleteGroup = { deleteGroupTarget = projectSection },
                                             )
@@ -1229,8 +1227,8 @@ private fun MoveToGroupDialog(
 }
 
 /**
- * 项目分组：一行标题 + 点击弹出会话菜单（COUI 长菜单，自带高度限制与滚动）。
- * 右侧上下双箭头表示可展开；长按整行打开重命名/删除。
+ * 项目分组：一行标题，点击就地展开/收起该项目内的会话；长按标题打开重命名/删除。
+ * 展开后的会话行沿用普通会话行，长按即可置顶、重命名、移动、导出与删除。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -1239,127 +1237,103 @@ private fun ProjectGroupRow(
     conversations: List<ConversationSummaryUi>,
     selectedId: String?,
     onSelect: (String) -> Unit,
-    onMoveOutGroup: (ConversationSummaryUi) -> Unit,
-    onRenameConversation: (ConversationSummaryUi) -> Unit,
-    onDeleteConversation: (ConversationSummaryUi) -> Unit,
+    onTogglePin: (ConversationSummaryUi) -> Unit,
+    onRename: (ConversationSummaryUi) -> Unit,
+    onExport: (ConversationSummaryUi) -> Unit,
+    onDelete: (ConversationSummaryUi) -> Unit,
+    onMoveToGroup: (ConversationSummaryUi) -> Unit,
     onRenameGroup: () -> Unit,
     onDeleteGroup: () -> Unit,
 ) {
     val colors = CouiPageDefaults.themeColors()
-    var sessionsExpanded by remember { mutableStateOf(false) }
+    var expanded by remember(project.groupId) { mutableStateOf(false) }
     var manageExpanded by remember { mutableStateOf(false) }
-    val sessionsAnchor = rememberCouiMenuAnchor()
     val manageAnchor = rememberCouiMenuAnchor()
-    val selectedTitle = conversations.firstOrNull { it.id == selectedId }?.title
-    val summary = selectedTitle?.takeIf { it.isNotBlank() } ?: "${conversations.size} 个会话"
     val rowShape = remember { CouiShape(ConversationPanelMetrics.RowCornerRadius, 2.1f) }
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "project_arrow",
+    )
 
-    Box(modifier = Modifier.couiMenuAnchor(sessionsAnchor).couiMenuAnchor(manageAnchor)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = ConversationPanelMetrics.PaneHorizontalPadding)
-                .clip(rowShape)
-                .combinedClickable(
-                    onClick = { sessionsExpanded = true },
-                    onLongClick = { manageExpanded = true },
-                )
-                .padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                CouiText(
-                    text = project.name,
-                    kind = CouiTextKind.ItemTitle,
-                    color = colors.title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                CouiText(
-                    text = summary,
-                    kind = CouiTextKind.ItemSummary,
-                    color = colors.summary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            CouiIcon(
-                imageVector = ImageVector.vectorResource(R.drawable.coui_pop_up_next),
-                contentDescription = "展开会话",
-                modifier = Modifier.size(width = 11.dp, height = 19.dp),
-                tint = colors.summary,
-            )
-        }
-        val destructiveColor = CouiDialogDefaults.themeColors().destructive
-        Menu(
-            expanded = manageExpanded,
-            onDismissRequest = { manageExpanded = false },
-            items = listOf(
-                CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
-                CouiMenuItem(
-                    value = 1,
-                    text = "删除",
-                    icon = Icons.Outlined.Delete,
-                    iconTint = destructiveColor,
-                    dividerBefore = true,
-                ),
-            ),
-            onItemClick = { item ->
-                manageExpanded = false
-                when (item.value) {
-                    0 -> onRenameGroup()
-                    1 -> onDeleteGroup()
-                }
-            },
-            anchor = manageAnchor,
-        )
-        Menu(
-            expanded = sessionsExpanded,
-            onDismissRequest = { sessionsExpanded = false },
-            items = buildList {
-                add(CouiMenuItem(value = -1, text = "请选择会话", enabled = false))
-                // 每个会话项带二级菜单：打开 / 移出分组 / 重命名 / 删除。
-                // COUI 菜单项只支持展开二级，不支持长按，所以操作放在二级里。
-                conversations.forEachIndexed { index, conversation ->
-                    add(
-                        CouiMenuItem(
-                            value = index,
-                            text = conversation.title.ifBlank {
-                                conversation.preview.ifBlank { "未命名会话" }
-                            },
-                            icon = if (conversation.id == selectedId) Icons.Rounded.Check else null,
-                            children = listOf(
-                                CouiMenuItem(value = 1000 + index * 10 + 0, text = "打开会话"),
-                                CouiMenuItem(value = 1000 + index * 10 + 1, text = "移出分组"),
-                                CouiMenuItem(value = 1000 + index * 10 + 2, text = "重命名"),
-                                CouiMenuItem(value = 1000 + index * 10 + 3, text = "删除"),
-                            ),
-                        ),
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.couiMenuAnchor(manageAnchor)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ConversationPanelMetrics.PaneHorizontalPadding)
+                    .clip(rowShape)
+                    .combinedClickable(
+                        onClick = { expanded = !expanded },
+                        onLongClick = { manageExpanded = true },
+                    )
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    CouiText(
+                        text = project.name,
+                        kind = CouiTextKind.ItemTitle,
+                        color = colors.title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    CouiText(
+                        text = "${conversations.size} 个会话",
+                        kind = CouiTextKind.ItemSummary,
+                        color = colors.summary,
+                        maxLines = 1,
                     )
                 }
-            },
-            onItemClick = { item ->
-                sessionsExpanded = false
-                when {
-                    item.value in conversations.indices ->
-                        conversations.getOrNull(item.value)?.let { onSelect(it.id) }
-                    item.value >= 1000 -> {
-                        val index = (item.value - 1000) / 10
-                        val operation = (item.value - 1000) % 10
-                        val target = conversations.getOrNull(index)
-                        if (target != null) {
-                            when (operation) {
-                                0 -> onSelect(target.id)
-                                1 -> onMoveOutGroup(target)
-                                2 -> onRenameConversation(target)
-                                3 -> onDeleteConversation(target)
-                            }
-                        }
+                Spacer(modifier = Modifier.width(8.dp))
+                CouiIcon(
+                    imageVector = ImageVector.vectorResource(R.drawable.coui_pop_up_next),
+                    contentDescription = if (expanded) "收起" else "展开",
+                    modifier = Modifier
+                        .size(width = 11.dp, height = 19.dp)
+                        .rotate(arrowRotation),
+                    tint = colors.summary,
+                )
+            }
+            val destructiveColor = CouiDialogDefaults.themeColors().destructive
+            Menu(
+                expanded = manageExpanded,
+                onDismissRequest = { manageExpanded = false },
+                items = listOf(
+                    CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
+                    CouiMenuItem(
+                        value = 1,
+                        text = "删除",
+                        icon = Icons.Outlined.Delete,
+                        iconTint = destructiveColor,
+                        dividerBefore = true,
+                    ),
+                ),
+                onItemClick = { item ->
+                    manageExpanded = false
+                    when (item.value) {
+                        0 -> onRenameGroup()
+                        1 -> onDeleteGroup()
                     }
+                },
+                anchor = manageAnchor,
+            )
+        }
+        if (expanded) {
+            conversations.forEachIndexed { index, conversation ->
+                ConversationHistoryRow(
+                    conversation = conversation,
+                    selected = conversation.id == selectedId,
+                    onClick = { onSelect(conversation.id) },
+                    onTogglePin = { onTogglePin(conversation) },
+                    onRename = { onRename(conversation) },
+                    onExport = { onExport(conversation) },
+                    onDelete = { onDelete(conversation) },
+                    onMoveToGroup = { onMoveToGroup(conversation) },
+                )
+                if (index < conversations.lastIndex) {
+                    CouiDivider(startIndent = 44.dp, endIndent = 0.dp)
                 }
-            },
-            anchor = sessionsAnchor,
-        )
+            }
+        }
     }
 }
