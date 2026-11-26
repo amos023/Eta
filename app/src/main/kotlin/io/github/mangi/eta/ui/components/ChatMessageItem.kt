@@ -112,6 +112,8 @@ import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.markdown.EditorialLineHeightStyle
 import io.github.mangi.eta.ui.markdown.MarkdownTone
+import io.github.mangi.eta.ui.model.MessageOptionsBlock
+import io.github.mangi.eta.ui.model.MessageOptionsParser
 import io.github.mangi.eta.ui.markdown.StaticMarkdown
 import io.github.mangi.eta.ui.markdown.StreamingMarkdown
 import io.github.mangi.eta.ui.markdown.StreamingMarkdownState
@@ -242,6 +244,7 @@ internal fun ChatMessageItem(
     isEditing: Boolean = false,
     onEditMessage: (String) -> Unit = {},
     onResendMessage: (String) -> Unit = {},
+    onOptionSubmit: (String) -> Unit = {},
     onDeleteMessage: (String) -> Unit = {},
     onRegenerateMessage: (String) -> Unit = {},
     onBranchMessage: (String) -> Unit = {},
@@ -272,6 +275,7 @@ internal fun ChatMessageItem(
             onRegenerate = { onRegenerateMessage(message.id) },
             onEdit = { onEditMessage(message.id) },
             onSelectCandidate = { onSelectReplyCandidate(message.id, it) },
+            onOptionSubmit = onOptionSubmit,
             modifier = modifier,
         )
         is SystemNoticeMessageUi -> if (message.code == SystemNoticeCode.ContextCompaction) {
@@ -966,6 +970,7 @@ private fun AgentMessageBlock(
     onRegenerate: () -> Unit,
     onEdit: () -> Unit = {},
     onSelectCandidate: (Int) -> Unit = {},
+    onOptionSubmit: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -974,6 +979,11 @@ private fun AgentMessageBlock(
     var copied by remember(message.id) { mutableStateOf(false) }
     var selectionCopy by remember(message.id) { mutableStateOf<SelectionCopyTarget?>(null) }
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
+    // 回复内嵌的选项块：流式过程中不解析，结束后再出按钮。
+    val messageOptions = remember(message.content, message.isStreaming) {
+        if (message.isStreaming || !message.renderMarkdown) null
+        else MessageOptionsParser.parse(message.content)
+    }
     DisposableEffect(retainedStreamingState) {
         retainedStreamingState?.attachContent()
         onDispose { retainedStreamingState?.detachContent() }
@@ -1036,10 +1046,21 @@ private fun AgentMessageBlock(
             message.renderMarkdown -> {
                 SelectionContainer {
                     StaticMarkdown(
-                        content = message.content,
+                        content = if (messageOptions != null) {
+                            MessageOptionsParser.stripBlock(message.content)
+                        } else {
+                            message.content
+                        },
                         tone = MarkdownTone.Answer,
                         parsed = completedDocument,
                         modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                messageOptions?.let { block ->
+                    MessageOptionsRow(
+                        block = block,
+                        enabled = messageActionsEnabled,
+                        onSubmit = onOptionSubmit,
                     )
                 }
             }
@@ -1652,6 +1673,96 @@ private fun SuggestionChipsRow(
                     text = prompt,
                     style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
+
+/** 回复内嵌的选项按钮：单选点一下即提交，多选先勾选再确认。 */
+@Composable
+private fun MessageOptionsRow(
+    block: MessageOptionsBlock,
+    enabled: Boolean,
+    onSubmit: (String) -> Unit,
+) {
+    val dark = CouiTheme.isDark
+    val colors = CouiPageDefaults.themeColors(dark)
+    var selected by remember(block) { mutableStateOf<Set<String>>(emptySet()) }
+    var submitted by remember(block) { mutableStateOf(false) }
+    val active = enabled && !submitted
+    val shape = remember { CouiShape(14.dp, 2f) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        block.question?.let { question ->
+            Text(
+                text = question,
+                style = MiuixTheme.textStyles.footnote1,
+                color = colors.summary,
+            )
+        }
+        block.options.forEach { option ->
+            val isSelected = option in selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(
+                        when {
+                            submitted && isSelected -> colors.accent.copy(alpha = 0.18f)
+                            isSelected -> colors.accent.copy(alpha = 0.12f)
+                            else -> colors.card
+                        },
+                    )
+                    .clickable(enabled = active) {
+                        if (block.multiSelect) {
+                            selected = if (isSelected) selected - option else selected + option
+                        } else {
+                            submitted = true
+                            onSubmit(option)
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = option,
+                    style = MiuixTheme.textStyles.body2,
+                    color = if (active || isSelected) colors.title else colors.disabled,
+                    modifier = Modifier.weight(1f),
+                )
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = colors.accent,
+                    )
+                }
+            }
+        }
+        if (block.multiSelect && !submitted) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(colors.accent.copy(alpha = if (selected.isEmpty()) 0.25f else 0.9f))
+                    .clickable(enabled = selected.isNotEmpty()) {
+                        submitted = true
+                        onSubmit(selected.joinToString("、"))
+                    }
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = if (selected.isEmpty()) "选择后确认" else "确认（${selected.size}）",
+                    style = MiuixTheme.textStyles.body2,
+                    color = if (selected.isEmpty()) colors.summary else Color.White,
                 )
             }
         }

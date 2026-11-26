@@ -90,6 +90,7 @@ internal fun AgentHomeScreen(
                     onRemoveFileReference = { id -> onAction(AgentHomeAction.RemoveFileReference(id)) },
                     onEditMessage = { id -> onAction(AgentHomeAction.EditMessage(id)) },
                     onResendMessage = { text -> onAction(AgentHomeAction.SubmitMessage(text)) },
+                    onOptionSubmit = { text -> onAction(AgentHomeAction.SubmitMessage(text)) },
                     onCancelMessageEdit = { onAction(AgentHomeAction.CancelMessageEdit) },
                     onOpenImageSettings = { onAction(AgentHomeAction.OpenImageGenerationSettings) },
                     onDeleteMessage = { id -> onAction(AgentHomeAction.DeleteMessage(id)) },

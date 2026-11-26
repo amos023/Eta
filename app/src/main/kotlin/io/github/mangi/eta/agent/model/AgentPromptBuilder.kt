@@ -45,6 +45,14 @@ internal object AgentPromptBuilder {
         executionContext: TerminalExecutionContext? = null,
     ): JSONArray {
         val messages = JSONArray()
+        // 需要用户拍板时输出选项块，客户端会渲染成可点按钮。
+        systemMessage(
+            "当需要用户在多个方案中选择、或需要确认下一步时，在回复末尾追加选项块，" +
+                "格式严格如下，且不要放进代码块：\n" +
+                "[[options]]\n问题：一句话说明要选什么\n- 选项一\n- 选项二\n[[/options]]\n" +
+                "需要多选时首行写作 [[options:multi]]。选项要简短、可直接当作回答；" +
+                "不需要选择时不要输出该块。",
+        ).let { messages.put(it) }
         // 自定义提示词：角色会话里不注入，避免覆盖人物设定。
         val customization = if (roleplayContext == null) {
             PromptCustomizationStore.load().takeIf { it.active }
