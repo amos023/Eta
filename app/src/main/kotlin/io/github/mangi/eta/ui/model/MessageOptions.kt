@@ -46,7 +46,8 @@ object MessageOptionsParser {
         return MessageOptionsBlock(
             question = question,
             options = options,
-            multiSelect = start.groupValues[1].isNotEmpty(),
+            // 显式标注 multi 就是多选；选项超过三个时也按多选处理。
+            multiSelect = start.groupValues[1].isNotEmpty() || options.size > 3,
         )
     }
 
