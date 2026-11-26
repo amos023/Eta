@@ -751,16 +751,14 @@ private fun ModelProviderCard(
                 onRefresh = onRefresh,
             )
             if (!collapsed) {
-                // 与侧栏分组一致：展开后缩进排列，不再套卡片和分隔线。
+                // 直接平铺模型行，不做缩进。
                 group.models.forEach { model ->
-                    Box(modifier = Modifier.padding(start = 14.dp)) {
-                        ModelPickerRow(
-                            model = model,
-                            selected = model.id == selectedId,
-                            onClick = { onSelect(model.id) },
-                            horizontalPadding = 4.dp,
-                        )
-                    }
+                    ModelPickerRow(
+                        model = model,
+                        selected = model.id == selectedId,
+                        onClick = { onSelect(model.id) },
+                        horizontalPadding = 4.dp,
+                    )
                 }
             }
         }
