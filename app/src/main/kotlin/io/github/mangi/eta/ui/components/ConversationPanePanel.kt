@@ -140,6 +140,7 @@ internal fun ConversationPanePanel(
     onConversationCreateGroup: (ConversationSummaryUi, String) -> Unit,
     onGroupRename: (String, String) -> Unit,
     onGroupDelete: (String) -> Unit,
+    onGroupUpdateMeta: (String, String, String, String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenTools: () -> Unit,
@@ -159,6 +160,9 @@ internal fun ConversationPanePanel(
     // 分组长按菜单的当前目标项目。
     var renameGroupTarget by remember { mutableStateOf<ConversationDrawerSection.Project?>(null) }
     var deleteGroupTarget by remember { mutableStateOf<ConversationDrawerSection.Project?>(null) }
+    // 项目说明与项目指令的编辑目标。
+    var descTarget by remember { mutableStateOf<ConversationGroupUi?>(null) }
+    var instrTarget by remember { mutableStateOf<ConversationGroupUi?>(null) }
     val containerColor = conversationPaneContainerColor()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val couiBackdrop = if (isCoui) rememberCouiBackdrop() else null
@@ -229,6 +233,18 @@ internal fun ConversationPanePanel(
                                             group = group,
                                             isFirstSection = groupIndex == 0,
                                             hasWorkbenchAbove = !isSearching,
+                                            onEditDescription = projectSection?.let { target ->
+                                                {
+                                                    descTarget = state.groups
+                                                        .firstOrNull { it.id == target.groupId }
+                                                }
+                                            },
+                                            onEditInstructions = projectSection?.let { target ->
+                                                {
+                                                    instrTarget = state.groups
+                                                        .firstOrNull { it.id == target.groupId }
+                                                }
+                                            },
                                             onRenameGroup = projectSection?.let { target -> { renameGroupTarget = target } },
                                             onDeleteGroup = projectSection?.let { target -> { deleteGroupTarget = target } },
                                         )
@@ -343,6 +359,39 @@ internal fun ConversationPanePanel(
                 deleteGroupTarget = null
             },
             onDismissRequest = { deleteGroupTarget = null },
+        )
+    }
+
+    descTarget?.let { groupMeta ->
+        var input by remember(groupMeta.id) { mutableStateOf(groupMeta.description) }
+        CouiInputDialog(
+            visible = true,
+            title = "项目说明",
+            value = input,
+            onValueChange = { input = it },
+            placeholder = "这个项目用来做什么",
+            confirmText = "保存",
+            onConfirm = {
+                onGroupUpdateMeta(groupMeta.id, groupMeta.name, input, groupMeta.instructions)
+                descTarget = null
+            },
+            onDismissRequest = { descTarget = null },
+        )
+    }
+    instrTarget?.let { groupMeta ->
+        var input by remember(groupMeta.id) { mutableStateOf(groupMeta.instructions) }
+        CouiInputDialog(
+            visible = true,
+            title = "项目指令",
+            value = input,
+            onValueChange = { input = it },
+            placeholder = "对项目内所有会话生效的指令",
+            confirmText = "保存",
+            onConfirm = {
+                onGroupUpdateMeta(groupMeta.id, groupMeta.name, groupMeta.description, input)
+                instrTarget = null
+            },
+            onDismissRequest = { instrTarget = null },
         )
     }
 }
@@ -585,6 +634,8 @@ private fun ConversationSectionHeader(
     group: ConversationDrawerGroup,
     isFirstSection: Boolean,
     hasWorkbenchAbove: Boolean,
+    onEditDescription: (() -> Unit)? = null,
+    onEditInstructions: (() -> Unit)? = null,
     onRenameGroup: (() -> Unit)? = null,
     onDeleteGroup: (() -> Unit)? = null,
 ) {
@@ -635,9 +686,11 @@ private fun ConversationSectionHeader(
                         expanded = groupMenuExpanded,
                         onDismissRequest = { groupMenuExpanded = false },
                         items = listOf(
-                            CouiMenuItem(value = 0, text = "重命名项目", icon = Icons.Outlined.Edit),
+                            CouiMenuItem(value = 0, text = "编辑项目说明", icon = Icons.Outlined.Edit),
+                            CouiMenuItem(value = 1, text = "编辑项目指令", icon = Icons.Outlined.Edit),
+                            CouiMenuItem(value = 2, text = "重命名项目", icon = Icons.Outlined.Edit),
                             CouiMenuItem(
-                                value = 1,
+                                value = 3,
                                 text = "删除项目",
                                 icon = Icons.Outlined.Delete,
                                 iconTint = destructiveColor,
@@ -647,8 +700,10 @@ private fun ConversationSectionHeader(
                         onItemClick = { item ->
                             groupMenuExpanded = false
                             when (item.value) {
-                                0 -> onRenameGroup?.invoke()
-                                1 -> onDeleteGroup?.invoke()
+                                0 -> onEditDescription?.invoke()
+                                1 -> onEditInstructions?.invoke()
+                                2 -> onRenameGroup?.invoke()
+                                3 -> onDeleteGroup?.invoke()
                             }
                         },
                         anchor = groupMenuAnchor,
