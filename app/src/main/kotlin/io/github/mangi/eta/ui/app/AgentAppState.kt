@@ -2863,13 +2863,22 @@ internal class AgentAppState(
         return conversationsById[conversationId] ?: emptyChatState(defaultThinkingEnabled)
     }
 
+    /** 执行中会话的冻结排序时间，结束后自动移除。 */
+    private val frozenOrderTimestamps = mutableMapOf<String, Long>()
+
     private fun refreshConversationSummaries() {
         val summaries = conversationsById.entries
             .sortedWith(
                 compareByDescending<Map.Entry<String, AgentChatHomeUiState>> { (id, _) ->
                     id in conversationPinnedIds
-                }.thenByDescending { (id, _) ->
-                    conversationUpdatedAt[id] ?: 0L
+                }.thenByDescending { (id, state) ->
+                    // 执行中的会话冻结排序权重：流式输出会不断刷新时间戳，不冻结就会上下跳动。
+                    if (state.isStreaming) {
+                        frozenOrderTimestamps.getOrPut(id) { conversationUpdatedAt[id] ?: 0L }
+                    } else {
+                        frozenOrderTimestamps.remove(id)
+                        conversationUpdatedAt[id] ?: 0L
+                    }
                 }
             )
             .map { (id, state) ->

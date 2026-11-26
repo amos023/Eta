@@ -255,6 +255,15 @@ internal fun ConversationPanePanel(
                                                 conversations = group.items,
                                                 selectedId = state.selectedConversationId,
                                                 onSelect = onConversationSelected,
+                                                onMoveOutGroup = { conversation ->
+                                                    onConversationMoveToGroup(conversation, null)
+                                                },
+                                                onRenameConversation = { conversation ->
+                                                    onConversationRename(conversation)
+                                                },
+                                                onDeleteConversation = { conversation ->
+                                                    onConversationDelete(conversation)
+                                                },
                                                 onRenameGroup = { renameGroupTarget = projectSection },
                                                 onDeleteGroup = { deleteGroupTarget = projectSection },
                                             )
@@ -1230,6 +1239,9 @@ private fun ProjectGroupRow(
     conversations: List<ConversationSummaryUi>,
     selectedId: String?,
     onSelect: (String) -> Unit,
+    onMoveOutGroup: (ConversationSummaryUi) -> Unit,
+    onRenameConversation: (ConversationSummaryUi) -> Unit,
+    onDeleteConversation: (ConversationSummaryUi) -> Unit,
     onRenameGroup: () -> Unit,
     onDeleteGroup: () -> Unit,
 ) {
@@ -1275,7 +1287,7 @@ private fun ProjectGroupRow(
             CouiIcon(
                 imageVector = ImageVector.vectorResource(R.drawable.coui_pop_up_next),
                 contentDescription = "展开会话",
-                modifier = Modifier.size(width = 14.dp, height = 24.dp),
+                modifier = Modifier.size(width = 11.dp, height = 19.dp),
                 tint = colors.summary,
             )
         }
@@ -1318,11 +1330,25 @@ private fun ProjectGroupRow(
                         ),
                     )
                 }
+                // 末尾三项针对当前选中的会话，没有选中时不显示。
+                val target = conversations.firstOrNull { it.id == selectedId }
+                if (target != null) {
+                    add(CouiMenuItem(value = 1000, text = "移出分组", dividerBefore = true))
+                    add(CouiMenuItem(value = 1001, text = "重命名会话"))
+                    add(CouiMenuItem(value = 1002, text = "删除会话"))
+                }
             },
             onItemClick = { item ->
                 sessionsExpanded = false
-                if (item.value >= 0) {
-                    conversations.getOrNull(item.value)?.let { onSelect(it.id) }
+                when {
+                    item.value in conversations.indices ->
+                        conversations.getOrNull(item.value)?.let { onSelect(it.id) }
+                    item.value == 1000 ->
+                        conversations.firstOrNull { it.id == selectedId }?.let(onMoveOutGroup)
+                    item.value == 1001 ->
+                        conversations.firstOrNull { it.id == selectedId }?.let(onRenameConversation)
+                    item.value == 1002 ->
+                        conversations.firstOrNull { it.id == selectedId }?.let(onDeleteConversation)
                 }
             },
             anchor = sessionsAnchor,
