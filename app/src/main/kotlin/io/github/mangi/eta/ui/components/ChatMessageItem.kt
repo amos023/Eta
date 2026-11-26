@@ -980,9 +980,13 @@ private fun AgentMessageBlock(
     var selectionCopy by remember(message.id) { mutableStateOf<SelectionCopyTarget?>(null) }
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     // 回复内嵌的选项块：流式过程中不解析，结束后再出按钮。
-    val messageOptions = remember(message.content, message.isStreaming) {
-        if (message.isStreaming || !message.renderMarkdown) null
-        else MessageOptionsParser.parse(message.content)
+    val messageOptions = remember(message.content) {
+        if (!message.renderMarkdown) null else MessageOptionsParser.parse(message.content)
+    }
+    // 选项块交给按钮渲染，正文里要把这段去掉，否则会被当成代码块显示出来。
+    val displayContent = remember(message.content, messageOptions) {
+        if (messageOptions != null) MessageOptionsParser.stripBlock(message.content)
+        else message.content
     }
     DisposableEffect(retainedStreamingState) {
         retainedStreamingState?.attachContent()
@@ -999,7 +1003,7 @@ private fun AgentMessageBlock(
         null
     }
     val completedDocument = (streamingState ?: retainedStreamingState)
-        ?.snapshot?.completedDocumentFor(message.content)
+        ?.snapshot?.completedDocumentFor(displayContent)
     val revealComplete = streamingRevealComplete && !message.isStreaming &&
         (streamingState == null || completedDocument != null)
     LaunchedEffect(retainedStreamingState, revealComplete, message.content) {
@@ -1036,7 +1040,7 @@ private fun AgentMessageBlock(
             streamingState != null && !revealComplete -> {
                 StreamingMarkdown(
                     state = streamingState,
-                    content = message.content,
+                    content = displayContent,
                     isStreaming = message.isStreaming,
                     tone = MarkdownTone.Answer,
                     onRevealCompleteChange = { streamingRevealComplete = it },
@@ -1046,11 +1050,7 @@ private fun AgentMessageBlock(
             message.renderMarkdown -> {
                 SelectionContainer {
                     StaticMarkdown(
-                        content = if (messageOptions != null) {
-                            MessageOptionsParser.stripBlock(message.content)
-                        } else {
-                            message.content
-                        },
+                        content = displayContent,
                         tone = MarkdownTone.Answer,
                         parsed = completedDocument,
                         modifier = Modifier.fillMaxWidth(),
