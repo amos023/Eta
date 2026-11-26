@@ -24,8 +24,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.AbsoluteAlignment
@@ -136,13 +134,9 @@ fun ConversationSidePaneScaffold(
         val currentHapticFeedback by rememberUpdatedState(hapticFeedback)
         val dragInteractions = remember { MutableInteractionSource() }
         val isDragging by dragInteractions.collectIsDraggedAsState()
-        // 只有用户真正拖动过才允许把「收起」回写到外部，
-        // 否则程序驱动的展开动画首帧会被误判成用户关闭。
-        var draggedSinceLastSync by remember { mutableStateOf(false) }
         LaunchedEffect(dragInteractions) {
             dragInteractions.interactions.collect { interaction ->
                 if (interaction is DragInteraction.Stop) {
-                    draggedSinceLastSync = true
                     currentHapticFeedback.performHapticFeedback(HapticFeedbackType.GestureEnd)
                 }
             }
@@ -191,18 +185,15 @@ fun ConversationSidePaneScaffold(
 
         LaunchedEffect(paneDragState) {
             conversationPaneSettledValues(paneDragState) { isDragging }.collectLatest { settledValue ->
-                // 打开/关闭由外部 visible 单向驱动，这里只把「用户拖动造成的收起」回写出去。
-                // 订阅时会先收到一次当前值，若与目标不一致说明动画还没跑完，直接忽略，
-                // 否则展开动画还没开始就会被当成用户关闭，侧栏一打开就被关掉。
-                if (settledValue != paneDragState.targetValue) return@collectLatest
-                if (settledValue == ConversationPaneAnchor.Closed &&
-                    currentVisible &&
-                    draggedSinceLastSync
-                ) {
-                    draggedSinceLastSync = false
-                    focusManager.clearFocus()
-                    keyboard?.hide()
-                    currentOnDismiss()
+                val settledOpen = settledValue == ConversationPaneAnchor.Open
+                if (settledOpen != currentVisible) {
+                    if (settledOpen) {
+                        currentOnOpen()
+                    } else {
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                        currentOnDismiss()
+                    }
                 }
             }
         }
