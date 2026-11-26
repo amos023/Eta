@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.DriveFileMove
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.PushPin
@@ -870,7 +871,7 @@ private fun ConversationHistoryRow(
                     listOf(
                         CouiMenuItem(value = 0, text = pinText, icon = Icons.Outlined.PushPin),
                         CouiMenuItem(value = 1, text = renameText, icon = Icons.Outlined.Edit),
-                        CouiMenuItem(value = 2, text = moveText, icon = Icons.Outlined.Folder),
+                        CouiMenuItem(value = 2, text = moveText, icon = Icons.Outlined.DriveFileMove),
                         CouiMenuItem(value = 3, text = exportText, icon = Icons.Outlined.Download),
                         CouiMenuItem(
                             value = 4,
@@ -1163,7 +1164,7 @@ private fun MoveToGroupDialog(
                 text = "还没有项目，点下方「新建项目」把这条会话收进去。",
                 kind = CouiTextKind.ItemSummary,
                 color = colors.summary,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
         }
         groups.forEachIndexed { index, group ->
@@ -1171,7 +1172,7 @@ private fun MoveToGroupDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onPick(group.id) }
-                    .padding(horizontal = 4.dp, vertical = 14.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CouiText(
@@ -1191,16 +1192,16 @@ private fun MoveToGroupDialog(
                 }
             }
             if (index < groups.lastIndex) {
-                CouiDivider(startIndent = 4.dp, endIndent = 4.dp)
+                CouiDivider(startIndent = 16.dp, endIndent = 16.dp)
             }
         }
         if (target?.groupId != null) {
-            CouiDivider(startIndent = 4.dp, endIndent = 4.dp)
+            CouiDivider(startIndent = 16.dp, endIndent = 16.dp)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onPick(null) }
-                    .padding(horizontal = 4.dp, vertical = 14.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CouiText(
