@@ -34,6 +34,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -1251,7 +1252,7 @@ private fun ProjectGroupRow(
     val manageAnchor = rememberCouiMenuAnchor()
     val rowShape = remember { CouiShape(ConversationPanelMetrics.RowCornerRadius, 2.1f) }
     val arrowRotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
+        targetValue = if (expanded) 0f else -90f,
         label = "project_arrow",
     )
 
@@ -1269,6 +1270,13 @@ private fun ProjectGroupRow(
                     .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                CouiIcon(
+                    imageVector = Icons.Outlined.Folder,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = colors.summary,
+                )
+                Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     CouiText(
                         text = project.name,
@@ -1286,10 +1294,10 @@ private fun ProjectGroupRow(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 CouiIcon(
-                    imageVector = ImageVector.vectorResource(R.drawable.coui_pop_up_next),
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
                     contentDescription = if (expanded) "收起" else "展开",
                     modifier = Modifier
-                        .size(width = 11.dp, height = 19.dp)
+                        .size(20.dp)
                         .rotate(arrowRotation),
                     tint = colors.summary,
                 )
@@ -1319,19 +1327,19 @@ private fun ProjectGroupRow(
             )
         }
         if (expanded) {
-            conversations.forEachIndexed { index, conversation ->
-                ConversationHistoryRow(
-                    conversation = conversation,
-                    selected = conversation.id == selectedId,
-                    onClick = { onSelect(conversation.id) },
-                    onTogglePin = { onTogglePin(conversation) },
-                    onRename = { onRename(conversation) },
-                    onExport = { onExport(conversation) },
-                    onDelete = { onDelete(conversation) },
-                    onMoveToGroup = { onMoveToGroup(conversation) },
-                )
-                if (index < conversations.lastIndex) {
-                    CouiDivider(startIndent = 44.dp, endIndent = 0.dp)
+            // 展开的会话左缩进，和上面的分组标题形成层级；不加分隔线，靠缩进与行距区分。
+            conversations.forEach { conversation ->
+                Box(modifier = Modifier.padding(start = 14.dp)) {
+                    ConversationHistoryRow(
+                        conversation = conversation,
+                        selected = conversation.id == selectedId,
+                        onClick = { onSelect(conversation.id) },
+                        onTogglePin = { onTogglePin(conversation) },
+                        onRename = { onRename(conversation) },
+                        onExport = { onExport(conversation) },
+                        onDelete = { onDelete(conversation) },
+                        onMoveToGroup = { onMoveToGroup(conversation) },
+                    )
                 }
             }
         }
