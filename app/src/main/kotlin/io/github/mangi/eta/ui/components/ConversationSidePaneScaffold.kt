@@ -188,7 +188,9 @@ fun ConversationSidePaneScaffold(
                 val settledOpen = settledValue == ConversationPaneAnchor.Open
                 if (settledOpen != currentVisible) {
                     if (settledOpen) {
-                        currentOnOpen()
+                        // 外部已经要求关闭（例如刚选中会话），这里不能再回写成打开：
+                        // 快速点击时打开动画刚 settle，回写会把关闭动作覆盖掉，抽屉会留在打开状态。
+                        paneDragState.animateTo(ConversationPaneAnchor.Closed, settleAnimation)
                     } else {
                         focusManager.clearFocus()
                         keyboard?.hide()
