@@ -33,7 +33,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -55,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -77,7 +77,6 @@ import com.itos.coui.dialog.CouiDialogPlacement
 import com.itos.coui.dialog.Dialog as CouiDialog
 import com.itos.coui.effect.couiButtonFeedback
 import com.itos.coui.layout.CouiPageDefaults
-import com.itos.coui.layout.Group
 import com.itos.coui.layout.Divider as CouiDivider
 import com.itos.coui.menu.CouiMenuItem
 import com.itos.coui.menu.Menu
@@ -226,6 +225,26 @@ internal fun ConversationPanePanel(
                                     EmptyConversations(isSearching = isSearching)
                                 }
                             } else {
+                                if (!isSearching && groups.any { it.section is ConversationDrawerSection.Project }) {
+                                    item(key = "project_group_header") {
+                                        val headerInset = ConversationPanelMetrics.PaneHorizontalPadding +
+                                            ConversationPanelMetrics.RowHorizontalPadding
+                                        CouiText(
+                                            text = "分组",
+                                            kind = CouiTextKind.GroupTitle,
+                                            color = CouiPageDefaults.themeColors().summary,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(
+                                                    start = headerInset,
+                                                    top = ConversationPanelMetrics.SectionTopPadding,
+                                                    end = headerInset,
+                                                    bottom = ConversationPanelMetrics.SectionBottomPadding,
+                                                ),
+                                            textAlign = TextAlign.Start,
+                                        )
+                                    }
+                                }
                                 groups.forEachIndexed { groupIndex, group ->
                                     val projectSection = group.section as? ConversationDrawerSection.Project
                                     if (projectSection != null) {
@@ -325,7 +344,7 @@ internal fun ConversationPanePanel(
             val conversation = moveTarget
             moveTarget = null
             if (conversation != null) {
-                onConversationCreateGroup(conversation, "新项目 ${state.groups.size + 1}")
+                onConversationCreateGroup(conversation, "新分组 ${state.groups.size + 1}")
             }
         },
     )
@@ -1135,7 +1154,7 @@ private fun MoveToGroupDialog(
         dark = dark,
         title = "移动",
         confirmAction = couiPrimaryDialogAction(
-            text = "新建项目",
+            text = "新建分组",
             onClick = onCreate,
             dark = dark,
         ),
@@ -1202,8 +1221,9 @@ private fun MoveToGroupDialog(
 
 /**
  * 项目分组：一行标题 + 点击弹出会话菜单（COUI 长菜单，自带高度限制与滚动）。
- * 菜单项就是该项目内的每个会话，点选即切换；右侧小笔打开重命名/删除。
+ * 右侧上下双箭头表示可展开；长按整行打开重命名/删除。
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ProjectGroupRow(
     project: ConversationDrawerSection.Project,
@@ -1214,7 +1234,6 @@ private fun ProjectGroupRow(
     onDeleteGroup: () -> Unit,
 ) {
     val colors = CouiPageDefaults.themeColors()
-    val dark = CouiTheme.isDark
     var sessionsExpanded by remember { mutableStateOf(false) }
     var manageExpanded by remember { mutableStateOf(false) }
     val sessionsAnchor = rememberCouiMenuAnchor()
@@ -1223,13 +1242,16 @@ private fun ProjectGroupRow(
     val summary = selectedTitle?.takeIf { it.isNotBlank() } ?: "${conversations.size} 个会话"
     val rowShape = remember { CouiShape(ConversationPanelMetrics.RowCornerRadius, 2.1f) }
 
-    Box(modifier = Modifier.couiMenuAnchor(sessionsAnchor)) {
+    Box(modifier = Modifier.couiMenuAnchor(sessionsAnchor).couiMenuAnchor(manageAnchor)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = ConversationPanelMetrics.PaneHorizontalPadding)
                 .clip(rowShape)
-                .clickable { sessionsExpanded = true }
+                .combinedClickable(
+                    onClick = { sessionsExpanded = true },
+                    onLongClick = { manageExpanded = true },
+                )
                 .padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1249,59 +1271,59 @@ private fun ProjectGroupRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Box(modifier = Modifier.couiMenuAnchor(manageAnchor)) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .clickable { manageExpanded = true },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CouiIcon(
-                        imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = "项目菜单",
-                        modifier = Modifier.size(18.dp),
-                        tint = colors.summary,
-                    )
-                }
-                val destructiveColor = CouiDialogDefaults.themeColors().destructive
-                Menu(
-                    expanded = manageExpanded,
-                    onDismissRequest = { manageExpanded = false },
-                    items = listOf(
-                        CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
-                        CouiMenuItem(
-                            value = 1,
-                            text = "删除项目",
-                            icon = Icons.Outlined.Delete,
-                            iconTint = destructiveColor,
-                            dividerBefore = true,
-                        ),
-                    ),
-                    onItemClick = { item ->
-                        manageExpanded = false
-                        when (item.value) {
-                            0 -> onRenameGroup()
-                            1 -> onDeleteGroup()
-                        }
-                    },
-                    anchor = manageAnchor,
-                )
-            }
+            Spacer(modifier = Modifier.width(8.dp))
+            CouiIcon(
+                imageVector = ImageVector.vectorResource(R.drawable.coui_pop_up_next),
+                contentDescription = "展开会话",
+                modifier = Modifier.size(width = 14.dp, height = 24.dp),
+                tint = colors.summary,
+            )
         }
+        val destructiveColor = CouiDialogDefaults.themeColors().destructive
+        Menu(
+            expanded = manageExpanded,
+            onDismissRequest = { manageExpanded = false },
+            items = listOf(
+                CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
+                CouiMenuItem(
+                    value = 1,
+                    text = "删除项目",
+                    icon = Icons.Outlined.Delete,
+                    iconTint = destructiveColor,
+                    dividerBefore = true,
+                ),
+            ),
+            onItemClick = { item ->
+                manageExpanded = false
+                when (item.value) {
+                    0 -> onRenameGroup()
+                    1 -> onDeleteGroup()
+                }
+            },
+            anchor = manageAnchor,
+        )
         Menu(
             expanded = sessionsExpanded,
             onDismissRequest = { sessionsExpanded = false },
-            items = conversations.mapIndexed { index, conversation ->
-                CouiMenuItem(
-                    value = index,
-                    text = conversation.title.ifBlank { conversation.preview.ifBlank { "未命名会话" } },
-                    icon = if (conversation.id == selectedId) Icons.Rounded.Check else null,
-                )
+            items = buildList {
+                add(CouiMenuItem(value = -1, text = "请选择会话", enabled = false))
+                conversations.forEachIndexed { index, conversation ->
+                    add(
+                        CouiMenuItem(
+                            value = index,
+                            text = conversation.title.ifBlank {
+                                conversation.preview.ifBlank { "未命名会话" }
+                            },
+                            icon = if (conversation.id == selectedId) Icons.Rounded.Check else null,
+                        ),
+                    )
+                }
             },
             onItemClick = { item ->
                 sessionsExpanded = false
-                conversations.getOrNull(item.value)?.let { onSelect(it.id) }
+                if (item.value >= 0) {
+                    conversations.getOrNull(item.value)?.let { onSelect(it.id) }
+                }
             },
             anchor = sessionsAnchor,
         )
