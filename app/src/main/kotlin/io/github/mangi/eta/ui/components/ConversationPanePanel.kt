@@ -32,6 +32,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -229,16 +230,11 @@ internal fun ConversationPanePanel(
                                     if (projectSection != null) {
                                         // 项目分组走 COUI 标准 Group：标题在卡片外，会话装进卡片，右上角是管理菜单。
                                         item(key = "project-${projectSection.groupId}") {
-                                            ProjectGroupCard(
+                                            ProjectGroupRow(
                                                 project = projectSection,
                                                 conversations = group.items,
                                                 selectedId = state.selectedConversationId,
                                                 onSelect = onConversationSelected,
-                                                onTogglePin = onConversationTogglePin,
-                                                onRename = onConversationRename,
-                                                onExport = onConversationExport,
-                                                onDelete = onConversationDelete,
-                                                onMoveToGroup = { conversation -> moveTarget = conversation },
                                                 onRenameGroup = { renameGroupTarget = projectSection },
                                                 onDeleteGroup = { deleteGroupTarget = projectSection },
                                             )
@@ -1203,46 +1199,74 @@ private fun MoveToGroupDialog(
     }
 }
 
-/** 项目分组卡片：COUI Group 结构，标题行右上角提供重命名与删除。 */
+/**
+ * 项目分组：一行标题 + 点击弹出会话菜单（COUI 长菜单，自带高度限制与滚动）。
+ * 菜单项就是该项目内的每个会话，点选即切换；右侧小笔打开重命名/删除。
+ */
 @Composable
-private fun ProjectGroupCard(
+private fun ProjectGroupRow(
     project: ConversationDrawerSection.Project,
     conversations: List<ConversationSummaryUi>,
     selectedId: String?,
     onSelect: (String) -> Unit,
-    onTogglePin: (ConversationSummaryUi) -> Unit,
-    onRename: (ConversationSummaryUi) -> Unit,
-    onExport: (ConversationSummaryUi) -> Unit,
-    onDelete: (ConversationSummaryUi) -> Unit,
-    onMoveToGroup: (ConversationSummaryUi) -> Unit,
     onRenameGroup: () -> Unit,
     onDeleteGroup: () -> Unit,
 ) {
     val colors = CouiPageDefaults.themeColors()
-    var menuExpanded by remember { mutableStateOf(false) }
-    val anchor = rememberCouiMenuAnchor()
-    Group(
-        title = project.name,
-        headerActions = {
-            Box(modifier = Modifier.couiMenuAnchor(anchor)) {
+    val dark = CouiTheme.isDark
+    var sessionsExpanded by remember { mutableStateOf(false) }
+    var manageExpanded by remember { mutableStateOf(false) }
+    val sessionsAnchor = rememberCouiMenuAnchor()
+    val manageAnchor = rememberCouiMenuAnchor()
+    val selectedTitle = conversations.firstOrNull { it.id == selectedId }?.title
+    val summary = selectedTitle?.takeIf { it.isNotBlank() } ?: "${conversations.size} 个会话"
+    val rowShape = remember { CouiShape(ConversationPanelMetrics.RowCornerRadius, 2.1f) }
+
+    Box(modifier = Modifier.couiMenuAnchor(sessionsAnchor)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = ConversationPanelMetrics.PaneHorizontalPadding)
+                .clip(rowShape)
+                .clickable { sessionsExpanded = true }
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                CouiText(
+                    text = project.name,
+                    kind = CouiTextKind.ItemTitle,
+                    color = colors.title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                CouiText(
+                    text = summary,
+                    kind = CouiTextKind.ItemSummary,
+                    color = colors.summary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Box(modifier = Modifier.couiMenuAnchor(manageAnchor)) {
                 Box(
                     modifier = Modifier
                         .size(30.dp)
-                        .clip(CouiShape(15.dp, 2f))
-                        .clickable { menuExpanded = true },
+                        .clip(CircleShape)
+                        .clickable { manageExpanded = true },
                     contentAlignment = Alignment.Center,
                 ) {
                     CouiIcon(
                         imageVector = Icons.Outlined.Edit,
                         contentDescription = "项目菜单",
-                        modifier = Modifier.size(17.dp),
+                        modifier = Modifier.size(16.dp),
                         tint = colors.summary,
                     )
                 }
                 val destructiveColor = CouiDialogDefaults.themeColors().destructive
                 Menu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
+                    expanded = manageExpanded,
+                    onDismissRequest = { manageExpanded = false },
                     items = listOf(
                         CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
                         CouiMenuItem(
@@ -1254,31 +1278,31 @@ private fun ProjectGroupCard(
                         ),
                     ),
                     onItemClick = { item ->
-                        menuExpanded = false
+                        manageExpanded = false
                         when (item.value) {
                             0 -> onRenameGroup()
                             1 -> onDeleteGroup()
                         }
                     },
-                    anchor = anchor,
+                    anchor = manageAnchor,
                 )
             }
-        },
-    ) {
-        conversations.forEachIndexed { index, conversation ->
-            ConversationHistoryRow(
-                conversation = conversation,
-                selected = conversation.id == selectedId,
-                onClick = { onSelect(conversation.id) },
-                onTogglePin = { onTogglePin(conversation) },
-                onRename = { onRename(conversation) },
-                onExport = { onExport(conversation) },
-                onDelete = { onDelete(conversation) },
-                onMoveToGroup = { onMoveToGroup(conversation) },
-            )
-            if (index < conversations.lastIndex) {
-                CouiDivider(startIndent = 44.dp, endIndent = 0.dp)
-            }
         }
+        Menu(
+            expanded = sessionsExpanded,
+            onDismissRequest = { sessionsExpanded = false },
+            items = conversations.mapIndexed { index, conversation ->
+                CouiMenuItem(
+                    value = index,
+                    text = conversation.title.ifBlank { conversation.preview.ifBlank { "未命名会话" } },
+                    icon = if (conversation.id == selectedId) Icons.Rounded.Check else null,
+                )
+            },
+            onItemClick = { item ->
+                sessionsExpanded = false
+                conversations.getOrNull(item.value)?.let { onSelect(it.id) }
+            },
+            anchor = sessionsAnchor,
+        )
     }
 }
