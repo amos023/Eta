@@ -319,7 +319,7 @@ internal fun ConversationPanePanel(
         var nameInput by remember(project.groupId) { mutableStateOf(project.name) }
         CouiInputDialog(
             visible = true,
-            title = "重命名项目",
+            title = "重命名",
             value = nameInput,
             onValueChange = { nameInput = it },
             placeholder = "项目名称",
@@ -637,7 +637,7 @@ private fun ConversationSectionHeader(
                         expanded = groupMenuExpanded,
                         onDismissRequest = { groupMenuExpanded = false },
                         items = listOf(
-                            CouiMenuItem(value = 0, text = "重命名项目", icon = Icons.Outlined.Edit),
+                            CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
                             CouiMenuItem(
                                 value = 1,
                                 text = "删除项目",
@@ -875,7 +875,7 @@ private fun ConversationHistoryRow(
             },
         )
         val renameText = stringResource(R.string.action_rename)
-        val moveText = "移动到项目"
+        val moveText = "移动"
         val exportText = stringResource(R.string.action_export)
         val deleteText = stringResource(R.string.action_delete)
         when (LocalUiStyle.current) {
@@ -1161,7 +1161,7 @@ private fun MoveToGroupDialog(
     CouiDialog(
         onDismissRequest = onDismiss,
         dark = dark,
-        title = "移动到项目",
+        title = "移动",
         confirmAction = couiPrimaryDialogAction(
             text = "新建项目",
             onClick = onCreate,
