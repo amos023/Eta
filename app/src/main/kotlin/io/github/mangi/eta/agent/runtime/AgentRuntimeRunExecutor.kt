@@ -502,6 +502,21 @@ internal class AgentRuntimeRunExecutor(
                     )
                 }
         }
+        // 任务结束后发一条通知，用户不必切回应用就知道结果。
+        if (committed) {
+            runCatching {
+                AgentCompletionNotifier.notifyFinished(
+                    context = appContext,
+                    conversationId = request.handoff
+                        ?.takeIf { it.source == AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE }
+                        ?.let { AgentUiHandoffPayload.from(it.payload) }
+                        ?.conversationId
+                        ?.takeIf { it.isNotBlank() },
+                    ok = result.ok,
+                    preview = result.content.ifBlank { result.error.orEmpty() },
+                )
+            }
+        }
         return Outcome(
             result = result,
             entrySurfaceGuard = entrySurfaceGuard,

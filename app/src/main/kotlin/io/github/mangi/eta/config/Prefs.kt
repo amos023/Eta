@@ -53,6 +53,10 @@ internal object Prefs {
         const val AGENT_VIRTUAL_DISPLAY_ENABLED = "agent_virtual_display_enabled"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
         const val AGENT_DISABLED_TOOLS_JSON = "agent_disabled_tools_json"
+        const val AGENT_NOTIFY_ON_COMPLETE = "agent_notify_on_complete"
+        const val AGENT_NOTIFY_ON_FAILURE = "agent_notify_on_failure"
+        const val AGENT_NOTIFY_ONLY_BACKGROUND = "agent_notify_only_background"
+        const val AGENT_NOTIFY_SILENT = "agent_notify_silent"
 
         /** 全部布尔开关及其默认值。 */
         val BOOLEAN_DEFAULTS: Map<String, Boolean> = mapOf(
@@ -74,6 +78,10 @@ internal object Prefs {
             AGENT_AUTO_COMPACTION_ENABLED to true,
             AGENT_SUBAGENT_ENABLED to true,
             AGENT_VIRTUAL_DISPLAY_ENABLED to true,
+            AGENT_NOTIFY_ON_COMPLETE to true,
+            AGENT_NOTIFY_ON_FAILURE to true,
+            AGENT_NOTIFY_ONLY_BACKGROUND to true,
+            AGENT_NOTIFY_SILENT to false,
         )
 
         /** 由 Eta Runtime 最终裁决、不要求 Xposed 框架在线的开关。 */
@@ -87,6 +95,10 @@ internal object Prefs {
             AGENT_AUTO_COMPACTION_ENABLED,
             AGENT_SUBAGENT_ENABLED,
             AGENT_VIRTUAL_DISPLAY_ENABLED,
+            AGENT_NOTIFY_ON_COMPLETE,
+            AGENT_NOTIFY_ON_FAILURE,
+            AGENT_NOTIFY_ONLY_BACKGROUND,
+            AGENT_NOTIFY_SILENT,
         )
     }
 

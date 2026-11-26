@@ -1,8 +1,10 @@
 package io.github.mangi.eta
 
 import io.github.mangi.eta.agent.voice.SpeechOssUpload
+import android.app.Activity
 import android.app.Application
 import android.content.ComponentCallbacks2
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import io.github.mangi.eta.agent.skill.SkillRuntime
@@ -47,6 +49,7 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onCreate() {
         super.onCreate()
+        registerActivityLifecycleCallbacks(ForegroundTracker)
         Prefs.initLocal(this)
         if (!AppProcessPolicy.shouldInitializeFullRuntime(Application.getProcessName(), packageName)) {
             return
@@ -121,6 +124,28 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         @Volatile
         var serviceInstance: XposedService? = null
             private set
+
+        /** 有 Activity 处于 started 状态时视为应用在前台，任务通知据此决定是否打扰。 */
+        @Volatile
+        private var startedActivityCount: Int = 0
+
+        fun isAppForeground(): Boolean = startedActivityCount > 0
+
+        private object ForegroundTracker : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: Activity) {
+                startedActivityCount += 1
+            }
+
+            override fun onActivityStopped(activity: Activity) {
+                startedActivityCount = (startedActivityCount - 1).coerceAtLeast(0)
+            }
+
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+            override fun onActivityResumed(activity: Activity) = Unit
+            override fun onActivityPaused(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        }
 
         private val listeners = CopyOnWriteArraySet<ServiceStateListener>()
         private val mainHandler = Handler(Looper.getMainLooper())
