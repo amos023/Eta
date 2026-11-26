@@ -186,6 +186,9 @@ internal class AgentAppState(
             return conversationTitles[id]?.takeIf(String::isNotBlank)
         }
 
+    /** 执行中会话的冻结排序时间，结束后自动移除。 */
+    private val frozenOrderTimestamps = mutableMapOf<String, Long>()
+
     init {
         refreshConversationSummaries()
         scope.launch { reloadGroupDefinitions() }
@@ -2862,9 +2865,6 @@ internal class AgentAppState(
         val conversationId = conversationIdForRun(runId) ?: return emptyChatState(defaultThinkingEnabled)
         return conversationsById[conversationId] ?: emptyChatState(defaultThinkingEnabled)
     }
-
-    /** 执行中会话的冻结排序时间，结束后自动移除。 */
-    private val frozenOrderTimestamps = mutableMapOf<String, Long>()
 
     private fun refreshConversationSummaries() {
         val summaries = conversationsById.entries
