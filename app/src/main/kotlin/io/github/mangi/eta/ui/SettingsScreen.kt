@@ -401,42 +401,6 @@ private fun SettingsPageContent(
                         iconTint = SettingsIconColors.Blue,
                     )
                     CouiIconDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = "任务完成提醒",
-                        key = Prefs.Keys.AGENT_NOTIFY_ON_COMPLETE,
-                        icon = Icons.Rounded.Notifications,
-                        iconTint = SettingsIconColors.Blue,
-                    )
-                    CouiIconDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = "任务失败提醒",
-                        key = Prefs.Keys.AGENT_NOTIFY_ON_FAILURE,
-                        icon = Icons.Rounded.Notifications,
-                        iconTint = SettingsIconColors.Blue,
-                    )
-                    CouiIconDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = "仅在后台时提醒",
-                        key = Prefs.Keys.AGENT_NOTIFY_ONLY_BACKGROUND,
-                        icon = Icons.Rounded.Notifications,
-                        iconTint = SettingsIconColors.Blue,
-                    )
-                    CouiIconDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = "静默提醒（不响铃）",
-                        key = Prefs.Keys.AGENT_NOTIFY_SILENT,
-                        icon = Icons.Rounded.Notifications,
-                        iconTint = SettingsIconColors.Blue,
-                    )
-                    CouiIconDivider()
                     CouiPreference(
                         title = stringResource(R.string.image_settings_title),
                         icon = { CouiSettingsIcon(Icons.Rounded.Palette, SettingsIconColors.Purple) },
@@ -899,38 +863,6 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.settings_auto_compaction),
                             key = Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED,
                             icon = Icons.Rounded.Layers,
-                            iconTint = SettingsIconColors.Blue,
-                        )
-                        SwitchPref(
-                            context = context,
-                            prefs = agentPrefs,
-                            title = "任务完成提醒",
-                            key = Prefs.Keys.AGENT_NOTIFY_ON_COMPLETE,
-                            icon = Icons.Rounded.Notifications,
-                            iconTint = SettingsIconColors.Blue,
-                        )
-                        SwitchPref(
-                            context = context,
-                            prefs = agentPrefs,
-                            title = "任务失败提醒",
-                            key = Prefs.Keys.AGENT_NOTIFY_ON_FAILURE,
-                            icon = Icons.Rounded.Notifications,
-                            iconTint = SettingsIconColors.Blue,
-                        )
-                        SwitchPref(
-                            context = context,
-                            prefs = agentPrefs,
-                            title = "仅在后台时提醒",
-                            key = Prefs.Keys.AGENT_NOTIFY_ONLY_BACKGROUND,
-                            icon = Icons.Rounded.Notifications,
-                            iconTint = SettingsIconColors.Blue,
-                        )
-                        SwitchPref(
-                            context = context,
-                            prefs = agentPrefs,
-                            title = "静默提醒（不响铃）",
-                            key = Prefs.Keys.AGENT_NOTIFY_SILENT,
-                            icon = Icons.Rounded.Notifications,
                             iconTint = SettingsIconColors.Blue,
                         )
                         ArrowPreference(

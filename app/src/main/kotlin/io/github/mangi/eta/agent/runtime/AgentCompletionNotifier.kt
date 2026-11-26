@@ -24,8 +24,8 @@ internal object AgentCompletionNotifier {
     fun notifyFinished(
         context: Context,
         conversationId: String?,
+        conversationTitle: String?,
         ok: Boolean,
-        preview: String?,
     ) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         if (!manager.areNotificationsEnabled()) return
@@ -53,12 +53,14 @@ internal object AgentCompletionNotifier {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            val text = preview?.trim()?.takeIf { it.isNotEmpty() }?.take(60) ?: "点开查看结果"
+            // 标题用会话名，正文只说明结果，不再截取回复正文。
+            val title = conversationTitle?.trim()?.takeIf { it.isNotEmpty() }
+                ?: if (ok) "任务已完成" else "任务失败"
+            val text = if (ok) "已完成，点击查看" else "执行失败，点击查看"
             val notification = Notification.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(if (ok) "任务已完成" else "任务失败")
+                .setContentTitle(title)
                 .setContentText(text)
-                .setStyle(Notification.BigTextStyle().bigText(text))
                 .setContentIntent(pending)
                 .setAutoCancel(true)
                 .build()

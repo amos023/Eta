@@ -241,6 +241,7 @@ internal fun ChatMessageItem(
     messageActionsEnabled: Boolean = true,
     isEditing: Boolean = false,
     onEditMessage: (String) -> Unit = {},
+    onResendMessage: (String) -> Unit = {},
     onDeleteMessage: (String) -> Unit = {},
     onRegenerateMessage: (String) -> Unit = {},
     onBranchMessage: (String) -> Unit = {},
@@ -254,6 +255,7 @@ internal fun ChatMessageItem(
             isEditing = isEditing,
             onEdit = { onEditMessage(message.id) },
             onDelete = { onDeleteMessage(message.id) },
+            onResend = { onResendMessage(message.content) },
             modifier = modifier,
         )
         is AgentMessageUi -> AgentMessageBlock(
@@ -338,6 +340,7 @@ private fun UserMessageBubble(
     isEditing: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onResend: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -428,6 +431,7 @@ private fun UserMessageBubble(
                         add(CouiMenuItem(value = 0, text = copyText, icon = Icons.Rounded.ContentCopy))
                     }
                     add(CouiMenuItem(value = 1, text = editText, icon = Icons.Rounded.Edit))
+                    add(CouiMenuItem(value = 3, text = "重试", icon = Icons.Rounded.Refresh))
                     add(
                         CouiMenuItem(
                             value = 2,
@@ -511,6 +515,7 @@ private fun UserMessageBubble(
                             }
                             1 -> onEdit()
                             2 -> onDelete()
+                            3 -> onResend()
                         }
                     },
                     anchor = couiAnchor,
