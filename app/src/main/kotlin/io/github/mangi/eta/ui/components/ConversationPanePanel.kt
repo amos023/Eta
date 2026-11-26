@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -1257,9 +1258,9 @@ private fun ProjectGroupRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     CouiIcon(
-                        imageVector = Icons.Outlined.Edit,
+                        imageVector = Icons.Rounded.MoreVert,
                         contentDescription = "项目菜单",
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(18.dp),
                         tint = colors.summary,
                     )
                 }
