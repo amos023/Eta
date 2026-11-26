@@ -393,9 +393,6 @@ fun AgentAppRoot(
             onGroupDelete = { groupId ->
                 agentState.deleteConversationGroup(groupId)
             },
-            onGroupUpdateMeta = { groupId, name, description, instructions ->
-                agentState.updateConversationGroupMeta(groupId, name, description, instructions)
-            },
             onOpenTools = { pushRoute(AppRoute.Tools) },
             onOpenSkills = { pushRoute(AppRoute.Skills) },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },

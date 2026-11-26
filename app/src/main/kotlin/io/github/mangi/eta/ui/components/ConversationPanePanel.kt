@@ -140,7 +140,6 @@ internal fun ConversationPanePanel(
     onConversationCreateGroup: (ConversationSummaryUi, String) -> Unit,
     onGroupRename: (String, String) -> Unit,
     onGroupDelete: (String) -> Unit,
-    onGroupUpdateMeta: (String, String, String, String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenTools: () -> Unit,
@@ -161,7 +160,6 @@ internal fun ConversationPanePanel(
     var renameGroupTarget by remember { mutableStateOf<ConversationDrawerSection.Project?>(null) }
     var deleteGroupTarget by remember { mutableStateOf<ConversationDrawerSection.Project?>(null) }
     // 项目说明与项目指令的编辑目标。
-    var descTarget by remember { mutableStateOf<ConversationGroupUi?>(null) }
     val containerColor = conversationPaneContainerColor()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val couiBackdrop = if (isCoui) rememberCouiBackdrop() else null
@@ -232,12 +230,6 @@ internal fun ConversationPanePanel(
                                             group = group,
                                             isFirstSection = groupIndex == 0,
                                             hasWorkbenchAbove = !isSearching,
-                                            onEditDescription = projectSection?.let { target ->
-                                                {
-                                                    descTarget = state.groups
-                                                        .firstOrNull { it.id == target.groupId }
-                                                }
-                                            },
                                             onRenameGroup = projectSection?.let { target -> { renameGroupTarget = target } },
                                             onDeleteGroup = projectSection?.let { target -> { deleteGroupTarget = target } },
                                         )
@@ -355,22 +347,6 @@ internal fun ConversationPanePanel(
         )
     }
 
-    descTarget?.let { groupMeta ->
-        var input by remember(groupMeta.id) { mutableStateOf(groupMeta.description) }
-        CouiInputDialog(
-            visible = true,
-            title = "项目说明",
-            value = input,
-            onValueChange = { input = it },
-            placeholder = "这个项目用来做什么",
-            confirmText = "保存",
-            onConfirm = {
-                onGroupUpdateMeta(groupMeta.id, groupMeta.name, input, groupMeta.instructions)
-                descTarget = null
-            },
-            onDismissRequest = { descTarget = null },
-        )
-    }
 }
 
 private data class WorkbenchEntry(
@@ -611,7 +587,6 @@ private fun ConversationSectionHeader(
     group: ConversationDrawerGroup,
     isFirstSection: Boolean,
     hasWorkbenchAbove: Boolean,
-    onEditDescription: (() -> Unit)? = null,
     onRenameGroup: (() -> Unit)? = null,
     onDeleteGroup: (() -> Unit)? = null,
 ) {
@@ -662,10 +637,9 @@ private fun ConversationSectionHeader(
                         expanded = groupMenuExpanded,
                         onDismissRequest = { groupMenuExpanded = false },
                         items = listOf(
-                            CouiMenuItem(value = 0, text = "编辑项目说明", icon = Icons.Outlined.Edit),
-                            CouiMenuItem(value = 1, text = "重命名项目", icon = Icons.Outlined.Edit),
+                            CouiMenuItem(value = 0, text = "重命名项目", icon = Icons.Outlined.Edit),
                             CouiMenuItem(
-                                value = 2,
+                                value = 1,
                                 text = "删除项目",
                                 icon = Icons.Outlined.Delete,
                                 iconTint = destructiveColor,
@@ -675,9 +649,8 @@ private fun ConversationSectionHeader(
                         onItemClick = { item ->
                             groupMenuExpanded = false
                             when (item.value) {
-                                0 -> onEditDescription?.invoke()
-                                1 -> onRenameGroup?.invoke()
-                                2 -> onDeleteGroup?.invoke()
+                                0 -> onRenameGroup?.invoke()
+                                1 -> onDeleteGroup?.invoke()
                             }
                         },
                         anchor = groupMenuAnchor,
