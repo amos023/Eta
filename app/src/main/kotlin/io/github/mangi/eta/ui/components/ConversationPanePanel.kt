@@ -88,7 +88,9 @@ import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.ui.app.LocalUiStyle
+import io.github.mangi.eta.ui.components.coui.CouiConfirmDialog
 import io.github.mangi.eta.ui.components.coui.CouiIcon
+import io.github.mangi.eta.ui.components.coui.CouiInputDialog
 import io.github.mangi.eta.ui.components.coui.CouiIconNext
 import io.github.mangi.eta.ui.components.coui.couiPrimaryDialogAction
 import io.github.mangi.eta.ui.components.coui.rememberCouiDialogMaterial
@@ -136,6 +138,8 @@ internal fun ConversationPanePanel(
     onConversationDelete: (ConversationSummaryUi) -> Unit,
     onConversationMoveToGroup: (ConversationSummaryUi, String?) -> Unit,
     onConversationCreateGroup: (ConversationSummaryUi, String) -> Unit,
+    onGroupRename: (String, String) -> Unit,
+    onGroupDelete: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenTools: () -> Unit,
@@ -152,6 +156,9 @@ internal fun ConversationPanePanel(
     }
     // 长按菜单「移动到项目」的当前目标会话。
     var moveTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
+    // 分组长按菜单的当前目标项目。
+    var renameGroupTarget by remember { mutableStateOf<ConversationDrawerSection.Project?>(null) }
+    var deleteGroupTarget by remember { mutableStateOf<ConversationDrawerSection.Project?>(null) }
     val containerColor = conversationPaneContainerColor()
     val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
     val couiBackdrop = if (isCoui) rememberCouiBackdrop() else null
@@ -217,10 +224,13 @@ internal fun ConversationPanePanel(
                             } else {
                                 groups.forEachIndexed { groupIndex, group ->
                                     item(key = "section-${group.section}") {
+                                        val projectSection = group.section as? ConversationDrawerSection.Project
                                         ConversationSectionHeader(
                                             group = group,
                                             isFirstSection = groupIndex == 0,
                                             hasWorkbenchAbove = !isSearching,
+                                            onRenameGroup = projectSection?.let { target -> { renameGroupTarget = target } },
+                                            onDeleteGroup = projectSection?.let { target -> { deleteGroupTarget = target } },
                                         )
                                     }
                                     items(
@@ -303,6 +313,38 @@ internal fun ConversationPanePanel(
             }
         },
     )
+
+    renameGroupTarget?.let { project ->
+        var nameInput by remember(project.groupId) { mutableStateOf(project.name) }
+        CouiInputDialog(
+            visible = true,
+            title = "重命名项目",
+            value = nameInput,
+            onValueChange = { nameInput = it },
+            placeholder = "项目名称",
+            confirmText = "保存",
+            confirmEnabled = nameInput.isNotBlank(),
+            onConfirm = {
+                onGroupRename(project.groupId, nameInput)
+                renameGroupTarget = null
+            },
+            onDismissRequest = { renameGroupTarget = null },
+        )
+    }
+    deleteGroupTarget?.let { project ->
+        CouiConfirmDialog(
+            visible = true,
+            title = "删除项目",
+            message = "项目里的会话会退回未分组，聊天记录不会删除。",
+            confirmText = "删除",
+            destructive = true,
+            onConfirm = {
+                onGroupDelete(project.groupId)
+                deleteGroupTarget = null
+            },
+            onDismissRequest = { deleteGroupTarget = null },
+        )
+    }
 }
 
 private data class WorkbenchEntry(
@@ -537,11 +579,14 @@ private fun MiuixWorkbenchRow(entry: WorkbenchEntry) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ConversationSectionHeader(
     group: ConversationDrawerGroup,
     isFirstSection: Boolean,
     hasWorkbenchAbove: Boolean,
+    onRenameGroup: (() -> Unit)? = null,
+    onDeleteGroup: (() -> Unit)? = null,
 ) {
     val label = group.localizedLabel()
     val topPadding = when {
@@ -551,25 +596,65 @@ private fun ConversationSectionHeader(
     }
     val horizontalInset = ConversationPanelMetrics.PaneHorizontalPadding +
         ConversationPanelMetrics.RowHorizontalPadding
+    val hasGroupActions = onRenameGroup != null || onDeleteGroup != null
+    var groupMenuExpanded by remember { mutableStateOf(false) }
+    val groupMenuAnchor = rememberCouiMenuAnchor()
 
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             val colors = CouiPageDefaults.themeColors()
-            CouiText(
-                text = label,
-                kind = CouiTextKind.GroupTitle,
-                color = colors.summary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = horizontalInset,
-                        top = topPadding,
-                        end = horizontalInset,
-                        bottom = ConversationPanelMetrics.SectionBottomPadding,
+            Box(modifier = Modifier.couiMenuAnchor(groupMenuAnchor)) {
+                CouiText(
+                    text = label,
+                    kind = CouiTextKind.GroupTitle,
+                    color = colors.summary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (hasGroupActions) {
+                                Modifier.combinedClickable(
+                                    onClick = {},
+                                    onLongClick = { groupMenuExpanded = true },
+                                )
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .padding(
+                            start = horizontalInset,
+                            top = topPadding,
+                            end = horizontalInset,
+                            bottom = ConversationPanelMetrics.SectionBottomPadding,
+                        )
+                        .semantics { heading() },
+                    textAlign = TextAlign.Start,
+                )
+                if (hasGroupActions) {
+                    val destructiveColor = CouiDialogDefaults.themeColors().destructive
+                    Menu(
+                        expanded = groupMenuExpanded,
+                        onDismissRequest = { groupMenuExpanded = false },
+                        items = listOf(
+                            CouiMenuItem(value = 0, text = "重命名项目", icon = Icons.Outlined.Edit),
+                            CouiMenuItem(
+                                value = 1,
+                                text = "删除项目",
+                                icon = Icons.Outlined.Delete,
+                                iconTint = destructiveColor,
+                                dividerBefore = true,
+                            ),
+                        ),
+                        onItemClick = { item ->
+                            groupMenuExpanded = false
+                            when (item.value) {
+                                0 -> onRenameGroup?.invoke()
+                                1 -> onDeleteGroup?.invoke()
+                            }
+                        },
+                        anchor = groupMenuAnchor,
                     )
-                    .semantics { heading() },
-                textAlign = TextAlign.Start,
-            )
+                }
+            }
         }
         AppearanceUiStyle.MIUIX -> {
             Text(

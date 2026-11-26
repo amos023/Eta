@@ -387,6 +387,12 @@ fun AgentAppRoot(
             onConversationCreateGroup = { conversation, name ->
                 agentState.createConversationGroupAndAssign(conversation.id, name)
             },
+            onGroupRename = { groupId, name ->
+                agentState.renameConversationGroup(groupId, name)
+            },
+            onGroupDelete = { groupId ->
+                agentState.deleteConversationGroup(groupId)
+            },
             onOpenTools = { pushRoute(AppRoute.Tools) },
             onOpenSkills = { pushRoute(AppRoute.Skills) },
             onOpenCharacters = { pushRoute(AppRoute.Characters) },
