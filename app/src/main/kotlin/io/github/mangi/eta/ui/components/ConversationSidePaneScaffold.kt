@@ -191,7 +191,8 @@ fun ConversationSidePaneScaffold(
                         // 外部已经要求关闭（例如刚选中会话），这里不能再回写成打开：
                         // 快速点击时打开动画刚 settle，回写会把关闭动作覆盖掉，抽屉会留在打开状态。
                         paneDragState.animateTo(ConversationPaneAnchor.Closed, settleAnimation)
-                    } else {
+                    } else if (paneDragState.targetValue == ConversationPaneAnchor.Closed) {
+                        // 只有目标确实是关闭时才回调，否则展开动画途中会把刚打开的侧栏关掉。
                         focusManager.clearFocus()
                         keyboard?.hide()
                         currentOnDismiss()
