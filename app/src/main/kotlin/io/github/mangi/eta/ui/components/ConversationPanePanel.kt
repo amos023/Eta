@@ -75,6 +75,7 @@ import com.itos.coui.dialog.CouiDialogPlacement
 import com.itos.coui.dialog.Dialog as CouiDialog
 import com.itos.coui.effect.couiButtonFeedback
 import com.itos.coui.layout.CouiPageDefaults
+import com.itos.coui.layout.Group
 import com.itos.coui.layout.Divider as CouiDivider
 import com.itos.coui.menu.CouiMenuItem
 import com.itos.coui.menu.Menu
@@ -224,30 +225,47 @@ internal fun ConversationPanePanel(
                                 }
                             } else {
                                 groups.forEachIndexed { groupIndex, group ->
-                                    item(key = "section-${group.section}") {
-                                        val projectSection = group.section as? ConversationDrawerSection.Project
-                                        ConversationSectionHeader(
-                                            group = group,
-                                            isFirstSection = groupIndex == 0,
-                                            hasWorkbenchAbove = !isSearching,
-                                            onRenameGroup = projectSection?.let { target -> { renameGroupTarget = target } },
-                                            onDeleteGroup = projectSection?.let { target -> { deleteGroupTarget = target } },
-                                        )
-                                    }
-                                    items(
-                                        items = group.items,
-                                        key = { it.id },
-                                    ) { conversation ->
-                                        ConversationHistoryRow(
-                                            conversation = conversation,
-                                            selected = conversation.id == state.selectedConversationId,
-                                            onClick = { onConversationSelected(conversation.id) },
-                                            onTogglePin = { onConversationTogglePin(conversation) },
-                                            onRename = { onConversationRename(conversation) },
-                                            onExport = { onConversationExport(conversation) },
-                                            onDelete = { onConversationDelete(conversation) },
-                                            onMoveToGroup = { moveTarget = conversation },
-                                        )
+                                    val projectSection = group.section as? ConversationDrawerSection.Project
+                                    if (projectSection != null) {
+                                        // 项目分组走 COUI 标准 Group：标题在卡片外，会话装进卡片，右上角是管理菜单。
+                                        item(key = "project-${projectSection.groupId}") {
+                                            ProjectGroupCard(
+                                                project = projectSection,
+                                                conversations = group.items,
+                                                selectedId = state.selectedConversationId,
+                                                onSelect = onConversationSelected,
+                                                onTogglePin = onConversationTogglePin,
+                                                onRename = onConversationRename,
+                                                onExport = onConversationExport,
+                                                onDelete = onConversationDelete,
+                                                onMoveToGroup = { conversation -> moveTarget = conversation },
+                                                onRenameGroup = { renameGroupTarget = projectSection },
+                                                onDeleteGroup = { deleteGroupTarget = projectSection },
+                                            )
+                                        }
+                                    } else {
+                                        item(key = "section-${group.section}") {
+                                            ConversationSectionHeader(
+                                                group = group,
+                                                isFirstSection = groupIndex == 0,
+                                                hasWorkbenchAbove = !isSearching,
+                                            )
+                                        }
+                                        items(
+                                            items = group.items,
+                                            key = { it.id },
+                                        ) { conversation ->
+                                            ConversationHistoryRow(
+                                                conversation = conversation,
+                                                selected = conversation.id == state.selectedConversationId,
+                                                onClick = { onConversationSelected(conversation.id) },
+                                                onTogglePin = { onConversationTogglePin(conversation) },
+                                                onRename = { onConversationRename(conversation) },
+                                                onExport = { onConversationExport(conversation) },
+                                                onDelete = { onConversationDelete(conversation) },
+                                                onMoveToGroup = { moveTarget = conversation },
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -581,14 +599,11 @@ private fun MiuixWorkbenchRow(entry: WorkbenchEntry) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ConversationSectionHeader(
     group: ConversationDrawerGroup,
     isFirstSection: Boolean,
     hasWorkbenchAbove: Boolean,
-    onRenameGroup: (() -> Unit)? = null,
-    onDeleteGroup: (() -> Unit)? = null,
 ) {
     val label = group.localizedLabel()
     val topPadding = when {
@@ -598,65 +613,25 @@ private fun ConversationSectionHeader(
     }
     val horizontalInset = ConversationPanelMetrics.PaneHorizontalPadding +
         ConversationPanelMetrics.RowHorizontalPadding
-    val hasGroupActions = onRenameGroup != null || onDeleteGroup != null
-    var groupMenuExpanded by remember { mutableStateOf(false) }
-    val groupMenuAnchor = rememberCouiMenuAnchor()
 
     when (LocalUiStyle.current) {
         AppearanceUiStyle.COUI -> {
             val colors = CouiPageDefaults.themeColors()
-            Box(modifier = Modifier.couiMenuAnchor(groupMenuAnchor)) {
-                CouiText(
-                    text = label,
-                    kind = CouiTextKind.GroupTitle,
-                    color = colors.summary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (hasGroupActions) {
-                                Modifier.combinedClickable(
-                                    onClick = {},
-                                    onLongClick = { groupMenuExpanded = true },
-                                )
-                            } else {
-                                Modifier
-                            },
-                        )
-                        .padding(
-                            start = horizontalInset,
-                            top = topPadding,
-                            end = horizontalInset,
-                            bottom = ConversationPanelMetrics.SectionBottomPadding,
-                        )
-                        .semantics { heading() },
-                    textAlign = TextAlign.Start,
-                )
-                if (hasGroupActions) {
-                    val destructiveColor = CouiDialogDefaults.themeColors().destructive
-                    Menu(
-                        expanded = groupMenuExpanded,
-                        onDismissRequest = { groupMenuExpanded = false },
-                        items = listOf(
-                            CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
-                            CouiMenuItem(
-                                value = 1,
-                                text = "删除项目",
-                                icon = Icons.Outlined.Delete,
-                                iconTint = destructiveColor,
-                                dividerBefore = true,
-                            ),
-                        ),
-                        onItemClick = { item ->
-                            groupMenuExpanded = false
-                            when (item.value) {
-                                0 -> onRenameGroup?.invoke()
-                                1 -> onDeleteGroup?.invoke()
-                            }
-                        },
-                        anchor = groupMenuAnchor,
+            CouiText(
+                text = label,
+                kind = CouiTextKind.GroupTitle,
+                color = colors.summary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = horizontalInset,
+                        top = topPadding,
+                        end = horizontalInset,
+                        bottom = ConversationPanelMetrics.SectionBottomPadding,
                     )
-                }
-            }
+                    .semantics { heading() },
+                textAlign = TextAlign.Start,
+            )
         }
         AppearanceUiStyle.MIUIX -> {
             Text(
@@ -1223,6 +1198,86 @@ private fun MoveToGroupDialog(
                     kind = CouiTextKind.ItemTitle,
                     color = colors.title,
                 )
+            }
+        }
+    }
+}
+
+/** 项目分组卡片：COUI Group 结构，标题行右上角提供重命名与删除。 */
+@Composable
+private fun ProjectGroupCard(
+    project: ConversationDrawerSection.Project,
+    conversations: List<ConversationSummaryUi>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+    onTogglePin: (ConversationSummaryUi) -> Unit,
+    onRename: (ConversationSummaryUi) -> Unit,
+    onExport: (ConversationSummaryUi) -> Unit,
+    onDelete: (ConversationSummaryUi) -> Unit,
+    onMoveToGroup: (ConversationSummaryUi) -> Unit,
+    onRenameGroup: () -> Unit,
+    onDeleteGroup: () -> Unit,
+) {
+    val colors = CouiPageDefaults.themeColors()
+    var menuExpanded by remember { mutableStateOf(false) }
+    val anchor = rememberCouiMenuAnchor()
+    Group(
+        title = project.name,
+        headerActions = {
+            Box(modifier = Modifier.couiMenuAnchor(anchor)) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CouiShape(15.dp, 2f))
+                        .clickable { menuExpanded = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CouiIcon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = "项目菜单",
+                        modifier = Modifier.size(17.dp),
+                        tint = colors.summary,
+                    )
+                }
+                val destructiveColor = CouiDialogDefaults.themeColors().destructive
+                Menu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    items = listOf(
+                        CouiMenuItem(value = 0, text = "重命名", icon = Icons.Outlined.Edit),
+                        CouiMenuItem(
+                            value = 1,
+                            text = "删除项目",
+                            icon = Icons.Outlined.Delete,
+                            iconTint = destructiveColor,
+                            dividerBefore = true,
+                        ),
+                    ),
+                    onItemClick = { item ->
+                        menuExpanded = false
+                        when (item.value) {
+                            0 -> onRenameGroup()
+                            1 -> onDeleteGroup()
+                        }
+                    },
+                    anchor = anchor,
+                )
+            }
+        },
+    ) {
+        conversations.forEachIndexed { index, conversation ->
+            ConversationHistoryRow(
+                conversation = conversation,
+                selected = conversation.id == selectedId,
+                onClick = { onSelect(conversation.id) },
+                onTogglePin = { onTogglePin(conversation) },
+                onRename = { onRename(conversation) },
+                onExport = { onExport(conversation) },
+                onDelete = { onDelete(conversation) },
+                onMoveToGroup = { onMoveToGroup(conversation) },
+            )
+            if (index < conversations.lastIndex) {
+                CouiDivider(startIndent = 44.dp, endIndent = 0.dp)
             }
         }
     }
