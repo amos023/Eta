@@ -42,10 +42,6 @@ internal data class ConversationEntity(
 internal data class ConversationGroupEntity(
     @PrimaryKey val id: String,
     val name: String,
-    /** 项目说明：只在项目页展示，不进入提示词。 */
-    @ColumnInfo(name = "description", defaultValue = "''") val description: String = "",
-    /** 项目级自定义指令：项目内会话发起请求时注入系统提示。 */
-    @ColumnInfo(name = "instructions", defaultValue = "''") val instructions: String = "",
     @ColumnInfo(name = "sort_order", defaultValue = "0") val sortOrder: Int = 0,
     @ColumnInfo(name = "created_at") val createdAt: Long,
 )

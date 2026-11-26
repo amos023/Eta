@@ -1257,22 +1257,22 @@ private fun ProjectGroupRow(
                     .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    CouiText(
-                        text = project.name,
-                        kind = CouiTextKind.ItemTitle,
-                        color = colors.title,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    CouiText(
-                        text = "${conversations.size} 个会话",
-                        kind = CouiTextKind.ItemSummary,
-                        color = colors.summary,
-                        maxLines = 1,
-                    )
-                }
+                CouiText(
+                    text = project.name,
+                    kind = CouiTextKind.ItemTitle,
+                    color = colors.title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(modifier = Modifier.width(8.dp))
+                CouiText(
+                    text = "${conversations.size} 个会话",
+                    kind = CouiTextKind.ItemSummary,
+                    color = colors.summary,
+                    maxLines = 1,
+                )
+                Spacer(modifier = Modifier.width(6.dp))
                 CouiIcon(
                     imageVector = Icons.Rounded.KeyboardArrowDown,
                     contentDescription = if (expanded) "收起" else "展开",

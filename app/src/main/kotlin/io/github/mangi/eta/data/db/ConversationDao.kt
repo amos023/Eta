@@ -51,13 +51,6 @@ internal interface ConversationDao : ChunkedTextDao {
     @Query("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM conversation_groups")
     suspend fun nextGroupSortOrder(): Int
 
-    /** 项目元数据：名称、说明与项目级指令。 */
-    @Query(
-        "UPDATE conversation_groups SET name = :name, description = :description, " +
-            "instructions = :instructions WHERE id = :groupId"
-    )
-    suspend fun updateGroupMeta(groupId: String, name: String, description: String, instructions: String)
-
     // ── 项目资料 ────────────────────────────────────────────────────────────
 
     @Query("SELECT * FROM conversation_group_files WHERE group_id = :groupId ORDER BY created_at ASC")

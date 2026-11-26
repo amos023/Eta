@@ -28,7 +28,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 31,
+    version = 32,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -76,6 +76,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_28_29,
                         MIGRATION_29_30,
                         MIGRATION_30_31,
+                        MIGRATION_31_32,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -184,6 +185,13 @@ internal abstract class EtaDatabase : RoomDatabase() {
          * 按实体 schema 建表，本就带着它们；再次 ALTER 会报
          * duplicate column name 而崩溃。两种来源都要能过，因此逐列先检查。
          */
+        internal val MIGRATION_31_32 = Migration(31, 32) { database ->
+            // 分组说明与项目指令的入口已移除，这里是闲置列。
+            // SQLite 3.35+ 才支持 DROP COLUMN；不支持时保留列也不影响读写，因此两种情况都不中断迁移。
+            runCatching { database.execSQL("ALTER TABLE conversation_groups DROP COLUMN description") }
+            runCatching { database.execSQL("ALTER TABLE conversation_groups DROP COLUMN instructions") }
+        }
+
         internal val MIGRATION_30_31 = Migration(30, 31) { database ->
             // 项目化分组：补说明与项目级指令，并新增项目共享资料表。
             database.addColumnIfMissing("conversation_groups", "description", "TEXT NOT NULL DEFAULT ''")

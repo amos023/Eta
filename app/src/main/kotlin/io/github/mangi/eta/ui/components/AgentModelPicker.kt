@@ -751,18 +751,15 @@ private fun ModelProviderCard(
                 onRefresh = onRefresh,
             )
             if (!collapsed) {
-                Group(title = null) {
-                    group.models.forEachIndexed { index, model ->
+                // 与侧栏分组一致：展开后缩进排列，不再套卡片和分隔线。
+                group.models.forEach { model ->
+                    Box(modifier = Modifier.padding(start = 14.dp)) {
                         ModelPickerRow(
                             model = model,
                             selected = model.id == selectedId,
                             onClick = { onSelect(model.id) },
                             horizontalPadding = 4.dp,
                         )
-                        // 分隔线从模型名左缘开始，一直拉到卡片右边，右侧不留缺口。
-                        if (index < group.models.lastIndex) {
-                            Divider(startIndent = 44.dp, endIndent = 0.dp)
-                        }
                     }
                 }
             }

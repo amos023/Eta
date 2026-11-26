@@ -16,10 +16,6 @@ data class ConversationPaneUiState(
 data class ConversationGroupUi(
     val id: String,
     val name: String,
-    /** 项目说明，只在项目页展示。 */
-    val description: String = "",
-    /** 项目级指令，项目内会话发起请求时注入系统提示。 */
-    val instructions: String = "",
     val sortOrder: Int = 0,
 )
 

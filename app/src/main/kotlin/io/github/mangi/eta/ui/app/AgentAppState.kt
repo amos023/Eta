@@ -1126,8 +1126,6 @@ internal class AgentAppState(
                 ConversationGroupUi(
                     id = it.id,
                     name = it.name,
-                    description = it.description,
-                    instructions = it.instructions,
                     sortOrder = it.sortOrder,
                 )
             }
@@ -1206,19 +1204,6 @@ internal class AgentAppState(
             val existing = withContext(Dispatchers.IO) { dao.groups() }.firstOrNull { it.id == groupId }
                 ?: return@launch
             withContext(Dispatchers.IO) { dao.insertGroup(existing.copy(name = trimmed)) }
-            reloadGroupDefinitions()
-        }
-    }
-
-    /** 更新项目元数据：名称、说明与项目级指令。 */
-    fun updateConversationGroupMeta(groupId: String, name: String, description: String, instructions: String) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) return
-        scope.launch {
-            withContext(Dispatchers.IO) {
-                EtaDatabase.get(appContext).conversationDao()
-                    .updateGroupMeta(groupId, trimmed, description, instructions)
-            }
             reloadGroupDefinitions()
         }
     }
