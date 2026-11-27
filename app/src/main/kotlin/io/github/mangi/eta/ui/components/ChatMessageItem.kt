@@ -1679,7 +1679,10 @@ private fun SuggestionChipsRow(
     }
 }
 
-/** 回复内嵌的选项按钮：单选点一下即提交，多选先勾选再确认。 */
+/**
+ * 回复内嵌的选项按钮：每个选项都可点选（点一下选中、再点取消），
+ * 底部统一确认按钮——选一个就是单选效果，选多个就是多选，不再区分模式。
+ */
 @Composable
 private fun MessageOptionsRow(
     block: MessageOptionsBlock,
@@ -1712,65 +1715,46 @@ private fun MessageOptionsRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(shape)
-                    .background(
-                        if (isSelected) colors.accent.copy(alpha = 0.12f) else colors.card,
-                    )
+                    .background(if (isSelected) colors.accent.copy(alpha = 0.12f) else colors.card)
                     .border(
                         width = 0.5.dp,
                         color = if (isSelected) colors.accent.copy(alpha = 0.7f) else colors.divider,
                         shape = shape,
                     )
                     .clickable(enabled = active) {
-                        if (block.multiSelect) {
-                            selected = if (isSelected) selected - option else selected + option
-                        } else {
-                            submitted = true
-                            onSubmit(option)
-                        }
+                        selected = if (isSelected) selected - option else selected + option
                     }
                     .padding(horizontal = 14.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 左侧圆点表示可选项，选中后变成实心对勾。
-                Box(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(if (isSelected) colors.accent else Color.Transparent)
-                        .then(
-                            if (isSelected) {
-                                Modifier
-                            } else {
-                                Modifier.border(1.dp, colors.divider, CircleShape)
-                            },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (isSelected) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(12.dp),
-                            tint = Color.White,
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = option,
                     style = MiuixTheme.textStyles.body2,
                     color = if (active || isSelected) colors.title else colors.disabled,
                     modifier = Modifier.weight(1f),
                 )
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = colors.accent,
+                    )
+                }
             }
         }
-        if (block.multiSelect && !submitted) {
+        if (!submitted) {
+            val confirmText = when {
+                selected.isEmpty() -> "选择一个或多个选项"
+                selected.size == 1 -> "确认：${selected.first()}"
+                else -> "确认（${selected.size}）"
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(shape)
-                    .background(colors.accent.copy(alpha = if (selected.isEmpty()) 0.25f else 0.9f))
-                    .clickable(enabled = selected.isNotEmpty()) {
+                    .background(colors.accent.copy(alpha = if (selected.isEmpty()) 0.2f else 0.9f))
+                    .clickable(enabled = selected.isNotEmpty() && active) {
                         submitted = true
                         onSubmit(selected.joinToString("、"))
                     }
@@ -1778,9 +1762,11 @@ private fun MessageOptionsRow(
                 horizontalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = if (selected.isEmpty()) "选择后确认" else "确认（${selected.size}）",
+                    text = confirmText,
                     style = MiuixTheme.textStyles.body2,
                     color = if (selected.isEmpty()) colors.summary else Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
