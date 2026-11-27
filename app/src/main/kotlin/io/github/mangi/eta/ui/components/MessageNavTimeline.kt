@@ -123,79 +123,19 @@ private fun toolActionLabel(activity: ToolActivityMessageUi): String {
 }
 
 /**
- * 一条动作的补充信息：做了什么，以及这一轮提交的标题。
- *
- * 提交标题优先作为列表主行——它描述的是「改了什么」，比用户原话更接近定位需求。
- */
-internal data class MessageNavDigest(
-    val summary: String? = null,
-    val commitSubject: String? = null,
-)
-
-/** 内联提交信息：`git commit -m "…"`、`-m '…'`、`-m 无引号`。 */
-private val COMMIT_INLINE_PATTERN = Regex(
-    """git\s+commit[^\n]*?-m\s+(?:"([^"\n]*)"|'([^'\n]*)'|([^\s]+))""",
-)
-
-/** heredoc 分隔符：`<<'EOF'`、`<<-EOF`。 */
-private val HEREDOC_PATTERN = Regex("""<<-?\s*['"]?(\w*)['"]?""")
-
-/** 提交类型前缀：`fix(sidebar): `、`feat: `，展示时去掉。 */
-private val COMMIT_PREFIX_PATTERN = Regex("""^[a-z]+(?:\([^)]*\))?!?:\s*""")
-
-/**
- * 从一条终端命令里取提交标题。
- *
- * 支持两种写法：`git commit -m "…"` 与 heredoc 多行正文（`git commit -F - <<'EOF'`）。
- * 多行时取第一行非空内容当标题。
- */
-internal fun extractCommitSubject(command: String): String? {
-    val lines = command.lines()
-    val commitIndex = lines.indexOfFirst { it.contains("git commit") }
-    if (commitIndex < 0) return null
-    val head = lines[commitIndex]
-
-    COMMIT_INLINE_PATTERN.find(head)?.let { match ->
-        val value = match.groupValues.drop(1).firstOrNull { it.isNotBlank() }
-        if (!value.isNullOrBlank()) {
-            return stripCommitPrefix(value.trim().lineSequence().firstOrNull().orEmpty())
-        }
-    }
-
-    val heredoc = HEREDOC_PATTERN.find(head)?.groupValues?.getOrNull(1)
-    val readsStdin = head.contains("-F -") || head.contains("-F-") || head.contains("<<")
-    if (!readsStdin) return null
-    val terminator = heredoc?.takeIf { it.isNotBlank() } ?: "EOF"
-    for (index in commitIndex + 1 until lines.size) {
-        val line = lines[index]
-        if (line.trim() == terminator) break
-        if (line.isNotBlank()) return stripCommitPrefix(line.trim())
-    }
-    return null
-}
-
-private fun stripCommitPrefix(subject: String): String =
-    subject.replace(COMMIT_PREFIX_PATTERN, "").trim().ifBlank { subject.trim() }
-
-/**
- * 按用户消息归集工具调用，得到「这个消息 id → 做了什么 / 提交标题」。
+ * 按用户消息归集工具调用，得到「这个消息 id → 这一轮做了什么」。
  *
  * 只有用户消息和工具活动参与归属，助手正文与思考流不在这里出现。
  */
-internal fun buildActionDigests(messages: List<AgentChatMessageUi>): Map<String, MessageNavDigest> {
-    val digests = mutableMapOf<String, MessageNavDigest>()
+internal fun buildToolDigests(messages: List<AgentChatMessageUi>): Map<String, String> {
+    val digests = mutableMapOf<String, String>()
     var ownerId: String? = null
     val bucket = mutableListOf<ToolActivityMessageUi>()
 
     fun flush() {
         val id = ownerId ?: return
-        val summary = summarizeToolActions(bucket).takeIf { it.isNotBlank() }
-        val commit = bucket.firstNotNullOfOrNull { activity ->
-            activity.command?.let { extractCommitSubject(it) }?.takeIf { it.isNotBlank() }
-        }
-        if (summary != null || commit != null) {
-            digests[id] = MessageNavDigest(summary = summary, commitSubject = commit)
-        }
+        val summary = summarizeToolActions(bucket)
+        if (summary.isNotBlank()) digests[id] = summary
     }
 
     messages.forEach { message ->
@@ -213,49 +153,33 @@ internal fun buildActionDigests(messages: List<AgentChatMessageUi>): Map<String,
     return digests
 }
 
-/** 合并两段「做了什么」：相同则保留一份，不同则串联。 */
-private fun mergeActionSummary(first: String?, second: String?): String? = when {
-    first.isNullOrBlank() -> second?.takeIf { it.isNotBlank() }
-    second.isNullOrBlank() -> first
-    first == second -> first
-    first.contains(second) -> first
-    else -> "$first → $second"
-}
-
 /**
  * 按「动作」重建定位列表。
  *
  * 规则：能说清需求的话各占一行；纯指令挂到上一行，成为它的后续。
  * 若开头就是纯指令（没有前置动作），仍保留成独立一行，不做隐藏。
  *
- * 标题优先级：这一轮有提交就用提交标题（它描述「改了什么」），否则退回用户原话。
- * 纯指令被合并时，它携带的提交与摘要一并并入上一个动作——提交通常正发生在「推」这一轮。
+ * [toolDigests] 为每条用户消息附上「这一轮做了什么」，缺失时不显示摘要。
  */
 internal fun buildMessageNavItems(
     entries: List<Pair<String, String>>,
-    digests: Map<String, MessageNavDigest> = emptyMap(),
+    toolDigests: Map<String, String> = emptyMap(),
 ): List<MessageNavItem> {
     val items = mutableListOf<MessageNavItem>()
     entries.forEach { (id, content) ->
         val prompt = AgentFileReferencePromptCodec.parse(content).request
         val trimmed = prompt.trim()
         if (trimmed.isEmpty()) return@forEach
-        val digest = digests[id]
-        val commitTitle = digest?.commitSubject?.takeIf { it.isNotBlank() }
         val previous = items.lastOrNull()
         if (previous != null && isDirectivePrompt(trimmed)) {
-            items[items.lastIndex] = previous.copy(
-                followUps = previous.followUps + trimmed,
-                title = commitTitle ?: previous.title,
-                summary = mergeActionSummary(previous.summary, digest?.summary),
-            )
+            items[items.lastIndex] = previous.copy(followUps = previous.followUps + trimmed)
             return@forEach
         }
         items += MessageNavItem(
             messageId = id,
             prompt = prompt,
-            title = commitTitle ?: messageNavTitle(prompt),
-            summary = digest?.summary?.takeIf { it.isNotBlank() },
+            title = messageNavTitle(prompt),
+            summary = toolDigests[id]?.takeIf { it.isNotBlank() },
         )
     }
     return items
