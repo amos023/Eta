@@ -981,12 +981,20 @@ private fun AgentMessageBlock(
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     // 回复内嵌的选项块：流式过程中不解析，结束后再出按钮。
     val messageOptions = remember(message.content) {
-        if (!message.renderMarkdown) null else MessageOptionsParser.parse(message.content)
+        if (!message.renderMarkdown) {
+            null
+        } else {
+            MessageOptionsParser.parse(message.content)
+                ?: MessageOptionsParser.parseFallback(message.content)
+        }
     }
     // 选项块交给按钮渲染，正文里要把这段去掉，否则会被当成代码块显示出来。
     val displayContent = remember(message.content, messageOptions) {
-        if (messageOptions != null) MessageOptionsParser.stripBlock(message.content)
-        else message.content
+        when {
+            messageOptions == null -> message.content
+            messageOptions.fromFallback -> MessageOptionsParser.stripFallback(message.content)
+            else -> MessageOptionsParser.stripBlock(message.content)
+        }
     }
     DisposableEffect(retainedStreamingState) {
         retainedStreamingState?.attachContent()
