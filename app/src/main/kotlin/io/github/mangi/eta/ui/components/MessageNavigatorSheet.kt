@@ -82,6 +82,8 @@ internal data class MessageNavItem(
     val title: String = "",
     /** 被合并进这一行的纯指令原话，如「推」「提交」。 */
     val followUps: List<String> = emptyList(),
+    /** 这一轮实际做了什么，例如「git push → dispatch」。 */
+    val summary: String? = null,
 )
 
 @Composable
@@ -222,6 +224,17 @@ private fun MessageNavContent(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        val summary = item.summary.orEmpty()
+                        if (summary.isNotEmpty()) {
+                            Text(
+                                text = stringResource(R.string.message_nav_action_summary, summary),
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
                         val followUpSummary = summarizeFollowUps(item.followUps)
                         if (followUpSummary.isNotEmpty()) {
                             Text(

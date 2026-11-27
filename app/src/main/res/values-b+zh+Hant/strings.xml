@@ -1496,6 +1496,7 @@
   <string name="message_nav_untitled">無標題輪次</string>
   <string name="message_nav_hint">點任意一則即可跳轉到該輪對話。</string>
   <string name="message_nav_followups">後續：%1$s</string>
+  <string name="message_nav_action_summary">做了什麼：%1$s</string>
   <string name="conversation_dock_characters">角色</string>
   <string name="conversation_empty_hint">點按右上角按鈕即可開始新對話</string>
   <string name="conversation_model_unconfigured">未設定</string>

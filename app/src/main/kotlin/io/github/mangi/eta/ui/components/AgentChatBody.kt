@@ -584,23 +584,35 @@ internal fun AgentConversationMessages(
             }
         }
     }
+    // 工具运行记录只在真正打开定位弹层时才读：整表加载比只读提问重得多，
+    // 不能挂在会话打开路径上。读完就不再重复读，除非切换会话。
+    var toolDigests by remember(conversationId) { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var toolDigestsLoaded by remember(conversationId) { mutableStateOf(false) }
     // 索引尚未读回时先用窗口内的提问兜底，避免弹层空白。
     // 两条路径都过一遍时间线构建：纯指令（继续/推/提交）合并进上一个动作，
     // 列表按「改了什么」排列，而不是按「说了什么」逐条平铺。
-    val messageNavItems = remember(fullPromptIndex, visibleMessages) {
+    val messageNavItems = remember(fullPromptIndex, visibleMessages, toolDigests) {
         val indexed = fullPromptIndex
-        if (indexed.isNullOrEmpty()) {
-            buildMessageNavItems(
-                visibleMessages.filterIsInstance<UserMessageUi>().map { message ->
-                    message.id to message.content
-                },
-            )
+        val entries = if (indexed.isNullOrEmpty()) {
+            visibleMessages.filterIsInstance<UserMessageUi>().map { message ->
+                message.id to message.content
+            }
         } else {
-            buildMessageNavItems(indexed)
+            indexed
         }
+        buildMessageNavItems(entries, toolDigests)
     }
     LaunchedEffect(Unit) {
-        AgentMessageNavigation.openRequests.collect { showMessageNavigator = true }
+        AgentMessageNavigation.openRequests.collect {
+            showMessageNavigator = true
+            val id = conversationId
+            if (id != null && !toolDigestsLoaded) {
+                toolDigestsLoaded = true
+                toolDigests = withContext(Dispatchers.IO) {
+                    buildToolDigests(AgentConversationStore.loadAllMessages(context, id))
+                }
+            }
+        }
     }
     LaunchedEffect(Unit) {
         AgentMessageNavigation.fileOpenRequests.collect { showConversationFiles = true }

@@ -1608,6 +1608,7 @@
   <string name="message_nav_untitled">Untitled turn</string>
   <string name="message_nav_hint">Tap an entry to scroll to that turn.</string>
   <string name="message_nav_followups">Follow-ups: %1$s</string>
+  <string name="message_nav_action_summary">Actions: %1$s</string>
   <string name="conversation_dock_characters">Characters</string>
   <string name="conversation_empty_hint">Tap the new chat button above to start</string>
   <string name="conversation_model_unconfigured">Not set</string>
