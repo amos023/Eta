@@ -51,30 +51,6 @@ internal fun messageNavTitle(prompt: String): String {
     return if (head.length <= TITLE_MAX_LENGTH) head else head.take(TITLE_MAX_LENGTH) + "…"
 }
 
-/**
- * 把合并进来的后续指令压成一行：连续的同一个词折成「推 ×2」。
- *
- * 用户连发两次「推」是常态，原样列出来只会重复占位。
- */
-internal fun summarizeFollowUps(followUps: List<String>): String {
-    if (followUps.isEmpty()) return ""
-    val parts = mutableListOf<String>()
-    var current = followUps.first()
-    var count = 1
-    for (index in 1 until followUps.size) {
-        val next = followUps[index]
-        if (next == current) {
-            count++
-        } else {
-            parts += if (count > 1) "$current ×$count" else current
-            current = next
-            count = 1
-        }
-    }
-    parts += if (count > 1) "$current ×$count" else current
-    return parts.joinToString("、")
-}
-
 /** 摘要行最多列几步动作，再多就看不出重点了。 */
 private const val ACTION_STEP_LIMIT = 3
 
@@ -154,32 +130,76 @@ internal fun buildToolDigests(messages: List<AgentChatMessageUi>): Map<String, S
 }
 
 /**
- * 按「动作」重建定位列表。
+ * 合并连续纯指令时生成的标题。
  *
- * 规则：能说清需求的话各占一行；纯指令挂到上一行，成为它的后续。
- * 若开头就是纯指令（没有前置动作），仍保留成独立一行，不做隐藏。
+ * 同一个词重复出现时折成次数：`推 ×2（第 588、589 轮）`；
+ * 不同指令并列时如实列出：`推、提交（第 588、589 轮）`。
+ * 轮次就是定位列表里的序号，方便和原列表对上。
+ */
+internal fun directiveRowTitle(words: List<String>, rounds: List<Int>): String {
+    if (words.isEmpty()) return ""
+    val distinct = words.distinct()
+    val base = if (distinct.size == 1) {
+        if (words.size > 1) "${distinct.first()} ×${words.size}" else distinct.first()
+    } else {
+        distinct.joinToString("、")
+    }
+    return if (rounds.isEmpty()) base else "$base（第 ${rounds.joinToString("、")} 轮）"
+}
+
+/** 合并两段「做了什么」：相同保留一份，不同则串联。 */
+private fun mergeActionSummary(first: String?, second: String?): String? = when {
+    first.isNullOrBlank() -> second?.takeIf { it.isNotBlank() }
+    second.isNullOrBlank() -> first
+    first == second || first.contains(second) -> first
+    else -> "$first → $second"
+}
+
+/**
+ * 构建定位列表。
  *
- * [toolDigests] 为每条用户消息附上「这一轮做了什么」，缺失时不显示摘要。
+ * 每一行仍然对应你的原话（标题就是原话），只做两件事：
+ * 1. 连续纯指令（继续/推/提交）合成一行，标题带次数与轮次；
+ * 2. 每行附一行系统动作摘要，说明这一轮实际做了什么。
+ *
+ * [toolDigests] 为每条用户消息附上摘要，缺失时该行不显示第二行。
  */
 internal fun buildMessageNavItems(
     entries: List<Pair<String, String>>,
     toolDigests: Map<String, String> = emptyMap(),
 ): List<MessageNavItem> {
     val items = mutableListOf<MessageNavItem>()
-    entries.forEach { (id, content) ->
+    var mergedWords: List<String> = emptyList()
+    var mergedRounds: List<Int> = emptyList()
+
+    entries.forEachIndexed { index, (id, content) ->
         val prompt = AgentFileReferencePromptCodec.parse(content).request
         val trimmed = prompt.trim()
-        if (trimmed.isEmpty()) return@forEach
-        val previous = items.lastOrNull()
-        if (previous != null && isDirectivePrompt(trimmed)) {
-            items[items.lastIndex] = previous.copy(followUps = previous.followUps + trimmed)
-            return@forEach
+        if (trimmed.isEmpty()) return@forEachIndexed
+        val round = index + 1
+        val summary = toolDigests[id]?.takeIf { it.isNotBlank() }
+        val directive = isDirectivePrompt(trimmed)
+
+        // 连续纯指令并成一行；这一行的第一轮作为跳转锚点。
+        if (directive && mergedWords.isNotEmpty() && items.isNotEmpty()) {
+            mergedWords = mergedWords + trimmed
+            mergedRounds = mergedRounds + round
+            val previous = items.last()
+            items[items.lastIndex] = previous.copy(
+                title = directiveRowTitle(mergedWords, mergedRounds),
+                summary = mergeActionSummary(previous.summary, summary),
+            )
+            return@forEachIndexed
         }
+
+        mergedWords = if (directive) listOf(trimmed) else emptyList()
+        mergedRounds = if (directive) listOf(round) else emptyList()
         items += MessageNavItem(
             messageId = id,
             prompt = prompt,
-            title = messageNavTitle(prompt),
-            summary = toolDigests[id]?.takeIf { it.isNotBlank() },
+            title = if (directive) directiveRowTitle(mergedWords, mergedRounds) else messageNavTitle(prompt),
+            summary = summary,
+            round = round,
         )
     }
     return items

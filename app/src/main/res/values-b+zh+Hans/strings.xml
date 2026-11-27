@@ -1588,7 +1588,6 @@
   <string name="message_nav_jump_latest">跳到最新消息</string>
   <string name="message_nav_untitled">无标题轮次</string>
   <string name="message_nav_hint">点任意一条即可跳转到该轮对话。</string>
-  <string name="message_nav_followups">后续：%1$s</string>
   <string name="message_nav_action_summary">做了什么：%1$s</string>
   <string name="conversation_dock_characters">角色</string>
   <string name="conversation_empty_hint">点击右上角按钮即可开始新对话</string>

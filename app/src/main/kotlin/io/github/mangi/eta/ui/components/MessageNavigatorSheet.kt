@@ -80,10 +80,10 @@ internal data class MessageNavItem(
     val prompt: String,
     /** 主行标题：从原话里取的首行，遇句末标点截断。 */
     val title: String = "",
-    /** 被合并进这一行的纯指令原话，如「推」「提交」。 */
-    val followUps: List<String> = emptyList(),
     /** 这一轮实际做了什么，例如「git push → dispatch」。 */
     val summary: String? = null,
+    /** 该行第一轮在原列表中的序号；合并行的标题里引用的就是它。 */
+    val round: Int = 0,
 )
 
 @Composable
@@ -206,7 +206,7 @@ private fun MessageNavContent(
                     verticalAlignment = Alignment.Top,
                 ) {
                     Text(
-                        text = (position + 1).toString(),
+                        text = (if (item.round > 0) item.round else position + 1).toString(),
                         style = MiuixTheme.textStyles.footnote2,
                         color = if (uiStyle == AppearanceUiStyle.COUI) {
                             colors.summary
@@ -228,17 +228,6 @@ private fun MessageNavContent(
                         if (summary.isNotEmpty()) {
                             Text(
                                 text = stringResource(R.string.message_nav_action_summary, summary),
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
-                        }
-                        val followUpSummary = summarizeFollowUps(item.followUps)
-                        if (followUpSummary.isNotEmpty()) {
-                            Text(
-                                text = stringResource(R.string.message_nav_followups, followUpSummary),
                                 style = MiuixTheme.textStyles.footnote2,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 maxLines = 1,
