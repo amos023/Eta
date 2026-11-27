@@ -1,15 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 状态栏与流体云使用的小图标：单色光环 + 中心点，保证在胶囊里也能看清。 -->
+<!-- 状态栏与流体云小图标：圆形描边 + 两竖线眼睛的笑脸，单色、笔画粗，小尺寸不糊。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FFFFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M12,2 A10,10 0 1,0 12,22 A10,10 0 1,0 12,2 Z M12,5 A7,7 0 1,1 12,19 A7,7 0 1,1 12,5 Z" />
+        android:pathData="M12,3 A9,9 0 1,0 12,21 A9,9 0 1,0 12,3 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.1"
+        android:strokeLineCap="round" />
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M12,9 A3,3 0 1,0 12,15 A3,3 0 1,0 12,9 Z" />
+        android:pathData="M9.3,8.9 L9.3,12.1"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.1"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M14.7,8.9 L14.7,12.1"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.1"
+        android:strokeLineCap="round" />
 </vector>
