@@ -258,7 +258,7 @@ internal fun ChatMessageItem(
             isEditing = isEditing,
             onEdit = { onEditMessage(message.id) },
             onDelete = { onDeleteMessage(message.id) },
-            onResend = { onResendMessage(message.content) },
+            onResend = { onResendMessage(message.id) },
             modifier = modifier,
         )
         is AgentMessageUi -> AgentMessageBlock(
@@ -1713,11 +1713,12 @@ private fun MessageOptionsRow(
                     .fillMaxWidth()
                     .clip(shape)
                     .background(
-                        when {
-                            submitted && isSelected -> colors.accent.copy(alpha = 0.18f)
-                            isSelected -> colors.accent.copy(alpha = 0.12f)
-                            else -> colors.card
-                        },
+                        if (isSelected) colors.accent.copy(alpha = 0.12f) else colors.card,
+                    )
+                    .border(
+                        width = 0.5.dp,
+                        color = if (isSelected) colors.accent.copy(alpha = 0.7f) else colors.divider,
+                        shape = shape,
                     )
                     .clickable(enabled = active) {
                         if (block.multiSelect) {
@@ -1727,23 +1728,40 @@ private fun MessageOptionsRow(
                             onSubmit(option)
                         }
                     }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                    .padding(horizontal = 14.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // 左侧圆点表示可选项，选中后变成实心对勾。
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) colors.accent else Color.Transparent)
+                        .then(
+                            if (isSelected) {
+                                Modifier
+                            } else {
+                                Modifier.border(1.dp, colors.divider, CircleShape)
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = Color.White,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = option,
                     style = MiuixTheme.textStyles.body2,
                     color = if (active || isSelected) colors.title else colors.disabled,
                     modifier = Modifier.weight(1f),
                 )
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = colors.accent,
-                    )
-                }
             }
         }
         if (block.multiSelect && !submitted) {

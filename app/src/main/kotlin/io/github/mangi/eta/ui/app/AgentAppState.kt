@@ -1766,6 +1766,17 @@ internal class AgentAppState(
         )
     }
 
+    /**
+     * 覆盖式重发：把这条消息当作「编辑后提交」，替换原消息再重新请求，
+     * 不新增一条重复消息。用于暂停、连接失败后一键重来。
+     */
+    fun resendMessage(messageId: String) {
+        if (homeState.isStreaming || homeState.messageEdit != null || isBranchingCurrentConversation) return
+        beginMessageEdit(messageId)
+        if (homeState.messageEdit == null) return
+        submitOrQueueCurrentMessage(submittedText = null, immediateInterrupt = false)
+    }
+
     fun beginMessageEdit(messageId: String) {
         if (homeState.isStreaming || homeState.messageEdit != null || isBranchingCurrentConversation) return
         if (homeState.roleplay != null) {

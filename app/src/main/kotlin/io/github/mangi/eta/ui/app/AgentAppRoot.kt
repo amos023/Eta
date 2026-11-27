@@ -472,6 +472,7 @@ fun AgentAppRoot(
                                 is AgentHomeAction.RemoveFileReference ->
                                     agentState.removePendingFileReference(action.id)
                                 is AgentHomeAction.EditMessage -> agentState.beginMessageEdit(action.id)
+                                is AgentHomeAction.ResendMessage -> agentState.resendMessage(action.id)
                                 AgentHomeAction.CancelMessageEdit -> agentState.cancelMessageEdit()
                                 is AgentHomeAction.DeleteMessage -> {
                                     agentState.messageRevisionImpact(action.id)?.let { impact ->
