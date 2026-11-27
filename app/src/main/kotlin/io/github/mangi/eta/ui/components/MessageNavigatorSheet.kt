@@ -73,11 +73,15 @@ internal object AgentMessageNavigation {
  */
 private val LIST_MAX_HEIGHT = 380.dp
 
-/** 定位弹层的一条候选：用户提问所在轮次。 */
+/** 定位弹层的一条候选：一个「动作」，而不是一句原话。 */
 internal data class MessageNavItem(
     val messageId: String,
     /** 提示词正文，已剥去文件引用等附加内容。 */
     val prompt: String,
+    /** 主行标题：从原话里取的首行，遇句末标点截断。 */
+    val title: String = "",
+    /** 被合并进这一行的纯指令原话，如「推」「提交」。 */
+    val followUps: List<String> = emptyList(),
 )
 
 @Composable
@@ -209,14 +213,27 @@ private fun MessageNavContent(
                         },
                         modifier = Modifier.padding(end = 10.dp).padding(top = 3.dp),
                     )
-                    Text(
-                        text = item.prompt.ifBlank { stringResource(R.string.message_nav_untitled) },
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = (item.title.ifBlank { item.prompt })
+                                .ifBlank { stringResource(R.string.message_nav_untitled) },
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val followUpSummary = summarizeFollowUps(item.followUps)
+                        if (followUpSummary.isNotEmpty()) {
+                            Text(
+                                text = stringResource(R.string.message_nav_followups, followUpSummary),
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
                 }
             }
         }

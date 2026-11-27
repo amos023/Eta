@@ -131,7 +131,6 @@ import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -586,22 +585,18 @@ internal fun AgentConversationMessages(
         }
     }
     // 索引尚未读回时先用窗口内的提问兜底，避免弹层空白。
+    // 两条路径都过一遍时间线构建：纯指令（继续/推/提交）合并进上一个动作，
+    // 列表按「改了什么」排列，而不是按「说了什么」逐条平铺。
     val messageNavItems = remember(fullPromptIndex, visibleMessages) {
         val indexed = fullPromptIndex
         if (indexed.isNullOrEmpty()) {
-            visibleMessages.filterIsInstance<UserMessageUi>().map { message ->
-                MessageNavItem(
-                    messageId = message.id,
-                    prompt = AgentFileReferencePromptCodec.parse(message.content).request,
-                )
-            }
+            buildMessageNavItems(
+                visibleMessages.filterIsInstance<UserMessageUi>().map { message ->
+                    message.id to message.content
+                },
+            )
         } else {
-            indexed.map { (id, content) ->
-                MessageNavItem(
-                    messageId = id,
-                    prompt = AgentFileReferencePromptCodec.parse(content).request,
-                )
-            }
+            buildMessageNavItems(indexed)
         }
     }
     LaunchedEffect(Unit) {
