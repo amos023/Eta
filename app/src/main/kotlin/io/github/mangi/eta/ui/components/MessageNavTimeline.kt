@@ -3,8 +3,6 @@ package io.github.mangi.eta.ui.components
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
-import io.github.mangi.eta.ui.model.ToolActivityMessageUi
-import io.github.mangi.eta.ui.model.ToolActivityStatusUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 
 /**
@@ -72,10 +70,9 @@ internal fun directiveRowTitle(words: List<String>, rounds: List<Int>): String {
     }
 }
 
-/** 一轮的补充信息：我当时最后那句回复的首句，以及这一轮有没有出错。 */
+/** 一轮的补充信息：我当时最后那句回复的首句。 */
 internal data class TurnDigest(
     val summary: String? = null,
-    val failed: Boolean = false,
 )
 
 /** 摘要最大字数。 */
@@ -113,14 +110,11 @@ internal fun buildTurnDigests(messages: List<AgentChatMessageUi>): Map<String, T
     val digests = mutableMapOf<String, TurnDigest>()
     var ownerId: String? = null
     var lastReply: String? = null
-    var failed = false
 
     fun flush() {
         val id = ownerId ?: return
         val summary = lastReply?.let { assistantFirstSentence(it) }?.takeIf { it.isNotBlank() }
-        if (summary != null || failed) {
-            digests[id] = TurnDigest(summary = summary, failed = failed)
-        }
+        if (summary != null) digests[id] = TurnDigest(summary = summary)
     }
 
     messages.forEach { message ->
@@ -129,11 +123,8 @@ internal fun buildTurnDigests(messages: List<AgentChatMessageUi>): Map<String, T
                 flush()
                 ownerId = message.id
                 lastReply = null
-                failed = false
             }
             is AgentMessageUi -> if (message.content.isNotBlank()) lastReply = message.content
-            is ToolActivityMessageUi ->
-                if (message.status == ToolActivityStatusUi.Failed) failed = true
             else -> Unit
         }
     }
@@ -169,7 +160,6 @@ internal fun buildMessageNavItems(
             items[items.lastIndex] = previous.copy(
                 title = directiveRowTitle(mergedWords, mergedRounds),
                 summary = digest?.summary ?: previous.summary,
-                failed = previous.failed || (digest?.failed == true),
             )
             return@forEachIndexed
         }
@@ -182,7 +172,6 @@ internal fun buildMessageNavItems(
             title = if (directive) directiveRowTitle(mergedWords, mergedRounds) else messageNavTitle(prompt),
             round = round,
             summary = digest?.summary,
-            failed = digest?.failed == true,
         )
     }
     return items
