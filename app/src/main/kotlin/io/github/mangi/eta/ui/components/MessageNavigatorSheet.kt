@@ -80,8 +80,6 @@ internal data class MessageNavItem(
     val prompt: String,
     /** 主行标题：从原话里取的首行，遇句末标点截断。 */
     val title: String = "",
-    /** 这一轮实际做了什么，例如「git push → dispatch」。 */
-    val summary: String? = null,
     /** 该行第一轮在原列表中的序号；合并行的标题里引用的就是它。 */
     val round: Int = 0,
 )
@@ -215,27 +213,15 @@ private fun MessageNavContent(
                         },
                         modifier = Modifier.padding(end = 10.dp).padding(top = 3.dp),
                     )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = (item.title.ifBlank { item.prompt })
-                                .ifBlank { stringResource(R.string.message_nav_untitled) },
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurface,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        val summary = item.summary.orEmpty()
-                        if (summary.isNotEmpty()) {
-                            Text(
-                                text = stringResource(R.string.message_nav_action_summary, summary),
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
-                        }
-                    }
+                    Text(
+                        text = (item.title.ifBlank { item.prompt })
+                            .ifBlank { stringResource(R.string.message_nav_untitled) },
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
