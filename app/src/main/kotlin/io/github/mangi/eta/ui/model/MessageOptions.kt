@@ -21,6 +21,9 @@ data class MessageOptionsBlock(
 )
 
 object MessageOptionsParser {
+    /** 单选允许的最大项数：两项以内单选，超过按多选。 */
+    private const val SINGLE_SELECT_MAX = 2
+
     private val startRegex = Regex("""\[\[options(:multi)?\]\]""", RegexOption.IGNORE_CASE)
     private const val END_TAG = "[[/options]]"
 
@@ -48,9 +51,10 @@ object MessageOptionsParser {
         return MessageOptionsBlock(
             question = question,
             options = options,
-            // 默认单选：只有模型显式写 [[options:multi]] 才多选。
-            // 按选项个数推断多选是错的——三个互斥方案本该点一下就完事。
-            multiSelect = start.groupValues[1].isNotEmpty(),
+            // 显式标了 [[options:multi]] 就多选；否则按项数走：
+            // 两项严格单选（两项还多选没有意义），两项以上按多选。
+            multiSelect = start.groupValues[1].isNotEmpty() ||
+                options.size > SINGLE_SELECT_MAX,
         )
     }
 
@@ -163,7 +167,7 @@ object MessageOptionsParser {
         return MessageOptionsBlock(
             question = null,
             options = options,
-            multiSelect = false,
+            multiSelect = collected.size > SINGLE_SELECT_MAX,
             fromFallback = true,
         )
     }
