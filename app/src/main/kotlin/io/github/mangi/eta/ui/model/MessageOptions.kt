@@ -24,6 +24,22 @@ object MessageOptionsParser {
     /** 单选允许的最大项数：两项以内单选，超过按多选。 */
     private const val SINGLE_SELECT_MAX = 2
 
+    /**
+     * 填充式选项：模型爱加的「先继续改 / 取消 / 其他」之类。
+     *
+     * 用户本来就能直接打字回答，也能完全不理这块，所以这类兜底项毫无用处，
+     * 还会让真实方案变多、把单选挤成多选。提示词里已经禁止，这里再做一道硬过滤。
+     */
+    private val fillerOptions = setOf(
+        "先继续改", "继续改", "先不改", "继续调整", "再改改", "继续优化",
+        "取消", "其他", "其它", "都行", "随便", "跳过", "算了", "先这样",
+        "暂时不改", "不用了", "先不推", "先不打包",
+    )
+
+    /** 去掉填充式选项；去掉后不足两项时，整个选项块作废。 */
+    private fun dropFiller(options: List<String>): List<String> =
+        options.filterNot { it.trim() in fillerOptions }
+
     private val startRegex = Regex("""\[\[options(:multi)?\]\]""", RegexOption.IGNORE_CASE)
     private const val END_TAG = "[[/options]]"
 
@@ -47,14 +63,16 @@ object MessageOptionsParser {
                 }
             }
         }
-        if (options.isEmpty()) return null
+        val cleaned = dropFiller(options)
+        // 只剩一项时没有可选性，整块不出。
+        if (cleaned.size < 2) return null
         return MessageOptionsBlock(
             question = question,
-            options = options,
+            options = cleaned,
             // 显式标了 [[options:multi]] 就多选；否则按项数走：
             // 两项严格单选（两项还多选没有意义），两项以上按多选。
             multiSelect = start.groupValues[1].isNotEmpty() ||
-                options.size > SINGLE_SELECT_MAX,
+                cleaned.size > SINGLE_SELECT_MAX,
         )
     }
 
@@ -81,10 +99,12 @@ object MessageOptionsParser {
         if (j < 0) return null
         val promptLine = lines[j].trim()
         if (!promptLine.endsWith("？") && !promptLine.endsWith("?")) return null
+        val cleaned = dropFiller(collected)
+        if (cleaned.size < 2) return null
         return MessageOptionsBlock(
             question = null,
-            options = collected,
-            multiSelect = collected.size > SINGLE_SELECT_MAX,
+            options = cleaned,
+            multiSelect = cleaned.size > SINGLE_SELECT_MAX,
             fromFallback = true,
         )
     }
