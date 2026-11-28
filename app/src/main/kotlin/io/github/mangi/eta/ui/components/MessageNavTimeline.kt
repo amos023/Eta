@@ -54,9 +54,6 @@ internal fun messageNavTitle(prompt: String): String {
 /** 摘要行最多列几步动作，再多就看不出重点了。 */
 private const val ACTION_STEP_LIMIT = 3
 
-/** 摘要里每一步的最大字符数。 */
-private const val ACTION_LABEL_LIMIT = 28
-
 /** 从参数预览里捞文件路径，用来把工具调用说成「改了哪个文件」。 */
 private val FILE_PATH_PATTERN = Regex(
     """[A-Za-z0-9_./\\-]+\.(?:kt|kts|java|xml|gradle|toml|md|json|yml|yaml|ini)""",
@@ -101,15 +98,44 @@ internal fun summarizeToolActions(activities: List<ToolActivityMessageUi>): Stri
     activities.forEach { activity ->
         if (parts.size >= ACTION_STEP_LIMIT) return@forEach
         val label = toolActionLabel(activity)
-        if (label.isBlank() || parts.lastOrNull() == label) return@forEach
+        if (label.isNullOrBlank() || parts.lastOrNull() == label) return@forEach
         parts += label
     }
     return parts.joinToString(" → ")
 }
 
-private fun toolActionLabel(activity: ToolActivityMessageUi): String {
-    val command = activity.command?.lineSequence()?.firstOrNull()?.trim().orEmpty()
-    if (command.isNotEmpty()) {
+/** 工具名 → 中文动作，认不出来时返回 null（该步直接跳过，不再回退英文原名）。 */
+private val TOOL_NAME_LABELS: Map<String, String> = mapOf(
+    "read_file" to "读文件",
+    "write_file" to "写文件",
+    "edit_file" to "改文件",
+    "stat_file" to "查文件",
+    "list_directory" to "列目录",
+    "glob_files" to "查找文件",
+    "grep_files" to "检索代码",
+    "terminal" to "运行命令",
+    "web_search" to "联网搜索",
+    "fetch_url" to "读取网页",
+    "browser_use" to "操作浏览器",
+    "subagent" to "派子任务",
+    "observe_screen" to "看屏幕",
+    "tap_element" to "点击界面",
+    "type_text" to "输入文字",
+    "present_to_user" to "呈现画面",
+    "memory_write" to "写入记忆",
+    "create_calendar_event" to "建日程",
+    "generate_image" to "生成图片",
+)
+
+/**
+ * 认不出来的命令直接跳过，不再把原文截断后塞进摘要。
+ *
+ * 之前会把 `TOKEN=<已隐藏> -c "`、`cd /workspace/...` 这类脱敏或纯切换目录的
+ * 片段原样显示，摘要读起来全是噪音。
+ */
+private fun toolActionLabel(activity: ToolActivityMessageUi): String? {
+    val command = activity.command.orEmpty()
+    if (command.isNotBlank()) {
         val labels = COMMAND_LABELS
             .filter { (pattern, _) -> pattern.containsMatchIn(command) }
             .map { (_, label) -> label }
@@ -117,7 +143,6 @@ private fun toolActionLabel(activity: ToolActivityMessageUi): String {
         if (labels.isNotEmpty()) {
             return labels.take(2).joinToString("、")
         }
-        return command.take(ACTION_LABEL_LIMIT)
     }
     val file = FILE_PATH_PATTERN.find(activity.argumentsSummary)?.value
     if (file != null) {
@@ -130,7 +155,7 @@ private fun toolActionLabel(activity: ToolActivityMessageUi): String {
             else -> base
         }
     }
-    return activity.toolName.take(ACTION_LABEL_LIMIT)
+    return TOOL_NAME_LABELS[activity.toolName.lowercase()]
 }
 
 /**
@@ -179,7 +204,11 @@ internal fun directiveRowTitle(words: List<String>, rounds: List<Int>): String {
     } else {
         distinct.joinToString("、")
     }
-    return if (rounds.isEmpty()) base else "$base（第 ${rounds.joinToString("、")} 轮）"
+    // 只有一轮时不写轮次，避免每个普通条目都拖着「（第 N 轮）」。
+    return when {
+        rounds.size <= 1 -> base
+        else -> "$base（第 ${rounds.joinToString("、")} 轮）"
+    }
 }
 
 /** 合并两段「做了什么」：相同保留一份，不同则串联。 */
