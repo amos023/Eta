@@ -63,6 +63,34 @@ private val FILE_PATH_PATTERN = Regex(
 )
 
 /**
+ * 常见命令 → 中文短标签。
+ *
+ * 顺序有意义：越具体的规则越靠前，命中多条时按顺序各取一条，
+ * 这样 `git push … && curl …dispatch` 能同时说出「推送仓库、触发构建」。
+ */
+private val COMMAND_LABELS: List<Pair<Regex, String>> = listOf(
+    Regex("""actions/workflows/[^\s"]+/dispatches""") to "触发构建",
+    Regex("""api\.github\.com/[^\s"]*artifacts""") to "下载产物",
+    Regex("""git\s+push""") to "推送仓库",
+    Regex("""git\s+commit""") to "提交",
+    Regex("""git\s+(revert|reset|checkout)""") to "回退改动",
+    Regex("""git\s+(log|show|diff|status|tag|branch|fetch)""") to "查看仓库",
+    Regex("""aapt2\s+dump""") to "校验安装包",
+    Regex("""gradlew""") to "本地构建",
+    Regex("""\bpm\s+install|\bam\s+start""") to "装包启动",
+    Regex("""\b(rg|grep)\b""") to "检索代码",
+    Regex("""\b(unzip|tar|zip)\b""") to "解包",
+    Regex("""\bsetsid\b|\bnohup\b""") to "后台运行",
+    Regex("""\b(python3?|node|dash|bash)\b""") to "运行脚本",
+    Regex("""^\s*(cp|mv)\b""") to "复制文件",
+    Regex("""^\s*rm\b""") to "删除文件",
+    Regex("""^\s*(ls|find)\b""") to "查找文件",
+    Regex("""^\s*(sed|cat|head|tail|wc)\b""") to "读取文件",
+    Regex("""\bcurl\b""") to "网络请求",
+    Regex("""\bdf\b|\bfree\b|/proc/meminfo""") to "查看资源",
+)
+
+/**
  * 把一轮里的一串工具调用压成一句「做了什么」。
  *
  * 优先级：终端命令的首行 > 改动/读取的文件名 > 工具名本身。
@@ -82,6 +110,13 @@ internal fun summarizeToolActions(activities: List<ToolActivityMessageUi>): Stri
 private fun toolActionLabel(activity: ToolActivityMessageUi): String {
     val command = activity.command?.lineSequence()?.firstOrNull()?.trim().orEmpty()
     if (command.isNotEmpty()) {
+        val labels = COMMAND_LABELS
+            .filter { (pattern, _) -> pattern.containsMatchIn(command) }
+            .map { (_, label) -> label }
+            .distinct()
+        if (labels.isNotEmpty()) {
+            return labels.take(2).joinToString("、")
+        }
         return command.take(ACTION_LABEL_LIMIT)
     }
     val file = FILE_PATH_PATTERN.find(activity.argumentsSummary)?.value
