@@ -986,6 +986,7 @@ private fun AgentMessageBlock(
         } else {
             MessageOptionsParser.parse(message.content)
                 ?: MessageOptionsParser.parseFallback(message.content)
+                ?: MessageOptionsParser.parseQuestionFallback(message.content)
         }
     }
     // 选项块交给按钮渲染，正文里要把这段去掉，否则会被当成代码块显示出来。
