@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
@@ -73,6 +74,9 @@ internal object AgentMessageNavigation {
  */
 private val LIST_MAX_HEIGHT = 380.dp
 
+/** 出错轮次的序号颜色，仅用于标记，不参与主题体系。 */
+private val FailureColor = Color(0xFFE5484D)
+
 /** 定位弹层的一条候选：一个「动作」，而不是一句原话。 */
 internal data class MessageNavItem(
     val messageId: String,
@@ -82,6 +86,10 @@ internal data class MessageNavItem(
     val title: String = "",
     /** 该行第一轮在原列表中的序号；合并行的标题里引用的就是它。 */
     val round: Int = 0,
+    /** 这一轮我最后那句回复的首句。 */
+    val summary: String? = null,
+    /** 这一轮出现过工具失败或异常提示。 */
+    val failed: Boolean = false,
 )
 
 @Composable
@@ -206,22 +214,34 @@ private fun MessageNavContent(
                     Text(
                         text = (if (item.round > 0) item.round else position + 1).toString(),
                         style = MiuixTheme.textStyles.footnote2,
-                        color = if (uiStyle == AppearanceUiStyle.COUI) {
-                            colors.summary
-                        } else {
-                            MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        color = when {
+                            item.failed -> FailureColor
+                            uiStyle == AppearanceUiStyle.COUI -> colors.summary
+                            else -> MiuixTheme.colorScheme.onSurfaceVariantSummary
                         },
                         modifier = Modifier.padding(end = 10.dp).padding(top = 3.dp),
                     )
-                    Text(
-                        text = (item.title.ifBlank { item.prompt })
-                            .ifBlank { stringResource(R.string.message_nav_untitled) },
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = (item.title.ifBlank { item.prompt })
+                                .ifBlank { stringResource(R.string.message_nav_untitled) },
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val summary = item.summary.orEmpty()
+                        if (summary.isNotEmpty()) {
+                            Text(
+                                text = summary,
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -584,7 +584,10 @@ internal fun AgentConversationMessages(
             }
         }
     }
-    val messageNavItems = remember(fullPromptIndex, visibleMessages) {
+    // 摘要只取「我最后那句回复」，打开弹层时按需读一次即可。
+    var navDigests by remember(conversationId) { mutableStateOf<Map<String, TurnDigest>>(emptyMap()) }
+    var navDigestsLoaded by remember(conversationId) { mutableStateOf(false) }
+    val messageNavItems = remember(fullPromptIndex, visibleMessages, navDigests) {
         val indexed = fullPromptIndex
         val entries = if (indexed.isNullOrEmpty()) {
             visibleMessages.filterIsInstance<UserMessageUi>().map { message ->
@@ -593,10 +596,19 @@ internal fun AgentConversationMessages(
         } else {
             indexed
         }
-        buildMessageNavItems(entries)
+        buildMessageNavItems(entries, navDigests)
     }
     LaunchedEffect(Unit) {
-        AgentMessageNavigation.openRequests.collect { showMessageNavigator = true }
+        AgentMessageNavigation.openRequests.collect {
+            showMessageNavigator = true
+            val id = conversationId
+            if (id != null && !navDigestsLoaded) {
+                navDigestsLoaded = true
+                navDigests = withContext(Dispatchers.IO) {
+                    buildTurnDigests(AgentConversationStore.loadAllMessages(context, id))
+                }
+            }
+        }
     }
     LaunchedEffect(Unit) {
         AgentMessageNavigation.fileOpenRequests.collect { showConversationFiles = true }

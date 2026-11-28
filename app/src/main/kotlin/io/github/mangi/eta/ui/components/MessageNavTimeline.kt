@@ -1,6 +1,11 @@
 package io.github.mangi.eta.ui.components
 
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
+import io.github.mangi.eta.ui.model.AgentMessageUi
+import io.github.mangi.eta.ui.model.AgentChatMessageUi
+import io.github.mangi.eta.ui.model.ToolActivityMessageUi
+import io.github.mangi.eta.ui.model.ToolActivityStatusUi
+import io.github.mangi.eta.ui.model.UserMessageUi
 
 /**
  * 「消息定位」列表构建。
@@ -67,12 +72,84 @@ internal fun directiveRowTitle(words: List<String>, rounds: List<Int>): String {
     }
 }
 
+/** 一轮的补充信息：我当时最后那句回复的首句，以及这一轮有没有出错。 */
+internal data class TurnDigest(
+    val summary: String? = null,
+    val failed: Boolean = false,
+)
+
+/** 摘要最大字数。 */
+private const val SUMMARY_MAX_LENGTH = 34
+
+/** 去掉 Markdown 记号，只留能读的文字。 */
+private fun stripMarkdown(text: String): String = text
+    .replace(Regex("""^#{1,6}\s*""", RegexOption.MULTILINE), "")
+    .replace(Regex("""\*\*|__|`""" ), "")
+    .replace(Regex("""^\s*[-*+]\s+""", RegexOption.MULTILINE), "")
+    .trim()
+
+/**
+ * 取一条回复的首句当摘要。
+ *
+ * 用我自己给你的回复，而不是工具调用日志：回复天然是人话，
+ * 也天然写了结果；工具日志会被脱敏、cd、heredoc 打碎。
+ */
+internal fun assistantFirstSentence(content: String): String {
+    val text = stripMarkdown(content)
+    if (text.isEmpty()) return ""
+    val firstLine = text.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+    if (firstLine.isEmpty()) return ""
+    val end = firstLine.indexOfFirst { it == '。' || it == '！' || it == '？' || it == '!' || it == '?' }
+    val head = if (end > 0) firstLine.substring(0, end) else firstLine
+    return if (head.length <= SUMMARY_MAX_LENGTH) head else head.take(SUMMARY_MAX_LENGTH) + "…"
+}
+
+/**
+ * 按用户消息归集：这一轮我最后说了什么、这一轮有没有工具失败。
+ *
+ * 只依赖消息本身，不需要时间戳，也不改数据库。
+ */
+internal fun buildTurnDigests(messages: List<AgentChatMessageUi>): Map<String, TurnDigest> {
+    val digests = mutableMapOf<String, TurnDigest>()
+    var ownerId: String? = null
+    var lastReply: String? = null
+    var failed = false
+
+    fun flush() {
+        val id = ownerId ?: return
+        val summary = lastReply?.let { assistantFirstSentence(it) }?.takeIf { it.isNotBlank() }
+        if (summary != null || failed) {
+            digests[id] = TurnDigest(summary = summary, failed = failed)
+        }
+    }
+
+    messages.forEach { message ->
+        when (message) {
+            is UserMessageUi -> {
+                flush()
+                ownerId = message.id
+                lastReply = null
+                failed = false
+            }
+            is AgentMessageUi -> if (message.content.isNotBlank()) lastReply = message.content
+            is ToolActivityMessageUi ->
+                if (message.status == ToolActivityStatusUi.Failed) failed = true
+            else -> Unit
+        }
+    }
+    flush()
+    return digests
+}
+
 /**
  * 构建定位列表：相邻纯指令合成一行，其余原话各占一行。
  *
  * 跳转锚点取该行的第一轮消息。
  */
-internal fun buildMessageNavItems(entries: List<Pair<String, String>>): List<MessageNavItem> {
+internal fun buildMessageNavItems(
+    entries: List<Pair<String, String>>,
+    digests: Map<String, TurnDigest> = emptyMap(),
+): List<MessageNavItem> {
     val items = mutableListOf<MessageNavItem>()
     var mergedWords: List<String> = emptyList()
     var mergedRounds: List<Int> = emptyList()
@@ -83,12 +160,16 @@ internal fun buildMessageNavItems(entries: List<Pair<String, String>>): List<Mes
         if (trimmed.isEmpty()) return@forEachIndexed
         val round = index + 1
         val directive = isDirectivePrompt(trimmed)
+        val digest = digests[id]
 
         if (directive && mergedWords.isNotEmpty() && items.isNotEmpty()) {
             mergedWords = mergedWords + trimmed
             mergedRounds = mergedRounds + round
-            items[items.lastIndex] = items.last().copy(
+            val previous = items.last()
+            items[items.lastIndex] = previous.copy(
                 title = directiveRowTitle(mergedWords, mergedRounds),
+                summary = digest?.summary ?: previous.summary,
+                failed = previous.failed || (digest?.failed == true),
             )
             return@forEachIndexed
         }
@@ -100,6 +181,8 @@ internal fun buildMessageNavItems(entries: List<Pair<String, String>>): List<Mes
             prompt = prompt,
             title = if (directive) directiveRowTitle(mergedWords, mergedRounds) else messageNavTitle(prompt),
             round = round,
+            summary = digest?.summary,
+            failed = digest?.failed == true,
         )
     }
     return items
