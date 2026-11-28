@@ -48,8 +48,13 @@ object MessageOptionsParser {
         return MessageOptionsBlock(
             question = question,
             options = options,
-            // 显式标注 multi 就是多选；选项超过三个时也按多选处理。
-            multiSelect = start.groupValues[1].isNotEmpty() || options.size > 3,
+            // 只有两项时一律单选：两项还多选没有意义，反而容易误勾。
+            // 三项看模型是否显式标 multi；超过三项直接按多选处理。
+            multiSelect = when {
+                options.size <= 2 -> false
+                options.size > 3 -> true
+                else -> start.groupValues[1].isNotEmpty()
+            },
         )
     }
 
