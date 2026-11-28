@@ -84,7 +84,7 @@ object MessageOptionsParser {
         return MessageOptionsBlock(
             question = null,
             options = collected,
-            multiSelect = false,
+            multiSelect = collected.size > SINGLE_SELECT_MAX,
             fromFallback = true,
         )
     }
@@ -167,7 +167,7 @@ object MessageOptionsParser {
         return MessageOptionsBlock(
             question = null,
             options = options,
-            multiSelect = collected.size > SINGLE_SELECT_MAX,
+            multiSelect = false,
             fromFallback = true,
         )
     }
